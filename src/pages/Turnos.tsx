@@ -439,7 +439,71 @@ export default function Turnos() {
         <div className="p-4 border-b">
           <h3 className="font-semibold">Historial de Turnos</h3>
         </div>
-        <Table>
+        
+        {/* Mobile Card View */}
+        <div className="md:hidden divide-y">
+          {filteredShifts.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              No hay turnos registrados
+            </div>
+          ) : (
+            filteredShifts
+              .sort((a, b) => `${b.date}${b.startTime}`.localeCompare(`${a.date}${a.startTime}`))
+              .map((shift) => (
+                <div key={shift.id} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-medium"
+                        style={{ backgroundColor: shift.user.color }}
+                      >
+                        {shift.user.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-medium">{shift.user.name}</p>
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {new Date(shift.date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                        </div>
+                      </div>
+                    </div>
+                    {shift.status === 'open' ? (
+                      <Badge className="bg-success/20 text-success border-success/30 gap-1">
+                        <PlayCircle className="h-3 w-3" />
+                        Activo
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="gap-1">
+                        <CheckCircle className="h-3 w-3" />
+                        Cerrado
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div className="bg-secondary/30 rounded-lg p-2 text-center">
+                      <p className="text-muted-foreground text-xs">Horario</p>
+                      <p className="font-medium">{formatTime(shift.startTime)}</p>
+                      {shift.endTime && <p className="text-muted-foreground text-xs">→ {formatTime(shift.endTime)}</p>}
+                    </div>
+                    <div className="bg-secondary/30 rounded-lg p-2 text-center">
+                      <p className="text-muted-foreground text-xs">Inicial</p>
+                      <p className="font-medium">${shift.initialCash.toLocaleString()}</p>
+                    </div>
+                    <div className="bg-secondary/30 rounded-lg p-2 text-center">
+                      <p className="text-muted-foreground text-xs">Final</p>
+                      <p className="font-medium">
+                        {shift.finalCash !== undefined ? `$${shift.finalCash.toLocaleString()}` : '-'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))
+          )}
+        </div>
+        
+        {/* Desktop Table */}
+        <Table className="hidden md:table">
           <TableHeader>
             <TableRow>
               <TableHead>Fecha</TableHead>
