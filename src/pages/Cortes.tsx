@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { 
   cashCuts as mockCashCuts,
-  shifts,
   sales,
   expenses,
-  stylists,
+  purchases,
+  appointments,
   type CashCut,
 } from '@/lib/mockData';
+import { useShift } from '@/hooks/useShift';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,109 +41,210 @@ import {
   Receipt,
   Scissors,
   ShoppingBag,
+  ShoppingCart,
   AlertTriangle,
   CheckCircle,
   Eye,
   FileText,
+  Package,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+const paymentMethodConfig = {
+  cash: { label: 'Efectivo', icon: Banknote, color: 'text-green-600', bg: 'bg-green-500/10' },
+  card: { label: 'Tarjeta', icon: CreditCard, color: 'text-blue-600', bg: 'bg-blue-500/10' },
+  transfer: { label: 'Transferencia', icon: ArrowRightLeft, color: 'text-purple-600', bg: 'bg-purple-500/10' },
+};
+
+type PaymentMethod = keyof typeof paymentMethodConfig;
+
+interface ShiftSummary {
+  shift: ReturnType<typeof useShift>['openShift'];
+  // Sales breakdown
+  salesByMethod: Record<PaymentMethod, number>;
+  totalSales: number;
+  appointmentSalesCount: number;
+  directSalesCount: number;
+  // Expenses breakdown
+  expensesByMethod: Record<PaymentMethod, number>;
+  totalExpenses: number;
+  // Purchases breakdown
+  purchasesByMethod: Record<PaymentMethod, number>;
+  totalPurchases: number;
+  // Expected by method
+  expectedByMethod: Record<PaymentMethod, number>;
+  // Appointments completed count
+  completedAppointments: number;
+}
+
 export default function Cortes() {
   const { currentBranch } = useApp();
+  const { shifts, getShiftsForBranch } = useShift(currentBranch.id);
   const [cashCuts, setCashCuts] = useState<CashCut[]>(mockCashCuts);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [viewingCut, setViewingCut] = useState<CashCut | null>(null);
-
-  const [formData, setFormData] = useState({
-    shiftId: '',
-    finalCash: '',
+  const [selectedShiftId, setSelectedShiftId] = useState('');
+  const [realAmounts, setRealAmounts] = useState<Record<PaymentMethod, string>>({
+    cash: '',
+    card: '',
+    transfer: '',
   });
 
   const filteredCuts = cashCuts.filter(c => c.branchId === currentBranch.id);
-  const closedShifts = shifts.filter(s => s.branchId === currentBranch.id && s.status === 'closed');
+  const allShifts = getShiftsForBranch(currentBranch.id);
+  const closedShifts = allShifts.filter(s => s.status === 'closed');
   const cutShiftIds = new Set(cashCuts.map(c => c.shiftId));
   const pendingShifts = closedShifts.filter(s => !cutShiftIds.has(s.id));
 
-  const today = new Date().toISOString().split('T')[0];
-
-  const calculateShiftData = (shiftId: string) => {
-    const shift = shifts.find(s => s.id === shiftId);
+  const calculateShiftSummary = (shiftId: string): ShiftSummary | null => {
+    const shift = allShifts.find(s => s.id === shiftId);
     if (!shift) return null;
 
     const shiftDate = shift.date;
+    
+    // Filter data for this shift's date and branch
     const shiftSales = sales.filter(s => 
       s.branchId === currentBranch.id && s.date === shiftDate
     );
     const shiftExpenses = expenses.filter(e => 
       e.branchId === currentBranch.id && e.date === shiftDate
     );
+    const shiftPurchases = purchases.filter(p => 
+      p.branchId === currentBranch.id && p.date === shiftDate
+    );
+    const shiftAppointments = appointments.filter(a => 
+      a.branchId === currentBranch.id && 
+      a.date === shiftDate && 
+      a.status === 'completed'
+    );
 
-    const cashSales = shiftSales.filter(s => s.paymentMethod === 'cash').reduce((sum, s) => sum + s.total, 0);
-    const cardSales = shiftSales.filter(s => s.paymentMethod === 'card').reduce((sum, s) => sum + s.total, 0);
-    const transferSales = shiftSales.filter(s => s.paymentMethod === 'transfer').reduce((sum, s) => sum + s.total, 0);
-    
-    // For mixed payments, aggregate by method
-    shiftSales.filter(s => s.paymentMethod === 'mixed').forEach(s => {
-      s.payments?.forEach(p => {
-        if (p.method === 'cash') cashSales;
-        // Note: In real app, would properly aggregate mixed payments
-      });
+    // Initialize method totals
+    const salesByMethod: Record<PaymentMethod, number> = { cash: 0, card: 0, transfer: 0 };
+    const expensesByMethod: Record<PaymentMethod, number> = { cash: 0, card: 0, transfer: 0 };
+    const purchasesByMethod: Record<PaymentMethod, number> = { cash: 0, card: 0, transfer: 0 };
+
+    // Calculate sales by method (including mixed payments)
+    shiftSales.forEach(sale => {
+      if (sale.paymentMethod === 'mixed' && sale.payments) {
+        sale.payments.forEach(p => {
+          if (p.method in salesByMethod) {
+            salesByMethod[p.method as PaymentMethod] += p.amount;
+          }
+        });
+      } else if (sale.paymentMethod in salesByMethod) {
+        salesByMethod[sale.paymentMethod as PaymentMethod] += sale.total;
+      }
     });
 
-    const totalSales = shiftSales.reduce((sum, s) => sum + s.total, 0);
-    const totalExpenses = shiftExpenses.filter(e => e.paymentMethod === 'cash').reduce((sum, e) => sum + e.amount, 0);
-    
-    const expectedCash = shift.initialCash + cashSales - totalExpenses;
-    
-    const appointmentSales = shiftSales.filter(s => s.type === 'appointment').length;
-    const directSales = shiftSales.filter(s => s.type === 'direct').length;
+    // Calculate expenses by method
+    shiftExpenses.forEach(expense => {
+      if (expense.paymentMethod in expensesByMethod) {
+        expensesByMethod[expense.paymentMethod as PaymentMethod] += expense.amount;
+      }
+    });
+
+    // Calculate purchases by method
+    shiftPurchases.forEach(purchase => {
+      if (purchase.paymentMethod in purchasesByMethod) {
+        purchasesByMethod[purchase.paymentMethod as PaymentMethod] += purchase.total;
+      }
+    });
+
+    // Calculate expected amounts per method
+    const expectedByMethod: Record<PaymentMethod, number> = {
+      cash: shift.initialCash + salesByMethod.cash - expensesByMethod.cash - purchasesByMethod.cash,
+      card: salesByMethod.card - expensesByMethod.card - purchasesByMethod.card,
+      transfer: salesByMethod.transfer - expensesByMethod.transfer - purchasesByMethod.transfer,
+    };
+
+    const totalSales = Object.values(salesByMethod).reduce((sum, v) => sum + v, 0);
+    const totalExpenses = Object.values(expensesByMethod).reduce((sum, v) => sum + v, 0);
+    const totalPurchases = Object.values(purchasesByMethod).reduce((sum, v) => sum + v, 0);
 
     return {
       shift,
-      salesByMethod: { cash: cashSales, card: cardSales, transfer: transferSales },
+      salesByMethod,
       totalSales,
+      appointmentSalesCount: shiftSales.filter(s => s.type === 'appointment').length,
+      directSalesCount: shiftSales.filter(s => s.type === 'direct').length,
+      expensesByMethod,
       totalExpenses,
-      expectedCash,
-      appointmentsCount: appointmentSales,
-      directSalesCount: directSales,
+      purchasesByMethod,
+      totalPurchases,
+      expectedByMethod,
+      completedAppointments: shiftAppointments.length,
     };
   };
 
+  const selectedSummary = selectedShiftId ? calculateShiftSummary(selectedShiftId) : null;
+
+  // Reset real amounts when shift changes
+  useEffect(() => {
+    if (selectedSummary) {
+      setRealAmounts({
+        cash: '',
+        card: '',
+        transfer: '',
+      });
+    }
+  }, [selectedShiftId]);
+
   const handleSubmit = () => {
-    const data = calculateShiftData(formData.shiftId);
-    if (!data || !formData.finalCash) {
-      toast.error('Completa los datos requeridos');
+    if (!selectedSummary || !selectedSummary.shift) {
+      toast.error('Selecciona un turno');
       return;
     }
 
-    const finalCash = parseFloat(formData.finalCash);
-    const difference = finalCash - data.expectedCash;
+    // Calculate differences
+    const differences: Record<PaymentMethod, number> = { cash: 0, card: 0, transfer: 0 };
+    let totalDifference = 0;
+
+    (Object.keys(paymentMethodConfig) as PaymentMethod[]).forEach(method => {
+      const real = parseFloat(realAmounts[method]) || 0;
+      const expected = selectedSummary.expectedByMethod[method];
+      differences[method] = real - expected;
+      totalDifference += differences[method];
+    });
+
+    const finalCash = parseFloat(realAmounts.cash) || 0;
+    const expectedCash = selectedSummary.expectedByMethod.cash;
 
     const newCut: CashCut = {
       id: `cc${Date.now()}`,
-      shiftId: formData.shiftId,
+      shiftId: selectedShiftId,
       branchId: currentBranch.id,
-      date: data.shift.date,
-      userId: data.shift.userId,
-      user: data.shift.user,
-      initialCash: data.shift.initialCash,
+      date: selectedSummary.shift.date,
+      userId: selectedSummary.shift.userId,
+      user: selectedSummary.shift.user,
+      initialCash: selectedSummary.shift.initialCash,
       finalCash,
-      expectedCash: data.expectedCash,
-      difference,
-      salesByMethod: data.salesByMethod,
-      totalSales: data.totalSales,
-      totalExpenses: data.totalExpenses,
-      appointmentsCount: data.appointmentsCount,
-      directSalesCount: data.directSalesCount,
+      expectedCash,
+      difference: totalDifference,
+      salesByMethod: selectedSummary.salesByMethod,
+      totalSales: selectedSummary.totalSales,
+      totalExpenses: selectedSummary.totalExpenses,
+      appointmentsCount: selectedSummary.completedAppointments,
+      directSalesCount: selectedSummary.directSalesCount,
     };
 
     setCashCuts(prev => [newCut, ...prev]);
     toast.success('Corte de caja generado correctamente');
     setIsDialogOpen(false);
-    setFormData({ shiftId: '', finalCash: '' });
+    setSelectedShiftId('');
+    setRealAmounts({ cash: '', card: '', transfer: '' });
   };
 
-  const selectedShiftData = formData.shiftId ? calculateShiftData(formData.shiftId) : null;
+  const getUsedMethods = (): PaymentMethod[] => {
+    if (!selectedSummary) return [];
+    return (Object.keys(paymentMethodConfig) as PaymentMethod[]).filter(method => 
+      selectedSummary.salesByMethod[method] > 0 || 
+      selectedSummary.expensesByMethod[method] > 0 ||
+      selectedSummary.purchasesByMethod[method] > 0 ||
+      (method === 'cash' && selectedSummary.shift?.initialCash)
+    );
+  };
+
+  const usedMethods = getUsedMethods();
 
   return (
     <div className="space-y-6">
@@ -152,25 +254,32 @@ export default function Cortes() {
           <h1 className="text-2xl font-bold">Cortes de Caja</h1>
           <p className="text-muted-foreground">Resumen de ventas y cierre de turnos</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            setSelectedShiftId('');
+            setRealAmounts({ cash: '', card: '', transfer: '' });
+          }
+        }}>
           <DialogTrigger asChild>
             <Button className="gradient-bg border-0" disabled={pendingShifts.length === 0}>
               <Calculator className="h-4 w-4 mr-2" />
               Nuevo Corte
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Generar Corte de Caja</DialogTitle>
             </DialogHeader>
             
             <div className="space-y-4 py-4">
+              {/* Shift Selection */}
               <div className="space-y-2">
                 <Label>Turno a Cortar</Label>
                 <select 
                   className="w-full h-10 px-3 rounded-md border bg-background"
-                  value={formData.shiftId}
-                  onChange={(e) => setFormData(prev => ({ ...prev, shiftId: e.target.value }))}
+                  value={selectedShiftId}
+                  onChange={(e) => setSelectedShiftId(e.target.value)}
                 >
                   <option value="">Selecciona un turno</option>
                   {pendingShifts.map(shift => (
@@ -181,95 +290,221 @@ export default function Cortes() {
                 </select>
               </div>
 
-              {selectedShiftData && (
+              {selectedSummary && selectedSummary.shift && (
                 <>
-                  <div className="p-4 bg-secondary/30 rounded-lg space-y-3">
-                    <h4 className="font-medium">Resumen del Turno</h4>
+                  {/* Shift Info */}
+                  <div className="p-4 bg-secondary/30 rounded-lg">
+                    <div className="flex items-center gap-3 mb-3">
+                      <User className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="font-medium">{selectedSummary.shift.user.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(selectedSummary.shift.date).toLocaleDateString('es-MX', { 
+                            weekday: 'long', 
+                            day: 'numeric', 
+                            month: 'long' 
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Banknote className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Caja inicial:</span>
+                      <span className="font-medium">${selectedSummary.shift.initialCash.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="p-3 bg-success/10 rounded-lg text-center">
+                      <TrendingUp className="h-5 w-5 mx-auto mb-1 text-success" />
+                      <p className="text-xs text-muted-foreground">Ventas</p>
+                      <p className="font-bold text-success">${selectedSummary.totalSales.toLocaleString()}</p>
+                    </div>
+                    <div className="p-3 bg-destructive/10 rounded-lg text-center">
+                      <TrendingDown className="h-5 w-5 mx-auto mb-1 text-destructive" />
+                      <p className="text-xs text-muted-foreground">Gastos</p>
+                      <p className="font-bold text-destructive">${selectedSummary.totalExpenses.toLocaleString()}</p>
+                    </div>
+                    <div className="p-3 bg-warning/10 rounded-lg text-center">
+                      <ShoppingCart className="h-5 w-5 mx-auto mb-1 text-warning" />
+                      <p className="text-xs text-muted-foreground">Compras</p>
+                      <p className="font-bold text-warning">${selectedSummary.totalPurchases.toLocaleString()}</p>
+                    </div>
+                    <div className="p-3 bg-primary/10 rounded-lg text-center">
+                      <Scissors className="h-5 w-5 mx-auto mb-1 text-primary" />
+                      <p className="text-xs text-muted-foreground">Citas</p>
+                      <p className="font-bold">{selectedSummary.completedAppointments}</p>
+                    </div>
+                  </div>
+
+                  {/* Detailed Breakdown by Method */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Receipt className="h-4 w-4" />
+                      Desglose por Método de Pago
+                    </h4>
                     
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Efectivo inicial:</span>
-                        <span>${selectedShiftData.shift.initialCash.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Responsable:</span>
-                        <span>{selectedShiftData.shift.user.name}</span>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t space-y-2">
-                      <p className="font-medium text-sm">Ventas por Método:</p>
-                      <div className="grid grid-cols-3 gap-2 text-sm">
-                        <div className="flex items-center gap-2">
-                          <Banknote className="h-4 w-4 text-green-600" />
-                          <span>${selectedShiftData.salesByMethod.cash.toLocaleString()}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <CreditCard className="h-4 w-4 text-blue-600" />
-                          <span>${selectedShiftData.salesByMethod.card.toLocaleString()}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <ArrowRightLeft className="h-4 w-4 text-purple-600" />
-                          <span>${selectedShiftData.salesByMethod.transfer.toLocaleString()}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t grid grid-cols-2 gap-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total ventas:</span>
-                        <span className="text-success font-medium">+${selectedShiftData.totalSales.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Gastos efectivo:</span>
-                        <span className="text-destructive font-medium">-${selectedShiftData.totalExpenses.toLocaleString()}</span>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium">Efectivo Esperado:</span>
-                        <span className="text-lg font-bold">${selectedShiftData.expectedCash.toLocaleString()}</span>
-                      </div>
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-secondary/30">
+                            <TableHead>Método</TableHead>
+                            <TableHead className="text-right text-success">Ventas</TableHead>
+                            <TableHead className="text-right text-destructive">Gastos</TableHead>
+                            <TableHead className="text-right text-warning">Compras</TableHead>
+                            <TableHead className="text-right font-bold">Esperado</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {usedMethods.map(method => {
+                            const config = paymentMethodConfig[method];
+                            const Icon = config.icon;
+                            const expected = selectedSummary.expectedByMethod[method];
+                            return (
+                              <TableRow key={method}>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <Icon className={cn("h-4 w-4", config.color)} />
+                                    <span>{config.label}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right text-success">
+                                  +${selectedSummary.salesByMethod[method].toLocaleString()}
+                                </TableCell>
+                                <TableCell className="text-right text-destructive">
+                                  -${selectedSummary.expensesByMethod[method].toLocaleString()}
+                                </TableCell>
+                                <TableCell className="text-right text-warning">
+                                  -${selectedSummary.purchasesByMethod[method].toLocaleString()}
+                                </TableCell>
+                                <TableCell className="text-right font-bold">
+                                  ${expected.toLocaleString()}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Efectivo Real Contado</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={formData.finalCash}
-                        onChange={(e) => setFormData(prev => ({ ...prev, finalCash: e.target.value }))}
-                        className="pl-7"
-                        placeholder="0.00"
-                      />
+                  {/* Real Amount Inputs */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Calculator className="h-4 w-4" />
+                      Ingresa los Montos Reales Recibidos
+                    </h4>
+                    
+                    <div className="grid gap-3">
+                      {usedMethods.map(method => {
+                        const config = paymentMethodConfig[method];
+                        const Icon = config.icon;
+                        const expected = selectedSummary.expectedByMethod[method];
+                        const real = parseFloat(realAmounts[method]) || 0;
+                        const diff = real - expected;
+                        const hasValue = realAmounts[method] !== '';
+                        
+                        return (
+                          <div key={method} className={cn("p-3 rounded-lg border", config.bg)}>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <Icon className={cn("h-5 w-5", config.color)} />
+                                <span className="font-medium">{config.label}</span>
+                              </div>
+                              <span className="text-sm text-muted-foreground">
+                                Esperado: ${expected.toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="relative flex-1">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step="0.01"
+                                  value={realAmounts[method]}
+                                  onChange={(e) => setRealAmounts(prev => ({ 
+                                    ...prev, 
+                                    [method]: e.target.value 
+                                  }))}
+                                  className="pl-7 bg-background"
+                                  placeholder="0.00"
+                                />
+                              </div>
+                              {hasValue && (
+                                <Badge className={cn(
+                                  "min-w-[80px] justify-center",
+                                  diff === 0
+                                    ? "bg-success/20 text-success border-success/30"
+                                    : diff > 0
+                                      ? "bg-info/20 text-info border-info/30"
+                                      : "bg-destructive/20 text-destructive border-destructive/30"
+                                )}>
+                                  {diff >= 0 ? '+' : ''}{diff.toLocaleString()}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {formData.finalCash && (
+                  {/* Total Difference */}
+                  {usedMethods.some(m => realAmounts[m] !== '') && (
                     <div className={cn(
-                      "p-3 rounded-lg",
-                      parseFloat(formData.finalCash) === selectedShiftData.expectedCash
-                        ? "bg-success/10 border border-success/30"
-                        : parseFloat(formData.finalCash) > selectedShiftData.expectedCash
-                          ? "bg-info/10 border border-info/30"
-                          : "bg-destructive/10 border border-destructive/30"
+                      "p-4 rounded-lg border-2",
+                      (() => {
+                        const totalDiff = usedMethods.reduce((sum, m) => {
+                          const real = parseFloat(realAmounts[m]) || 0;
+                          const expected = selectedSummary.expectedByMethod[m];
+                          return sum + (real - expected);
+                        }, 0);
+                        return totalDiff === 0
+                          ? "bg-success/10 border-success/30"
+                          : totalDiff > 0
+                            ? "bg-info/10 border-info/30"
+                            : "bg-destructive/10 border-destructive/30";
+                      })()
                     )}>
                       <div className="flex items-center justify-between">
-                        <span className="font-medium">Diferencia:</span>
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const totalDiff = usedMethods.reduce((sum, m) => {
+                              const real = parseFloat(realAmounts[m]) || 0;
+                              const expected = selectedSummary.expectedByMethod[m];
+                              return sum + (real - expected);
+                            }, 0);
+                            return totalDiff === 0 
+                              ? <CheckCircle className="h-5 w-5 text-success" />
+                              : <AlertTriangle className="h-5 w-5 text-warning" />;
+                          })()}
+                          <span className="font-medium">Diferencia Total:</span>
+                        </div>
                         <span className={cn(
-                          "text-lg font-bold",
-                          parseFloat(formData.finalCash) === selectedShiftData.expectedCash
-                            ? "text-success"
-                            : parseFloat(formData.finalCash) > selectedShiftData.expectedCash
-                              ? "text-info"
-                              : "text-destructive"
+                          "text-xl font-bold",
+                          (() => {
+                            const totalDiff = usedMethods.reduce((sum, m) => {
+                              const real = parseFloat(realAmounts[m]) || 0;
+                              const expected = selectedSummary.expectedByMethod[m];
+                              return sum + (real - expected);
+                            }, 0);
+                            return totalDiff === 0
+                              ? "text-success"
+                              : totalDiff > 0
+                                ? "text-info"
+                                : "text-destructive";
+                          })()
                         )}>
-                          {parseFloat(formData.finalCash) >= selectedShiftData.expectedCash ? '+' : ''}
-                          ${(parseFloat(formData.finalCash) - selectedShiftData.expectedCash).toLocaleString()}
+                          {(() => {
+                            const totalDiff = usedMethods.reduce((sum, m) => {
+                              const real = parseFloat(realAmounts[m]) || 0;
+                              const expected = selectedSummary.expectedByMethod[m];
+                              return sum + (real - expected);
+                            }, 0);
+                            return `${totalDiff >= 0 ? '+' : ''}$${totalDiff.toLocaleString()}`;
+                          })()}
                         </span>
                       </div>
                     </div>
@@ -278,13 +513,17 @@ export default function Cortes() {
               )}
 
               <div className="flex justify-end gap-3 pt-4">
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button variant="outline" onClick={() => {
+                  setIsDialogOpen(false);
+                  setSelectedShiftId('');
+                  setRealAmounts({ cash: '', card: '', transfer: '' });
+                }}>
                   Cancelar
                 </Button>
                 <Button 
                   className="gradient-bg border-0"
                   onClick={handleSubmit}
-                  disabled={!formData.shiftId || !formData.finalCash}
+                  disabled={!selectedShiftId || usedMethods.every(m => realAmounts[m] === '')}
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   Generar Corte
@@ -435,66 +674,54 @@ export default function Cortes() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-secondary/30 rounded-lg">
-                  <div className="flex items-center gap-2 mb-1">
+              <div className="border-t pt-4 space-y-2">
+                <h4 className="font-medium">Resumen</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center gap-2">
                     <Scissors className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Citas</span>
+                    <span>{viewingCut.appointmentsCount} citas completadas</span>
                   </div>
-                  <p className="text-xl font-bold">{viewingCut.appointmentsCount}</p>
-                </div>
-                <div className="p-3 bg-secondary/30 rounded-lg">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2">
                     <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Ventas Directas</span>
+                    <span>{viewingCut.directSalesCount} ventas directas</span>
                   </div>
-                  <p className="text-xl font-bold">{viewingCut.directSalesCount}</p>
                 </div>
               </div>
 
               <div className="border-t pt-4 space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span>Efectivo inicial:</span>
+                  <span className="text-muted-foreground">Efectivo inicial:</span>
                   <span>${viewingCut.initialCash.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-success">
-                  <span>+ Ventas efectivo:</span>
-                  <span>${viewingCut.salesByMethod.cash.toLocaleString()}</span>
+                  <span>Total ventas:</span>
+                  <span>+${viewingCut.totalSales.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-destructive">
-                  <span>- Gastos efectivo:</span>
-                  <span>${viewingCut.totalExpenses.toLocaleString()}</span>
+                  <span>Total gastos:</span>
+                  <span>-${viewingCut.totalExpenses.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between font-medium pt-2 border-t">
-                  <span>= Esperado:</span>
+                  <span>Efectivo esperado:</span>
                   <span>${viewingCut.expectedCash.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between font-medium">
-                  <span>Contado:</span>
+                  <span>Efectivo real:</span>
                   <span>${viewingCut.finalCash.toLocaleString()}</span>
                 </div>
               </div>
 
               <div className={cn(
-                "p-4 rounded-lg flex items-center justify-between",
+                "p-3 rounded-lg flex items-center justify-between",
                 viewingCut.difference === 0
                   ? "bg-success/10"
                   : viewingCut.difference > 0
                     ? "bg-info/10"
                     : "bg-destructive/10"
               )}>
-                <div className="flex items-center gap-2">
-                  {viewingCut.difference === 0 ? (
-                    <CheckCircle className="h-5 w-5 text-success" />
-                  ) : viewingCut.difference > 0 ? (
-                    <TrendingUp className="h-5 w-5 text-info" />
-                  ) : (
-                    <TrendingDown className="h-5 w-5 text-destructive" />
-                  )}
-                  <span className="font-medium">Diferencia:</span>
-                </div>
+                <span className="font-medium">Diferencia:</span>
                 <span className={cn(
-                  "text-xl font-bold",
+                  "text-lg font-bold",
                   viewingCut.difference === 0
                     ? "text-success"
                     : viewingCut.difference > 0
