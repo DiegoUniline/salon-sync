@@ -20,6 +20,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { OdooLineEditor, type LineItem, type ColumnConfig } from '@/components/OdooLineEditor';
 import {
   Plus,
@@ -30,6 +38,8 @@ import {
   Trash2,
   TrendingUp,
   TrendingDown,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -41,6 +51,7 @@ export default function Products() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
 
   // Single form
   const [formData, setFormData] = useState({
@@ -117,6 +128,10 @@ export default function Products() {
   const deleteProduct = (id: string) => {
     setProducts(prev => prev.filter(p => p.id !== id));
     toast.success('Producto eliminado');
+  };
+
+  const toggleProduct = (id: string, active: boolean) => {
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, active } : p));
   };
 
   // Bulk operations
@@ -206,6 +221,21 @@ export default function Products() {
     toast.success(`${newProducts.length} productos creados`);
     setBulkLines([]);
     setIsBulkDialogOpen(false);
+  };
+
+  const getStockBadge = (product: Product) => {
+    const isLow = product.stock <= product.minStock;
+    return (
+      <Badge variant={isLow ? 'destructive' : 'secondary'} className={cn(isLow && 'bg-warning/10 text-warning border-warning/30')}>
+        {product.stock} uds
+      </Badge>
+    );
+  };
+
+  const getProfitMargin = (product: Product) => {
+    const profit = product.price - product.cost;
+    const margin = product.price > 0 ? ((profit / product.price) * 100).toFixed(0) : '0';
+    return { margin: Number(margin), isGood: Number(margin) >= 40 };
   };
 
   return (
@@ -376,7 +406,7 @@ export default function Products() {
 
       {/* Filters */}
       <div className="glass-card rounded-xl p-4">
-        <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -407,29 +437,117 @@ export default function Products() {
               <SelectItem value="normal">Stock normal</SelectItem>
             </SelectContent>
           </Select>
+          <div className="flex border rounded-lg p-1 bg-secondary/50">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('table')}
+              className={viewMode === 'table' ? 'gradient-bg border-0' : ''}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'card' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('card')}
+              className={viewMode === 'card' ? 'gradient-bg border-0' : ''}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Products Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {filteredProducts.map((product, index) => (
-          <ProductCard 
-            key={product.id} 
-            product={product} 
-            delay={index * 50}
-            onEdit={() => openEditDialog(product)}
-            onDelete={() => deleteProduct(product.id)}
-            onToggle={(active) => setProducts(prev => prev.map(p => 
-              p.id === product.id ? { ...p, active } : p
+      {/* Table View */}
+      {viewMode === 'table' && (
+        <div className="glass-card rounded-xl overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Producto</TableHead>
+                <TableHead>SKU</TableHead>
+                <TableHead>Categoría</TableHead>
+                <TableHead className="text-right">Costo</TableHead>
+                <TableHead className="text-right">Precio</TableHead>
+                <TableHead className="text-center">Margen</TableHead>
+                <TableHead className="text-center">Stock</TableHead>
+                <TableHead className="text-center">Activo</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredProducts.map((product) => {
+                const { margin, isGood } = getProfitMargin(product);
+                return (
+                  <TableRow key={product.id}>
+                    <TableCell className="font-medium">{product.name}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{product.sku}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{product.category}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">${product.cost}</TableCell>
+                    <TableCell className="text-right font-semibold">${product.price}</TableCell>
+                    <TableCell className="text-center">
+                      <span className={cn('flex items-center justify-center gap-1 text-sm font-medium', isGood ? 'text-success' : 'text-warning')}>
+                        {isGood ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                        {margin}%
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">{getStockBadge(product)}</TableCell>
+                    <TableCell className="text-center">
+                      <Switch
+                        checked={product.active}
+                        onCheckedChange={(active) => toggleProduct(product.id, active)}
+                        className="scale-90"
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(product)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteProduct(product.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {filteredProducts.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    No se encontraron productos
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Card View */}
+      {viewMode === 'card' && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filteredProducts.map((product, index) => (
+              <ProductCard 
+                key={product.id} 
+                product={product} 
+                delay={index * 50}
+                onEdit={() => openEditDialog(product)}
+                onDelete={() => deleteProduct(product.id)}
+                onToggle={(active) => toggleProduct(product.id, active)}
+              />
             ))}
-          />
-        ))}
-      </div>
+          </div>
 
-      {filteredProducts.length === 0 && (
-        <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
-          No se encontraron productos
-        </div>
+          {filteredProducts.length === 0 && (
+            <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
+              No se encontraron productos
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -502,16 +620,15 @@ function ProductCard({ product, delay, onEdit, onDelete, onToggle }: ProductCard
       </div>
 
       <div className={cn(
-        'flex items-center justify-between p-2 rounded-lg text-sm',
+        'flex items-center gap-2 text-sm p-2 rounded-lg mb-4',
         isLowStock ? 'bg-warning/10 text-warning' : 'bg-secondary'
       )}>
-        <span>Stock:</span>
-        <span className="font-semibold">
-          {product.stock} {isLowStock && '(Bajo)'}
-        </span>
+        {isLowStock && <AlertTriangle className="h-4 w-4" />}
+        <span className="font-medium">Stock: {product.stock}</span>
+        <span className="text-muted-foreground">/ Mín: {product.minStock}</span>
       </div>
 
-      <div className="flex gap-2 mt-4 pt-4 border-t border-border">
+      <div className="flex gap-2 pt-4 border-t border-border">
         <Button variant="outline" size="sm" className="flex-1" onClick={onEdit}>
           <Edit className="h-3.5 w-3.5 mr-1.5" />
           Editar
