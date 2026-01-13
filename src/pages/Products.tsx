@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { products as mockProducts, productCategories, type Product } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,6 +46,7 @@ import {
 import { toast } from 'sonner';
 
 export default function Products() {
+  const isMobile = useIsMobile();
   const [products, setProducts] = useState<Product[]>(mockProducts);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -465,7 +467,7 @@ export default function Products() {
       </div>
 
       {/* Table View */}
-      {viewMode === 'table' && (
+      {viewMode === 'table' && !isMobile && (
         <div className="glass-card rounded-xl overflow-hidden">
           <Table>
             <TableHeader>
@@ -574,8 +576,8 @@ export default function Products() {
         </div>
       )}
 
-      {/* Card View */}
-      {viewMode === 'card' && (
+      {/* Card View - also shows on mobile */}
+      {(viewMode === 'card' || isMobile) && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredProducts.map((product, index) => (

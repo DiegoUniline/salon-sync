@@ -7,6 +7,7 @@ import {
 } from '@/lib/mockData';
 import { ShiftRequiredAlert } from '@/components/ShiftRequiredAlert';
 import { useShift } from '@/hooks/useShift';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -59,6 +60,7 @@ const paymentLabels = {
 export default function Compras() {
   const { currentBranch } = useApp();
   const { hasOpenShift } = useShift(currentBranch.id);
+  const isMobile = useIsMobile();
   const [purchases, setPurchases] = useState<Purchase[]>(mockPurchases);
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -366,90 +368,158 @@ export default function Compras() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="glass-card rounded-xl overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Fecha</TableHead>
-              <TableHead>Proveedor</TableHead>
-              <TableHead>Productos</TableHead>
-              <TableHead>Pago</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredPurchases.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  No hay compras registradas
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredPurchases
-                .sort((a, b) => b.date.localeCompare(a.date))
-                .map((purchase) => {
-                  const PaymentIcon = paymentIcons[purchase.paymentMethod];
-                  return (
-                    <TableRow key={purchase.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
+      {/* Table / Mobile Cards */}
+      {isMobile ? (
+        <div className="space-y-3">
+          {filteredPurchases.length === 0 ? (
+            <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
+              No hay compras registradas
+            </div>
+          ) : (
+            filteredPurchases
+              .sort((a, b) => b.date.localeCompare(a.date))
+              .map((purchase) => {
+                const PaymentIcon = paymentIcons[purchase.paymentMethod];
+                return (
+                  <div key={purchase.id} className="glass-card rounded-xl p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-semibold">{purchase.supplier}</p>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                          <Calendar className="h-3.5 w-3.5" />
                           {new Date(purchase.date).toLocaleDateString('es-MX')}
                         </div>
-                      </TableCell>
-                      <TableCell className="font-medium">{purchase.supplier}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {purchase.items.slice(0, 2).map((item, i) => (
-                            <Badge key={i} variant="secondary" className="text-xs">
-                              {item.product.name} x{item.quantity}
-                            </Badge>
-                          ))}
-                          {purchase.items.length > 2 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{purchase.items.length - 2}
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <PaymentIcon className="h-4 w-4 text-muted-foreground" />
-                          <span>{paymentLabels[purchase.paymentMethod]}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-semibold">
-                        ${purchase.total.toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-1">
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            className="h-8 w-8"
-                            onClick={() => setViewingPurchase(purchase)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => deletePurchase(purchase.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                      </div>
+                      <p className="text-lg font-bold text-primary">${purchase.total.toLocaleString()}</p>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-1">
+                      {purchase.items.slice(0, 3).map((item, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">
+                          {item.product.name} x{item.quantity}
+                        </Badge>
+                      ))}
+                      {purchase.items.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{purchase.items.length - 3}
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center justify-between pt-2 border-t">
+                      <div className="flex items-center gap-2 text-sm">
+                        <PaymentIcon className="h-4 w-4 text-muted-foreground" />
+                        <span>{paymentLabels[purchase.paymentMethod]}</span>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-8 w-8"
+                          onClick={() => setViewingPurchase(purchase)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => deletePurchase(purchase.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+          )}
+        </div>
+      ) : (
+        <div className="glass-card rounded-xl overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Proveedor</TableHead>
+                <TableHead>Productos</TableHead>
+                <TableHead>Pago</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredPurchases.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    No hay compras registradas
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredPurchases
+                  .sort((a, b) => b.date.localeCompare(a.date))
+                  .map((purchase) => {
+                    const PaymentIcon = paymentIcons[purchase.paymentMethod];
+                    return (
+                      <TableRow key={purchase.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            {new Date(purchase.date).toLocaleDateString('es-MX')}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium">{purchase.supplier}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {purchase.items.slice(0, 2).map((item, i) => (
+                              <Badge key={i} variant="secondary" className="text-xs">
+                                {item.product.name} x{item.quantity}
+                              </Badge>
+                            ))}
+                            {purchase.items.length > 2 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{purchase.items.length - 2}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <PaymentIcon className="h-4 w-4 text-muted-foreground" />
+                            <span>{paymentLabels[purchase.paymentMethod]}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
+                          ${purchase.total.toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8"
+                              onClick={() => setViewingPurchase(purchase)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => deletePurchase(purchase.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {/* View Dialog */}
       <Dialog open={!!viewingPurchase} onOpenChange={() => setViewingPurchase(null)}>

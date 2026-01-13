@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { services as mockServices, serviceCategories, type Service } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,6 +30,7 @@ import {
 } from '@/components/ui/table';
 import { OdooLineEditor, type LineItem, type ColumnConfig } from '@/components/OdooLineEditor';
 import { EditableCell } from '@/components/EditableCell';
+import { Badge } from '@/components/ui/badge';
 import {
   Plus,
   Search,
@@ -55,6 +57,7 @@ const categoryIcons: Record<string, React.ReactNode> = {
 };
 
 export default function Services() {
+  const isMobile = useIsMobile();
   const [services, setServices] = useState<Service[]>(mockServices);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -450,7 +453,7 @@ export default function Services() {
       </div>
 
       {/* Table View */}
-      {viewMode === 'table' && (
+      {viewMode === 'table' && !isMobile && (
         <div className="glass-card rounded-xl overflow-hidden">
           <Table>
             <TableHeader>
@@ -565,8 +568,8 @@ export default function Services() {
         </div>
       )}
 
-      {/* Card View */}
-      {viewMode === 'card' && (
+      {/* Card View - also shows on mobile */}
+      {(viewMode === 'card' || isMobile) && (
         <div className="space-y-8">
           {Object.entries(groupedServices).map(([category, categoryServices]) => (
             <div key={category} className="space-y-4">

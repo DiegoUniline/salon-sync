@@ -9,6 +9,7 @@ import {
   type CashCut,
 } from '@/lib/mockData';
 import { useShift } from '@/hooks/useShift';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,6 +81,7 @@ interface ShiftSummary {
 export default function Cortes() {
   const { currentBranch } = useApp();
   const { shifts, getShiftsForBranch } = useShift(currentBranch.id);
+  const isMobile = useIsMobile();
   const [cashCuts, setCashCuts] = useState<CashCut[]>(mockCashCuts);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [viewingCut, setViewingCut] = useState<CashCut | null>(null);
@@ -549,90 +551,162 @@ export default function Cortes() {
         </div>
       )}
 
-      {/* Table */}
-      <div className="glass-card rounded-xl overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Fecha</TableHead>
-              <TableHead>Responsable</TableHead>
-              <TableHead className="text-right">Ventas</TableHead>
-              <TableHead className="text-right">Gastos</TableHead>
-              <TableHead className="text-right">Esperado</TableHead>
-              <TableHead className="text-right">Real</TableHead>
-              <TableHead className="text-right">Diferencia</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredCuts.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                  No hay cortes de caja registrados
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredCuts
-                .sort((a, b) => b.date.localeCompare(a.date))
-                .map((cut) => (
-                  <TableRow key={cut.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        {new Date(cut.date).toLocaleDateString('es-MX')}
-                      </div>
-                    </TableCell>
-                    <TableCell>
+      {/* Table / Mobile Cards */}
+      {isMobile ? (
+        <div className="space-y-3">
+          {filteredCuts.length === 0 ? (
+            <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
+              No hay cortes de caja registrados
+            </div>
+          ) : (
+            filteredCuts
+              .sort((a, b) => b.date.localeCompare(a.date))
+              .map((cut) => (
+                <div key={cut.id} className="glass-card rounded-xl p-4 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div>
                       <div className="flex items-center gap-2">
                         <div 
                           className="h-3 w-3 rounded-full" 
                           style={{ backgroundColor: cut.user.color }}
                         />
-                        {cut.user.name}
+                        <p className="font-semibold">{cut.user.name}</p>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-right font-medium text-success">
-                      ${cut.totalSales.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-right font-medium text-destructive">
-                      ${cut.totalExpenses.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      ${cut.expectedCash.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      ${cut.finalCash.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge className={cn(
-                        "border",
-                        cut.difference === 0
-                          ? "bg-success/20 text-success border-success/30"
-                          : cut.difference > 0
-                            ? "bg-info/20 text-info border-info/30"
-                            : "bg-destructive/20 text-destructive border-destructive/30"
-                      )}>
-                        {cut.difference >= 0 ? '+' : ''}${cut.difference.toLocaleString()}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end">
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          className="h-8 w-8"
-                          onClick={() => setViewingCut(cut)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                        <Calendar className="h-3.5 w-3.5" />
+                        {new Date(cut.date).toLocaleDateString('es-MX')}
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                    </div>
+                    <Badge className={cn(
+                      "border",
+                      cut.difference === 0
+                        ? "bg-success/20 text-success border-success/30"
+                        : cut.difference > 0
+                          ? "bg-info/20 text-info border-info/30"
+                          : "bg-destructive/20 text-destructive border-destructive/30"
+                    )}>
+                      {cut.difference >= 0 ? '+' : ''}${cut.difference.toLocaleString()}
+                    </Badge>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Ventas</p>
+                      <p className="font-semibold text-success">${cut.totalSales.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Gastos</p>
+                      <p className="font-semibold text-destructive">${cut.totalExpenses.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Esperado</p>
+                      <p className="font-semibold">${cut.expectedCash.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Real</p>
+                      <p className="font-semibold">${cut.finalCash.toLocaleString()}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end pt-2 border-t">
+                    <Button 
+                      size="sm" 
+                      variant="ghost"
+                      onClick={() => setViewingCut(cut)}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Ver detalle
+                    </Button>
+                  </div>
+                </div>
+              ))
+          )}
+        </div>
+      ) : (
+        <div className="glass-card rounded-xl overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Responsable</TableHead>
+                <TableHead className="text-right">Ventas</TableHead>
+                <TableHead className="text-right">Gastos</TableHead>
+                <TableHead className="text-right">Esperado</TableHead>
+                <TableHead className="text-right">Real</TableHead>
+                <TableHead className="text-right">Diferencia</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredCuts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    No hay cortes de caja registrados
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredCuts
+                  .sort((a, b) => b.date.localeCompare(a.date))
+                  .map((cut) => (
+                    <TableRow key={cut.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          {new Date(cut.date).toLocaleDateString('es-MX')}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="h-3 w-3 rounded-full" 
+                            style={{ backgroundColor: cut.user.color }}
+                          />
+                          {cut.user.name}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-success">
+                        ${cut.totalSales.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-destructive">
+                        ${cut.totalExpenses.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        ${cut.expectedCash.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        ${cut.finalCash.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge className={cn(
+                          "border",
+                          cut.difference === 0
+                            ? "bg-success/20 text-success border-success/30"
+                            : cut.difference > 0
+                              ? "bg-info/20 text-info border-info/30"
+                              : "bg-destructive/20 text-destructive border-destructive/30"
+                        )}>
+                          {cut.difference >= 0 ? '+' : ''}${cut.difference.toLocaleString()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end">
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            className="h-8 w-8"
+                            onClick={() => setViewingCut(cut)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {/* View Dialog */}
       <Dialog open={!!viewingCut} onOpenChange={() => setViewingCut(null)}>
