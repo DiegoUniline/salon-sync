@@ -13,15 +13,22 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar />
+      {/* Desktop Sidebar - hidden on mobile */}
+      <div className="hidden md:block">
+        <Sidebar />
+      </div>
+      
       <Header />
+      
       <main
         className={cn(
           'pt-16 min-h-screen transition-all duration-300',
-          sidebarCollapsed ? 'pl-[70px]' : 'pl-[260px]'
+          // Desktop: account for sidebar
+          'md:pl-[70px]',
+          !sidebarCollapsed && 'md:pl-[260px]'
         )}
       >
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           {children}
         </div>
       </main>

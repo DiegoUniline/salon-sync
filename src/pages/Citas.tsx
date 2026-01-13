@@ -826,8 +826,138 @@ export default function Citas() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="glass-card rounded-xl overflow-hidden">
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {filteredAppointments.length === 0 ? (
+          <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
+            No hay citas registradas
+          </div>
+        ) : (
+          filteredAppointments
+            .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`))
+            .map((appointment) => (
+              <div 
+                key={appointment.id}
+                className="glass-card rounded-xl p-4 space-y-3"
+              >
+                {/* Header row */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-sm font-medium text-white"
+                      style={{ backgroundColor: appointment.stylist.color }}
+                    >
+                      {appointment.stylist.name.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{appointment.client.name}</p>
+                      <p className="text-sm text-muted-foreground">{appointment.client.phone}</p>
+                    </div>
+                  </div>
+                  <Badge className={cn('shrink-0 border', statusColors[appointment.status])}>
+                    {statusLabels[appointment.status]}
+                  </Badge>
+                </div>
+
+                {/* Info row */}
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span>{new Date(appointment.date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>{appointment.time}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <User className="h-3.5 w-3.5" />
+                    <span>{appointment.stylist.name}</span>
+                  </div>
+                </div>
+
+                {/* Services */}
+                <div className="flex flex-wrap gap-1">
+                  {appointment.services.slice(0, 3).map(s => (
+                    <Badge key={s.id} variant="secondary" className="text-xs">
+                      {s.name}
+                    </Badge>
+                  ))}
+                  {appointment.services.length > 3 && (
+                    <Badge variant="outline" className="text-xs">
+                      +{appointment.services.length - 3}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Footer with total and actions */}
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <span className="text-lg font-bold">${appointment.total.toLocaleString()}</span>
+                  <div className="flex items-center gap-1">
+                    {appointment.status === 'scheduled' && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 px-2 text-warning"
+                        onClick={() => updateStatus(appointment.id, 'in-progress')}
+                      >
+                        <PlayCircle className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {appointment.status === 'in-progress' && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 px-2 text-success"
+                        onClick={() => updateStatus(appointment.id, 'completed')}
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {appointment.status === 'completed' && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 px-2 text-primary"
+                        onClick={() => showAppointmentTicket(appointment)}
+                      >
+                        <Receipt className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {(appointment.status === 'scheduled' || appointment.status === 'in-progress') && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 px-2 text-destructive"
+                        onClick={() => updateStatus(appointment.id, 'cancelled')}
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-2"
+                      onClick={() => openEditDialog(appointment)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-2 text-destructive"
+                      onClick={() => deleteAppointment(appointment.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))
+        )}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="glass-card rounded-xl overflow-hidden hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>

@@ -584,8 +584,84 @@ export default function Ventas() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="glass-card rounded-xl overflow-hidden">
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {filteredSales.length === 0 ? (
+          <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
+            No hay ventas registradas
+          </div>
+        ) : (
+          filteredSales
+            .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`))
+            .map((sale) => {
+              const PaymentIcon = paymentIcons[sale.paymentMethod];
+              return (
+                <div key={sale.id} className="glass-card rounded-xl p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{sale.clientName}</p>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                        <Calendar className="h-3.5 w-3.5" />
+                        <span>{new Date(sale.date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</span>
+                        <Clock className="h-3.5 w-3.5 ml-1" />
+                        <span>{sale.time}</span>
+                      </div>
+                    </div>
+                    <span className="text-lg font-bold text-success">
+                      +${sale.total.toLocaleString()}
+                    </span>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-1">
+                    {sale.items.slice(0, 3).map((item, i) => (
+                      <Badge key={i} variant="outline" className="text-xs">
+                        {item.item.name} x{item.quantity}
+                      </Badge>
+                    ))}
+                    {sale.items.length > 3 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{sale.items.length - 3}
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={sale.type === 'appointment' ? 'default' : 'secondary'} className="text-xs">
+                        {sale.type === 'appointment' ? 'Cita' : 'Directa'}
+                      </Badge>
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <PaymentIcon className="h-3.5 w-3.5" />
+                        <span>{paymentLabels[sale.paymentMethod]}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-8 px-2"
+                        onClick={() => setViewingSale(sale)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-8 px-2 text-destructive"
+                        onClick={() => deleteSale(sale.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+        )}
+      </div>
+
+      {/* Desktop Table */}
+      <div className="glass-card rounded-xl overflow-hidden hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>

@@ -2,6 +2,7 @@ import { useApp } from '@/contexts/AppContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { branches } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
+import { MobileNav } from './MobileNav';
 import {
   Select,
   SelectContent,
@@ -28,7 +29,6 @@ import {
   User,
   Store,
   LogOut,
-  UserCog,
 } from 'lucide-react';
 
 export function Header() {
@@ -39,26 +39,31 @@ export function Header() {
     <header
       className={cn(
         'fixed top-0 right-0 z-30 h-16 bg-background/80 backdrop-blur-md border-b border-border transition-all duration-300',
-        sidebarCollapsed ? 'left-[70px]' : 'left-[260px]'
+        // Mobile: full width, Desktop: account for sidebar
+        'left-0 md:left-[70px]',
+        !sidebarCollapsed && 'md:left-[260px]'
       )}
     >
-      <div className="flex h-full items-center justify-between px-6">
-        {/* Search */}
-        <div className="relative w-full max-w-md">
+      <div className="flex h-full items-center justify-between px-3 md:px-6 gap-3">
+        {/* Mobile menu trigger */}
+        <MobileNav />
+        
+        {/* Search - hidden on small mobile, visible from sm up */}
+        <div className="relative flex-1 max-w-md hidden sm:block">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar clientes, citas, servicios..."
+            placeholder="Buscar..."
             className="pl-10 bg-secondary/50 border-0 focus-visible:ring-1"
           />
         </div>
 
         {/* Right side */}
-        <div className="flex items-center gap-3">
-          {/* Branch selector */}
+        <div className="flex items-center gap-2 md:gap-3">
+          {/* Branch selector - compact on mobile */}
           <Select value={currentBranch.id} onValueChange={setCurrentBranchId}>
-            <SelectTrigger className="w-[180px] bg-secondary/50 border-0">
-              <Store className="h-4 w-4 mr-2 text-muted-foreground" />
-              <SelectValue />
+            <SelectTrigger className="w-auto md:w-[180px] bg-secondary/50 border-0">
+              <Store className="h-4 w-4 md:mr-2 text-muted-foreground" />
+              <span className="hidden md:inline"><SelectValue /></span>
             </SelectTrigger>
             <SelectContent>
               {branches.map(branch => (
@@ -83,8 +88,8 @@ export function Header() {
             )}
           </Button>
 
-          {/* Notifications */}
-          <Button variant="ghost" size="icon" className="h-9 w-9 relative">
+          {/* Notifications - hidden on small mobile */}
+          <Button variant="ghost" size="icon" className="h-9 w-9 relative hidden sm:flex">
             <Bell className="h-4 w-4" />
             <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />
           </Button>

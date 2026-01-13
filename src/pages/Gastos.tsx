@@ -396,8 +396,73 @@ export default function Gastos() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="glass-card rounded-xl overflow-hidden">
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {filteredExpenses.length === 0 ? (
+          <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
+            No hay gastos registrados
+          </div>
+        ) : (
+          filteredExpenses
+            .sort((a, b) => b.date.localeCompare(a.date))
+            .map((expense) => {
+              const Icon = categoryIcons[expense.category];
+              return (
+                <div key={expense.id} className="glass-card rounded-xl p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className={cn("p-2.5 rounded-lg", categoryColors[expense.category].split(' ')[0])}>
+                        <Icon className={cn("h-5 w-5", categoryColors[expense.category].split(' ')[1])} />
+                      </div>
+                      <div>
+                        <p className="font-medium">{expense.description}</p>
+                        <p className="text-sm text-muted-foreground">{expense.supplier || 'Sin proveedor'}</p>
+                      </div>
+                    </div>
+                    <span className="text-lg font-bold text-destructive">
+                      -${expense.amount.toLocaleString()}
+                    </span>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2 text-sm">
+                    <Badge className={cn('border gap-1', categoryColors[expense.category])}>
+                      {categoryLabels[expense.category]}
+                    </Badge>
+                    <Badge variant="outline">{paymentLabels[expense.paymentMethod]}</Badge>
+                  </div>
+                  
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {new Date(expense.date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-8 px-2"
+                        onClick={() => openEditDialog(expense)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-8 px-2 text-destructive"
+                        onClick={() => deleteExpense(expense.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+        )}
+      </div>
+
+      {/* Desktop Table */}
+      <div className="glass-card rounded-xl overflow-hidden hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
