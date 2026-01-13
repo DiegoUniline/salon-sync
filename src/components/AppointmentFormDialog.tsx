@@ -473,7 +473,7 @@ export function AppointmentFormDialog({
           </Tabs>
 
           {/* Stylist, Date, Time */}
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-4">
             <div className="space-y-2">
               <Label>Estilista</Label>
               <Select value={stylistId} onValueChange={setStylistId}>
@@ -501,7 +501,7 @@ export function AppointmentFormDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>Hora</Label>
+              <Label>Hora Inicio</Label>
               <Select value={time} onValueChange={setTime}>
                 <SelectTrigger>
                   <SelectValue />
@@ -516,6 +516,19 @@ export function AppointmentFormDialog({
                   })}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Hora Fin</Label>
+              <div className="flex items-center h-10 px-3 rounded-md border bg-muted text-muted-foreground">
+                {(() => {
+                  const [hours, mins] = time.split(':').map(Number);
+                  const startMinutes = hours * 60 + mins;
+                  const endMinutes = startMinutes + (totalDuration || initialDuration || 30);
+                  const endHours = Math.floor(endMinutes / 60);
+                  const endMins = endMinutes % 60;
+                  return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+                })()}
+              </div>
             </div>
           </div>
 
