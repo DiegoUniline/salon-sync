@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '@/contexts/AppContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { 
   products as mockProducts,
   inventoryMovements as mockMovements,
@@ -9,6 +10,7 @@ import {
 } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { AnimatedContainer, AnimatedCard, AnimatedList, AnimatedListItem, PageTransition } from '@/components/ui/animated-container';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,9 +56,11 @@ import {
   History,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 
 export default function Inventario() {
   const { currentBranch } = useApp();
+  const { canCreate, canEdit } = usePermissions();
   const isMobile = useIsMobile();
   const [products, setProducts] = useState<Product[]>(mockProducts);
   const [movements, setMovements] = useState<InventoryMovement[]>(mockMovements);
@@ -150,15 +154,15 @@ export default function Inventario() {
           <p className="text-muted-foreground">Control de stock y movimientos</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => openMovementDialog('in')}>
+          <Button variant="outline" onClick={() => openMovementDialog('in')} disabled={!canCreate('inventario')}>
             <ArrowUpCircle className="h-4 w-4 mr-2 text-success" />
             Entrada
           </Button>
-          <Button variant="outline" onClick={() => openMovementDialog('out')}>
+          <Button variant="outline" onClick={() => openMovementDialog('out')} disabled={!canCreate('inventario')}>
             <ArrowDownCircle className="h-4 w-4 mr-2 text-destructive" />
             Salida
           </Button>
-          <Button variant="outline" onClick={() => openMovementDialog('adjustment')}>
+          <Button variant="outline" onClick={() => openMovementDialog('adjustment')} disabled={!canEdit('inventario')}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Ajuste
           </Button>

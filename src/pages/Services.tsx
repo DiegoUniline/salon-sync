@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { services as mockServices, serviceCategories, type Service } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { usePermissions } from '@/hooks/usePermissions';
+import { AnimatedContainer, AnimatedCard, AnimatedList, AnimatedListItem, PageTransition } from '@/components/ui/animated-container';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,6 +47,7 @@ import {
   List,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 
 const categoryIcons: Record<string, React.ReactNode> = {
   'Corte': <Scissors className="h-4 w-4" />,
@@ -58,6 +61,7 @@ const categoryIcons: Record<string, React.ReactNode> = {
 
 export default function Services() {
   const isMobile = useIsMobile();
+  const { canCreate, canEdit, canDelete } = usePermissions();
   const [services, setServices] = useState<Service[]>(mockServices);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -248,7 +252,7 @@ export default function Services() {
         <div className="flex gap-2">
           <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" disabled={!canCreate('servicios')}>
                 <Plus className="h-4 w-4 mr-2" />
                 Agregar Múltiples
               </Button>
@@ -283,7 +287,7 @@ export default function Services() {
 
           <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
             <DialogTrigger asChild>
-              <Button className="gradient-bg border-0">
+              <Button className="gradient-bg border-0" disabled={!canCreate('servicios')}>
                 <Plus className="h-4 w-4 mr-2" />
                 Nuevo Servicio
               </Button>
