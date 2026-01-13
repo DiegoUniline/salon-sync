@@ -29,6 +29,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { OdooLineEditor, type LineItem, type ColumnConfig } from '@/components/OdooLineEditor';
+import { EditableCell } from '@/components/EditableCell';
 import {
   Plus,
   Search,
@@ -132,6 +133,11 @@ export default function Products() {
 
   const toggleProduct = (id: string, active: boolean) => {
     setProducts(prev => prev.map(p => p.id === id ? { ...p, active } : p));
+  };
+
+  const updateProductField = (id: string, field: string, value: any) => {
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
+    toast.success('Actualizado');
   };
 
   // Bulk operations
@@ -480,20 +486,62 @@ export default function Products() {
                 const { margin, isGood } = getProfitMargin(product);
                 return (
                   <TableRow key={product.id}>
-                    <TableCell className="font-medium">{product.name}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{product.sku}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{product.category}</Badge>
+                    <TableCell className="font-medium">
+                      <EditableCell
+                        value={product.name}
+                        onSave={(v) => updateProductField(product.id, 'name', v)}
+                        type="text"
+                      />
                     </TableCell>
-                    <TableCell className="text-right text-muted-foreground">${product.cost}</TableCell>
-                    <TableCell className="text-right font-semibold">${product.price}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      <EditableCell
+                        value={product.sku}
+                        onSave={(v) => updateProductField(product.id, 'sku', v)}
+                        type="text"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <EditableCell
+                        value={product.category}
+                        onSave={(v) => updateProductField(product.id, 'category', v)}
+                        type="select"
+                        options={productCategories.map(c => ({ value: c, label: c }))}
+                        displayValue={<Badge variant="secondary">{product.category}</Badge>}
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <EditableCell
+                        value={product.cost}
+                        onSave={(v) => updateProductField(product.id, 'cost', v)}
+                        type="number"
+                        min={0}
+                        displayValue={<span className="text-muted-foreground">${product.cost}</span>}
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <EditableCell
+                        value={product.price}
+                        onSave={(v) => updateProductField(product.id, 'price', v)}
+                        type="number"
+                        min={0}
+                        displayValue={<span className="font-semibold">${product.price}</span>}
+                      />
+                    </TableCell>
                     <TableCell className="text-center">
                       <span className={cn('flex items-center justify-center gap-1 text-sm font-medium', isGood ? 'text-success' : 'text-warning')}>
                         {isGood ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
                         {margin}%
                       </span>
                     </TableCell>
-                    <TableCell className="text-center">{getStockBadge(product)}</TableCell>
+                    <TableCell className="text-center">
+                      <EditableCell
+                        value={product.stock}
+                        onSave={(v) => updateProductField(product.id, 'stock', v)}
+                        type="number"
+                        min={0}
+                        displayValue={getStockBadge(product)}
+                      />
+                    </TableCell>
                     <TableCell className="text-center">
                       <Switch
                         checked={product.active}
