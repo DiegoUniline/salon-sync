@@ -18,6 +18,7 @@ import Gastos from "./pages/Gastos";
 import Ventas from "./pages/Ventas";
 import Turnos from "./pages/Turnos";
 import Cortes from "./pages/Cortes";
+import Horarios from "./pages/Horarios";
 import Configuracion from "./pages/Configuracion";
 import NotFound from "./pages/NotFound";
 
@@ -43,6 +44,7 @@ const App = () => (
               <Route path="/ventas" element={<Ventas />} />
               <Route path="/turnos" element={<Turnos />} />
               <Route path="/cortes" element={<Cortes />} />
+              <Route path="/horarios" element={<Horarios />} />
               <Route path="/configuracion" element={<Configuracion />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
