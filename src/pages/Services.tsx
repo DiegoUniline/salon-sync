@@ -19,6 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { OdooLineEditor, type LineItem, type ColumnConfig } from '@/components/OdooLineEditor';
 import {
   Plus,
@@ -29,8 +37,9 @@ import {
   Palette,
   Sparkles,
   Edit,
-  MoreHorizontal,
   Trash2,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -51,6 +60,7 @@ export default function Services() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
+  const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
 
   // Single form
   const [formData, setFormData] = useState({
@@ -126,6 +136,10 @@ export default function Services() {
   const deleteService = (id: string) => {
     setServices(prev => prev.filter(s => s.id !== id));
     toast.success('Servicio eliminado');
+  };
+
+  const toggleService = (id: string, active: boolean) => {
+    setServices(prev => prev.map(s => s.id === id ? { ...s, active } : s));
   };
 
   // Bulk operations
@@ -343,7 +357,7 @@ export default function Services() {
 
       {/* Filters */}
       <div className="glass-card rounded-xl p-4">
-        <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -364,46 +378,130 @@ export default function Services() {
               ))}
             </SelectContent>
           </Select>
+          <div className="flex border rounded-lg p-1 bg-secondary/50">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('table')}
+              className={viewMode === 'table' ? 'gradient-bg border-0' : ''}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'card' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('card')}
+              className={viewMode === 'card' ? 'gradient-bg border-0' : ''}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Services Grid */}
-      <div className="space-y-8">
-        {Object.entries(groupedServices).map(([category, categoryServices]) => (
-          <div key={category} className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                {categoryIcons[category] || <Scissors className="h-4 w-4" />}
-              </div>
-              <h2 className="text-lg font-semibold">{category}</h2>
-              <span className="text-sm text-muted-foreground">
-                ({categoryServices.length})
-              </span>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {categoryServices.map((service, index) => (
-                <ServiceCard 
-                  key={service.id} 
-                  service={service} 
-                  delay={index * 50}
-                  onEdit={() => openEditDialog(service)}
-                  onDelete={() => deleteService(service.id)}
-                  onToggle={(active) => setServices(prev => prev.map(s => 
-                    s.id === service.id ? { ...s, active } : s
-                  ))}
-                />
+      {/* Table View */}
+      {viewMode === 'table' && (
+        <div className="glass-card rounded-xl overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Servicio</TableHead>
+                <TableHead>Categoría</TableHead>
+                <TableHead className="text-center">Duración</TableHead>
+                <TableHead className="text-right">Precio</TableHead>
+                <TableHead className="text-center">Comisión</TableHead>
+                <TableHead className="text-center">Activo</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredServices.map((service) => (
+                <TableRow key={service.id}>
+                  <TableCell className="font-medium">{service.name}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="p-1.5 rounded bg-primary/10 text-primary">
+                        {categoryIcons[service.category] || <Scissors className="h-3 w-3" />}
+                      </span>
+                      {service.category}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-1 text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5" />
+                      {service.duration} min
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right font-semibold">${service.price}</TableCell>
+                  <TableCell className="text-center">{service.commission || 0}%</TableCell>
+                  <TableCell className="text-center">
+                    <Switch
+                      checked={service.active}
+                      onCheckedChange={(active) => toggleService(service.id, active)}
+                      className="scale-90"
+                    />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(service)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteService(service.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ))}
-            </div>
-          </div>
-        ))}
+              {filteredServices.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No se encontraron servicios
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
-        {Object.keys(groupedServices).length === 0 && (
-          <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
-            No se encontraron servicios
-          </div>
-        )}
-      </div>
+      {/* Card View */}
+      {viewMode === 'card' && (
+        <div className="space-y-8">
+          {Object.entries(groupedServices).map(([category, categoryServices]) => (
+            <div key={category} className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  {categoryIcons[category] || <Scissors className="h-4 w-4" />}
+                </div>
+                <h2 className="text-lg font-semibold">{category}</h2>
+                <span className="text-sm text-muted-foreground">
+                  ({categoryServices.length})
+                </span>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {categoryServices.map((service, index) => (
+                  <ServiceCard 
+                    key={service.id} 
+                    service={service} 
+                    delay={index * 50}
+                    onEdit={() => openEditDialog(service)}
+                    onDelete={() => deleteService(service.id)}
+                    onToggle={(active) => toggleService(service.id, active)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {Object.keys(groupedServices).length === 0 && (
+            <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
+              No se encontraron servicios
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
