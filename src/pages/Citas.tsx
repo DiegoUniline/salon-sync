@@ -85,30 +85,21 @@ export default function Citas() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
 
-  // Check URL params on mount
-  const urlParamDate = searchParams.get('date');
-  const urlParamTime = searchParams.get('time');
-  const urlParamStylist = searchParams.get('stylist');
-  const urlParamDuration = searchParams.get('duration');
-  const hasUrlParams = !!(urlParamDate || urlParamTime || urlParamStylist);
-
-  // Form state - initialize from URL params if present
+  // Form state
   const [clientTab, setClientTab] = useState<'existing' | 'new'>('existing');
   const [clientId, setClientId] = useState('');
   const [newClientName, setNewClientName] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
   const [newClientEmail, setNewClientEmail] = useState('');
-  const [stylistId, setStylistId] = useState(urlParamStylist || '');
-  const [date, setDate] = useState(urlParamDate || new Date().toISOString().split('T')[0]);
-  const [time, setTime] = useState(urlParamTime || '09:00');
+  const [stylistId, setStylistId] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [time, setTime] = useState('09:00');
   const [notes, setNotes] = useState('');
   const [generalDiscount, setGeneralDiscount] = useState(0);
-  const [preselectedDuration, setPreselectedDuration] = useState<number | null>(
-    urlParamDuration ? parseInt(urlParamDuration) : null
-  );
+  const [preselectedDuration, setPreselectedDuration] = useState<number | null>(null);
   
-  // Dialog state - open automatically if URL params present
-  const [isDialogOpen, setIsDialogOpen] = useState(hasUrlParams);
+  // Dialog state
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   
   // Odoo-style lines
   const [serviceLines, setServiceLines] = useState<LineItem[]>([]);
@@ -117,12 +108,27 @@ export default function Citas() {
     { id: 'pay-1', method: 'cash', amount: 0 }
   ]);
 
-  // Clear URL params after mount
+  // Handle URL params from Agenda - runs on every searchParams change
   useEffect(() => {
-    if (hasUrlParams) {
+    const urlParamDate = searchParams.get('date');
+    const urlParamTime = searchParams.get('time');
+    const urlParamStylist = searchParams.get('stylist');
+    const urlParamDuration = searchParams.get('duration');
+    
+    if (urlParamDate || urlParamTime || urlParamStylist) {
+      // Set form values from URL params
+      if (urlParamDate) setDate(urlParamDate);
+      if (urlParamTime) setTime(urlParamTime);
+      if (urlParamStylist) setStylistId(urlParamStylist);
+      if (urlParamDuration) setPreselectedDuration(parseInt(urlParamDuration));
+      
+      // Open dialog
+      setIsDialogOpen(true);
+      
+      // Clear URL params
       window.history.replaceState({}, '', '/citas');
     }
-  }, []);
+  }, [searchParams]);
 
   const filteredAppointments = appointments.filter(a => {
     const matchesBranch = a.branchId === currentBranch.id;
