@@ -8,18 +8,25 @@ import {
   type Branch,
   type Stylist,
 } from '@/lib/mockData';
-import { cn } from '@/lib/utils';
+import { useApp } from '@/contexts/AppContext';
+import { 
+  businessTypeLabels, 
+  businessTypeIcons,
+  defaultTicketFields,
+  type BusinessType,
+  type TicketField,
+} from '@/lib/businessConfig';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -51,15 +58,17 @@ import {
   Trash2,
   Phone,
   MapPin,
-  User,
-  Palette,
-  Settings2,
   Scissors,
   Package,
+  Settings2,
+  Receipt,
+  Briefcase,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Configuracion() {
+  const { businessConfig, updateBusinessConfig, terms } = useApp();
+  
   const [branches, setBranches] = useState<Branch[]>(mockBranches);
   const [stylists, setStylists] = useState<Stylist[]>(mockStylists);
   const [serviceCategories, setServiceCategories] = useState<string[]>(mockServiceCategories);
@@ -99,14 +108,14 @@ export default function Configuracion() {
       setBranches(prev => prev.map(b => 
         b.id === editingBranch.id ? { ...b, ...branchForm } : b
       ));
-      toast.success('Sucursal actualizada');
+      toast.success(`${terms.branch} actualizada`);
     } else {
       const newBranch: Branch = {
         id: `b${Date.now()}`,
         ...branchForm,
       };
       setBranches(prev => [...prev, newBranch]);
-      toast.success('Sucursal creada');
+      toast.success(`${terms.branch} creada`);
     }
 
     setIsBranchDialogOpen(false);
@@ -114,7 +123,7 @@ export default function Configuracion() {
 
   const deleteBranch = (id: string) => {
     setBranches(prev => prev.filter(b => b.id !== id));
-    toast.success('Sucursal eliminada');
+    toast.success(`${terms.branch} eliminada`);
   };
 
   // User handlers
@@ -189,10 +198,12 @@ export default function Configuracion() {
     toast.success('Categoría eliminada');
   };
 
-  const roleLabels = {
-    admin: 'Administrador',
-    stylist: 'Estilista',
-    receptionist: 'Recepción',
+  // Ticket field toggle
+  const toggleTicketField = (fieldId: string) => {
+    const newFields = businessConfig.ticketFields.map(f => 
+      f.id === fieldId ? { ...f, enabled: !f.enabled } : f
+    );
+    updateBusinessConfig({ ticketFields: newFields });
   };
 
   return (
@@ -200,35 +211,130 @@ export default function Configuracion() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">Configuración</h1>
-        <p className="text-muted-foreground">Administra sucursales, usuarios y preferencias</p>
+        <p className="text-muted-foreground">Administra tu negocio, {terms.branches.toLowerCase()}, usuarios y preferencias</p>
       </div>
 
-      <Tabs defaultValue="branches" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="business" className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="business" className="gap-2">
+            <Briefcase className="h-4 w-4" />
+            <span className="hidden sm:inline">Negocio</span>
+          </TabsTrigger>
           <TabsTrigger value="branches" className="gap-2">
             <Building2 className="h-4 w-4" />
-            <span className="hidden sm:inline">Sucursales</span>
+            <span className="hidden sm:inline">{terms.branches}</span>
           </TabsTrigger>
           <TabsTrigger value="users" className="gap-2">
             <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Usuarios</span>
+            <span className="hidden sm:inline">{terms.professionals}</span>
           </TabsTrigger>
           <TabsTrigger value="categories" className="gap-2">
             <Tag className="h-4 w-4" />
             <span className="hidden sm:inline">Categorías</span>
           </TabsTrigger>
-          <TabsTrigger value="payments" className="gap-2">
-            <CreditCard className="h-4 w-4" />
-            <span className="hidden sm:inline">Pagos</span>
+          <TabsTrigger value="tickets" className="gap-2">
+            <Receipt className="h-4 w-4" />
+            <span className="hidden sm:inline">Tickets</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* Business Type */}
+        <TabsContent value="business" className="space-y-6">
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Briefcase className="h-5 w-5 text-primary" />
+                Tipo de Negocio
+              </CardTitle>
+              <CardDescription>
+                Selecciona el tipo de negocio para adaptar la terminología
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                {(Object.keys(businessTypeLabels) as BusinessType[]).map(type => (
+                  <button
+                    key={type}
+                    onClick={() => updateBusinessConfig({ type })}
+                    className={`p-4 rounded-xl border-2 transition-all text-left ${
+                      businessConfig.type === type 
+                        ? 'border-primary bg-primary/10' 
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <div className="text-3xl mb-2">{businessTypeIcons[type]}</div>
+                    <div className="font-medium">{businessTypeLabels[type]}</div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      {type === 'salon' && 'Cortes, tintes, manicure, etc.'}
+                      {type === 'nutrition' && 'Consultas, planes alimenticios'}
+                      {type === 'medical' && 'Consultas médicas generales'}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings2 className="h-5 w-5 text-primary" />
+                Datos del Negocio
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Nombre del negocio</Label>
+                  <Input
+                    value={businessConfig.name}
+                    onChange={(e) => updateBusinessConfig({ name: e.target.value })}
+                    placeholder="Mi Negocio"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Teléfono</Label>
+                  <Input
+                    value={businessConfig.phone}
+                    onChange={(e) => updateBusinessConfig({ phone: e.target.value })}
+                    placeholder="555-0000"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Dirección</Label>
+                  <Input
+                    value={businessConfig.address}
+                    onChange={(e) => updateBusinessConfig({ address: e.target.value })}
+                    placeholder="Calle, Número, Colonia, Ciudad"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input
+                    value={businessConfig.email || ''}
+                    onChange={(e) => updateBusinessConfig({ email: e.target.value })}
+                    placeholder="contacto@minegocio.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>RFC (opcional)</Label>
+                  <Input
+                    value={businessConfig.rfc || ''}
+                    onChange={(e) => updateBusinessConfig({ rfc: e.target.value })}
+                    placeholder="XAXX010101000"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Branches */}
         <TabsContent value="branches" className="space-y-4">
           <div className="flex justify-end">
             <Button className="gradient-bg border-0" onClick={() => openBranchDialog()}>
               <Plus className="h-4 w-4 mr-2" />
-              Nueva Sucursal
+              Nueva {terms.branch}
             </Button>
           </div>
 
@@ -271,7 +377,7 @@ export default function Configuracion() {
           <div className="flex justify-end">
             <Button className="gradient-bg border-0" onClick={() => openUserDialog()}>
               <Plus className="h-4 w-4 mr-2" />
-              Nuevo Usuario
+              Nuevo {terms.professional}
             </Button>
           </div>
 
@@ -290,7 +396,7 @@ export default function Configuracion() {
                       <div>
                         <p>{user.name}</p>
                         <Badge variant="secondary" className="text-xs mt-1">
-                          {roleLabels[user.role]}
+                          {terms.role[user.role]}
                         </Badge>
                       </div>
                     </span>
@@ -318,7 +424,7 @@ export default function Configuracion() {
                 <CardTitle className="flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <Scissors className="h-5 w-5 text-primary" />
-                    Categorías de Servicios
+                    Categorías de {terms.services}
                   </span>
                   <Button size="sm" variant="outline" onClick={() => openCategoryDialog('service')}>
                     <Plus className="h-4 w-4 mr-1" />
@@ -376,41 +482,40 @@ export default function Configuracion() {
           </div>
         </TabsContent>
 
-        {/* Payments */}
-        <TabsContent value="payments" className="space-y-4">
+        {/* Tickets */}
+        <TabsContent value="tickets" className="space-y-6">
           <Card className="glass-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-primary" />
-                Métodos de Pago
+                <Receipt className="h-5 w-5 text-primary" />
+                Configuración de Tickets
               </CardTitle>
               <CardDescription>
-                Configura los métodos de pago aceptados
+                Personaliza qué información aparece en los tickets impresos
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {paymentMethods.map(method => (
-                <div key={method.id} className="flex items-center justify-between p-3 rounded-lg border">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      {method.id === 'cash' && <CreditCard className="h-4 w-4 text-primary" />}
-                      {method.id === 'card' && <CreditCard className="h-4 w-4 text-primary" />}
-                      {method.id === 'transfer' && <CreditCard className="h-4 w-4 text-primary" />}
-                      {method.id === 'mixed' && <CreditCard className="h-4 w-4 text-primary" />}
-                    </div>
-                    <div>
-                      <p className="font-medium">{method.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {method.id === 'cash' && 'Pagos en efectivo'}
-                        {method.id === 'card' && 'Tarjetas de crédito y débito'}
-                        {method.id === 'transfer' && 'Transferencias bancarias'}
-                        {method.id === 'mixed' && 'Combinación de métodos'}
-                      </p>
-                    </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {businessConfig.ticketFields.map(field => (
+                  <div key={field.id} className="flex items-center justify-between p-3 rounded-lg border">
+                    <span className="text-sm">{field.label}</span>
+                    <Switch
+                      checked={field.enabled}
+                      onCheckedChange={() => toggleTicketField(field.id)}
+                    />
                   </div>
-                  <Switch defaultChecked />
-                </div>
-              ))}
+                ))}
+              </div>
+              
+              <div className="space-y-2 pt-4 border-t">
+                <Label>Mensaje de pie del ticket</Label>
+                <Textarea
+                  value={businessConfig.ticketFooter || ''}
+                  onChange={(e) => updateBusinessConfig({ ticketFooter: e.target.value })}
+                  placeholder="¡Gracias por su preferencia!"
+                  rows={2}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -420,7 +525,7 @@ export default function Configuracion() {
       <Dialog open={isBranchDialogOpen} onOpenChange={setIsBranchDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingBranch ? 'Editar Sucursal' : 'Nueva Sucursal'}</DialogTitle>
+            <DialogTitle>{editingBranch ? `Editar ${terms.branch}` : `Nueva ${terms.branch}`}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -428,7 +533,7 @@ export default function Configuracion() {
               <Input
                 value={branchForm.name}
                 onChange={(e) => setBranchForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Nombre de la sucursal"
+                placeholder={`Nombre de la ${terms.branch.toLowerCase()}`}
               />
             </div>
             <div className="space-y-2">
@@ -459,7 +564,7 @@ export default function Configuracion() {
       <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}</DialogTitle>
+            <DialogTitle>{editingUser ? `Editar ${terms.professional}` : `Nuevo ${terms.professional}`}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -480,9 +585,9 @@ export default function Configuracion() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Administrador</SelectItem>
-                  <SelectItem value="stylist">Estilista</SelectItem>
-                  <SelectItem value="receptionist">Recepción</SelectItem>
+                  <SelectItem value="admin">{terms.role.admin}</SelectItem>
+                  <SelectItem value="stylist">{terms.role.stylist}</SelectItem>
+                  <SelectItem value="receptionist">{terms.role.receptionist}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -516,7 +621,7 @@ export default function Configuracion() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Nueva Categoría de {categoryType === 'service' ? 'Servicio' : 'Producto'}
+              Nueva Categoría de {categoryType === 'service' ? terms.service : 'Producto'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
