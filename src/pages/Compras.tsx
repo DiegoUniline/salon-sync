@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '@/contexts/AppContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { 
   purchases as mockPurchases,
   products,
@@ -8,6 +9,7 @@ import {
 import { ShiftRequiredAlert } from '@/components/ShiftRequiredAlert';
 import { useShift } from '@/hooks/useShift';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { AnimatedContainer, AnimatedCard, AnimatedList, AnimatedListItem, PageTransition } from '@/components/ui/animated-container';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,6 +46,7 @@ import {
   ShoppingCart,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 
 const paymentIcons = {
   cash: Banknote,
@@ -59,6 +62,7 @@ const paymentLabels = {
 
 export default function Compras() {
   const { currentBranch } = useApp();
+  const { canCreate, canDelete } = usePermissions();
   const { hasOpenShift } = useShift(currentBranch.id);
   const isMobile = useIsMobile();
   const [purchases, setPurchases] = useState<Purchase[]>(mockPurchases);
@@ -231,7 +235,7 @@ export default function Compras() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button className="gradient-bg border-0">
+            <Button className="gradient-bg border-0" disabled={!canCreate('compras')}>
               <Plus className="h-4 w-4 mr-2" />
               Nueva Compra
             </Button>

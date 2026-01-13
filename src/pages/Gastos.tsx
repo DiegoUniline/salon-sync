@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '@/contexts/AppContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { 
   expenses as mockExpenses,
   expenseCategories,
@@ -7,7 +8,9 @@ import {
 } from '@/lib/mockData';
 import { ShiftRequiredAlert } from '@/components/ShiftRequiredAlert';
 import { useShift } from '@/hooks/useShift';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { AnimatedContainer, AnimatedCard, AnimatedList, AnimatedListItem, PageTransition } from '@/components/ui/animated-container';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,6 +57,7 @@ import {
   PieChart,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 
 const categoryIcons = {
   rent: Building2,
@@ -87,7 +91,9 @@ const paymentLabels = {
 
 export default function Gastos() {
   const { currentBranch } = useApp();
+  const { canCreate, canEdit, canDelete } = usePermissions();
   const { hasOpenShift } = useShift(currentBranch.id);
+  const isMobile = useIsMobile();
   const [expenses, setExpenses] = useState<Expense[]>(mockExpenses);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -209,7 +215,7 @@ export default function Gastos() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button className="gradient-bg border-0">
+            <Button className="gradient-bg border-0" disabled={!canCreate('gastos')}>
               <Plus className="h-4 w-4 mr-2" />
               Nuevo Gasto
             </Button>

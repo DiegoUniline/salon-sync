@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '@/contexts/AppContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { 
   sales as mockSales,
   products,
@@ -12,7 +13,9 @@ import {
 import { TicketPrinter, type TicketData } from '@/components/TicketPrinter';
 import { ShiftRequiredAlert } from '@/components/ShiftRequiredAlert';
 import { useShift } from '@/hooks/useShift';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { AnimatedContainer, AnimatedCard, AnimatedList, AnimatedListItem, PageTransition } from '@/components/ui/animated-container';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -67,6 +70,7 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 
 const paymentIcons = {
   cash: Banknote,
@@ -90,7 +94,9 @@ interface CartItem {
 
 export default function Ventas() {
   const { currentBranch } = useApp();
+  const { canCreate, canDelete } = usePermissions();
   const { hasOpenShift, openShift } = useShift(currentBranch.id);
+  const isMobile = useIsMobile();
   const [sales, setSales] = useState<Sale[]>(mockSales);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -276,7 +282,7 @@ export default function Ventas() {
         </div>
         <Dialog open={isPOSOpen} onOpenChange={setIsPOSOpen}>
           <DialogTrigger asChild>
-            <Button className="gradient-bg border-0">
+            <Button className="gradient-bg border-0" disabled={!canCreate('ventas')}>
               <ShoppingBag className="h-4 w-4 mr-2" />
               Nueva Venta
             </Button>

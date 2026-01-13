@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { products as mockProducts, productCategories, type Product } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { usePermissions } from '@/hooks/usePermissions';
+import { AnimatedContainer, AnimatedCard, AnimatedList, AnimatedListItem, PageTransition } from '@/components/ui/animated-container';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,9 +46,11 @@ import {
   List,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 
 export default function Products() {
   const isMobile = useIsMobile();
+  const { canCreate, canEdit, canDelete } = usePermissions();
   const [products, setProducts] = useState<Product[]>(mockProducts);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -257,7 +261,7 @@ export default function Products() {
         <div className="flex gap-2">
           <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" disabled={!canCreate('productos')}>
                 <Plus className="h-4 w-4 mr-2" />
                 Agregar Múltiples
               </Button>
@@ -292,7 +296,7 @@ export default function Products() {
 
           <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
             <DialogTrigger asChild>
-              <Button className="gradient-bg border-0">
+              <Button className="gradient-bg border-0" disabled={!canCreate('productos')}>
                 <Plus className="h-4 w-4 mr-2" />
                 Nuevo Producto
               </Button>

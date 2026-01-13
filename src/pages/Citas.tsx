@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useSearchParams } from 'react-router-dom';
+import { usePermissions } from '@/hooks/usePermissions';
 import { 
   appointments as mockAppointments, 
   clients, 
@@ -11,6 +12,8 @@ import {
 } from '@/lib/mockData';
 import { TicketPrinter, type TicketData } from '@/components/TicketPrinter';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { AnimatedContainer, AnimatedCard, AnimatedList, AnimatedListItem, PageTransition } from '@/components/ui/animated-container';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -64,6 +67,7 @@ import {
   Receipt,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 
 const statusLabels = {
   'scheduled': 'Agendada',
@@ -81,6 +85,8 @@ const statusColors = {
 
 export default function Citas() {
   const { currentBranch } = useApp();
+  const { canCreate, canEdit, canDelete } = usePermissions();
+  const isMobile = useIsMobile();
   const [searchParams] = useSearchParams();
   const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
   const [search, setSearch] = useState('');
@@ -531,7 +537,7 @@ export default function Citas() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button className="gradient-bg border-0">
+            <Button className="gradient-bg border-0" disabled={!canCreate('agenda')}>
               <Plus className="h-4 w-4 mr-2" />
               Nueva Cita
             </Button>
