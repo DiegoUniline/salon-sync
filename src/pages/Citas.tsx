@@ -79,25 +79,36 @@ const statusColors = {
 
 export default function Citas() {
   const { currentBranch } = useApp();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
 
-  // Form state
+  // Check URL params on mount
+  const urlParamDate = searchParams.get('date');
+  const urlParamTime = searchParams.get('time');
+  const urlParamStylist = searchParams.get('stylist');
+  const urlParamDuration = searchParams.get('duration');
+  const hasUrlParams = !!(urlParamDate || urlParamTime || urlParamStylist);
+
+  // Form state - initialize from URL params if present
   const [clientTab, setClientTab] = useState<'existing' | 'new'>('existing');
   const [clientId, setClientId] = useState('');
   const [newClientName, setNewClientName] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
   const [newClientEmail, setNewClientEmail] = useState('');
-  const [stylistId, setStylistId] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [time, setTime] = useState('09:00');
+  const [stylistId, setStylistId] = useState(urlParamStylist || '');
+  const [date, setDate] = useState(urlParamDate || new Date().toISOString().split('T')[0]);
+  const [time, setTime] = useState(urlParamTime || '09:00');
   const [notes, setNotes] = useState('');
   const [generalDiscount, setGeneralDiscount] = useState(0);
-  const [preselectedDuration, setPreselectedDuration] = useState<number | null>(null);
+  const [preselectedDuration, setPreselectedDuration] = useState<number | null>(
+    urlParamDuration ? parseInt(urlParamDuration) : null
+  );
+  
+  // Dialog state - open automatically if URL params present
+  const [isDialogOpen, setIsDialogOpen] = useState(hasUrlParams);
   
   // Odoo-style lines
   const [serviceLines, setServiceLines] = useState<LineItem[]>([]);
@@ -106,26 +117,10 @@ export default function Citas() {
     { id: 'pay-1', method: 'cash', amount: 0 }
   ]);
 
-  // Handle URL params from Agenda
+  // Clear URL params after mount
   useEffect(() => {
-    const paramDate = searchParams.get('date');
-    const paramTime = searchParams.get('time');
-    const paramStylist = searchParams.get('stylist');
-    const paramDuration = searchParams.get('duration');
-    
-    if (paramDate || paramTime || paramStylist) {
-      // Open dialog with preselected values
-      if (paramDate) setDate(paramDate);
-      if (paramTime) setTime(paramTime);
-      if (paramStylist) setStylistId(paramStylist);
-      if (paramDuration) setPreselectedDuration(parseInt(paramDuration));
-      
-      // Use setTimeout to ensure state updates before opening dialog
-      setTimeout(() => {
-        setIsDialogOpen(true);
-        // Clear URL params after dialog opens
-        window.history.replaceState({}, '', '/citas');
-      }, 0);
+    if (hasUrlParams) {
+      window.history.replaceState({}, '', '/citas');
     }
   }, []);
 
