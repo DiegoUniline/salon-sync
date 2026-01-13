@@ -16,6 +16,7 @@ import {
   type DaySchedule,
 } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -77,6 +78,7 @@ import { toast } from 'sonner';
 import { DateRange } from 'react-day-picker';
 
 export default function Horarios() {
+  const isMobile = useIsMobile();
   const [branchSchedules, setBranchSchedules] = useState<BranchSchedule[]>(mockBranchSchedules);
   const [stylistSchedules, setStylistSchedules] = useState<StylistSchedule[]>(mockStylistSchedules);
   const [blockedDays, setBlockedDays] = useState<BlockedDay[]>(mockBlockedDays);
@@ -460,28 +462,28 @@ export default function Horarios() {
             </CardHeader>
             <CardContent>
               {blockedDays.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Fechas</TableHead>
-                      <TableHead>Días</TableHead>
-                      <TableHead>Aplica a</TableHead>
-                      <TableHead>Motivo</TableHead>
-                      <TableHead className="text-right">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                isMobile ? (
+                  <div className="space-y-3">
                     {blockedDays.map(block => (
-                      <TableRow key={block.id}>
-                        <TableCell className="font-medium">
-                          {formatDateRange(block.startDate, block.endDate)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">
-                            {getBlockedDaysCount(block)} día{getBlockedDaysCount(block) > 1 ? 's' : ''}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
+                      <div key={block.id} className="p-4 border rounded-lg space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-medium">{formatDateRange(block.startDate, block.endDate)}</p>
+                            <Badge variant="secondary" className="mt-1">
+                              {getBlockedDaysCount(block)} día{getBlockedDaysCount(block) > 1 ? 's' : ''}
+                            </Badge>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => deleteBlockedDay(block.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
                           <Badge 
                             variant={block.type === 'all' ? 'destructive' : 'outline'}
                             className={cn(
@@ -493,22 +495,63 @@ export default function Horarios() {
                             {block.type === 'stylist' && <Users className="h-3 w-3 mr-1" />}
                             {getTargetName(block)}
                           </Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{block.reason}</TableCell>
-                        <TableCell className="text-right">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => deleteBlockedDay(block.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                        </div>
+                        
+                        <p className="text-sm text-muted-foreground">{block.reason}</p>
+                      </div>
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fechas</TableHead>
+                        <TableHead>Días</TableHead>
+                        <TableHead>Aplica a</TableHead>
+                        <TableHead>Motivo</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {blockedDays.map(block => (
+                        <TableRow key={block.id}>
+                          <TableCell className="font-medium">
+                            {formatDateRange(block.startDate, block.endDate)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">
+                              {getBlockedDaysCount(block)} día{getBlockedDaysCount(block) > 1 ? 's' : ''}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={block.type === 'all' ? 'destructive' : 'outline'}
+                              className={cn(
+                                block.type === 'all' && 'bg-destructive/10 text-destructive border-destructive/30'
+                              )}
+                            >
+                              {block.type === 'all' && <Ban className="h-3 w-3 mr-1" />}
+                              {block.type === 'branch' && <Building2 className="h-3 w-3 mr-1" />}
+                              {block.type === 'stylist' && <Users className="h-3 w-3 mr-1" />}
+                              {getTargetName(block)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{block.reason}</TableCell>
+                          <TableCell className="text-right">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => deleteBlockedDay(block.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Check className="h-12 w-12 mx-auto mb-3 text-success opacity-50" />

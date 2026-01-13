@@ -8,6 +8,7 @@ import {
   type InventoryMovement,
 } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -56,6 +57,7 @@ import { toast } from 'sonner';
 
 export default function Inventario() {
   const { currentBranch } = useApp();
+  const isMobile = useIsMobile();
   const [products, setProducts] = useState<Product[]>(mockProducts);
   const [movements, setMovements] = useState<InventoryMovement[]>(mockMovements);
   const [search, setSearch] = useState('');
@@ -243,126 +245,225 @@ export default function Inventario() {
             </div>
           </div>
 
-          {/* Table */}
-          <div className="glass-card rounded-xl overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Producto</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Categoría</TableHead>
-                  <TableHead className="text-center">Stock</TableHead>
-                  <TableHead className="text-center">Mínimo</TableHead>
-                  <TableHead className="text-right">Costo Unit.</TableHead>
-                  <TableHead className="text-right">Valor Total</TableHead>
-                  <TableHead>Estado</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredProducts.map((product) => {
-                  const isLowStock = product.stock <= product.minStock;
-                  return (
-                    <TableRow key={product.id}>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell className="text-muted-foreground">{product.sku}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{product.category}</Badge>
-                      </TableCell>
-                      <TableCell className={cn("text-center font-semibold", isLowStock && "text-destructive")}>
-                        {product.stock}
-                      </TableCell>
-                      <TableCell className="text-center text-muted-foreground">
-                        {product.minStock}
-                      </TableCell>
-                      <TableCell className="text-right">${product.cost}</TableCell>
-                      <TableCell className="text-right font-semibold">
-                        ${(product.cost * product.stock).toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        {isLowStock ? (
-                          <Badge variant="destructive" className="gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            Bajo
-                          </Badge>
-                        ) : (
-                          <Badge variant="default" className="bg-success/20 text-success border-success/30">
-                            OK
-                          </Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+          {/* Table / Mobile Cards */}
+          {isMobile ? (
+            <div className="space-y-3">
+              {filteredProducts.map((product) => {
+                const isLowStock = product.stock <= product.minStock;
+                return (
+                  <div key={product.id} className="glass-card rounded-xl p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-semibold">{product.name}</p>
+                        <p className="text-sm text-muted-foreground">{product.sku}</p>
+                      </div>
+                      {isLowStock ? (
+                        <Badge variant="destructive" className="gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Bajo
+                        </Badge>
+                      ) : (
+                        <Badge variant="default" className="bg-success/20 text-success border-success/30">
+                          OK
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">{product.category}</Badge>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 pt-2 border-t text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Stock</p>
+                        <p className={cn("font-semibold", isLowStock && "text-destructive")}>
+                          {product.stock} / {product.minStock} min
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Valor</p>
+                        <p className="font-semibold">${(product.cost * product.stock).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="glass-card rounded-xl overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Producto</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Categoría</TableHead>
+                    <TableHead className="text-center">Stock</TableHead>
+                    <TableHead className="text-center">Mínimo</TableHead>
+                    <TableHead className="text-right">Costo Unit.</TableHead>
+                    <TableHead className="text-right">Valor Total</TableHead>
+                    <TableHead>Estado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredProducts.map((product) => {
+                    const isLowStock = product.stock <= product.minStock;
+                    return (
+                      <TableRow key={product.id}>
+                        <TableCell className="font-medium">{product.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{product.sku}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{product.category}</Badge>
+                        </TableCell>
+                        <TableCell className={cn("text-center font-semibold", isLowStock && "text-destructive")}>
+                          {product.stock}
+                        </TableCell>
+                        <TableCell className="text-center text-muted-foreground">
+                          {product.minStock}
+                        </TableCell>
+                        <TableCell className="text-right">${product.cost}</TableCell>
+                        <TableCell className="text-right font-semibold">
+                          ${(product.cost * product.stock).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          {isLowStock ? (
+                            <Badge variant="destructive" className="gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              Bajo
+                            </Badge>
+                          ) : (
+                            <Badge variant="default" className="bg-success/20 text-success border-success/30">
+                              OK
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="movements" className="space-y-4">
-          <div className="glass-card rounded-xl overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Producto</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead className="text-center">Cantidad</TableHead>
-                  <TableHead>Razón</TableHead>
-                  <TableHead>Referencia</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {movements.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No hay movimientos registrados
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  movements.map((movement) => (
-                    <TableRow key={movement.id}>
-                      <TableCell>
-                        {new Date(movement.date).toLocaleDateString('es-MX')}
-                      </TableCell>
-                      <TableCell className="font-medium">{movement.product.name}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {movement.type === 'in' && (
-                            <>
-                              <ArrowUpCircle className="h-4 w-4 text-success" />
-                              <span className="text-success">Entrada</span>
-                            </>
-                          )}
-                          {movement.type === 'out' && (
-                            <>
-                              <ArrowDownCircle className="h-4 w-4 text-destructive" />
-                              <span className="text-destructive">Salida</span>
-                            </>
-                          )}
-                          {movement.type === 'adjustment' && (
-                            <>
-                              <RefreshCw className="h-4 w-4 text-warning" />
-                              <span className="text-warning">Ajuste</span>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className={cn(
-                        "text-center font-semibold",
+          {isMobile ? (
+            <div className="space-y-3">
+              {movements.length === 0 ? (
+                <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
+                  No hay movimientos registrados
+                </div>
+              ) : (
+                movements.map((movement) => (
+                  <div key={movement.id} className="glass-card rounded-xl p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-semibold">{movement.product.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(movement.date).toLocaleDateString('es-MX')}
+                        </p>
+                      </div>
+                      <div className={cn(
+                        "text-lg font-bold",
                         movement.quantity > 0 ? "text-success" : "text-destructive"
                       )}>
                         {movement.quantity > 0 ? '+' : ''}{movement.quantity}
-                      </TableCell>
-                      <TableCell>{movement.reason}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {movement.reference || '-'}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {movement.type === 'in' && (
+                        <Badge className="bg-success/20 text-success border-success/30 gap-1">
+                          <ArrowUpCircle className="h-3 w-3" />
+                          Entrada
+                        </Badge>
+                      )}
+                      {movement.type === 'out' && (
+                        <Badge variant="destructive" className="gap-1">
+                          <ArrowDownCircle className="h-3 w-3" />
+                          Salida
+                        </Badge>
+                      )}
+                      {movement.type === 'adjustment' && (
+                        <Badge className="bg-warning/20 text-warning border-warning/30 gap-1">
+                          <RefreshCw className="h-3 w-3" />
+                          Ajuste
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    <p className="text-sm text-muted-foreground pt-2 border-t">
+                      {movement.reason}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          ) : (
+            <div className="glass-card rounded-xl overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Producto</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead className="text-center">Cantidad</TableHead>
+                    <TableHead>Razón</TableHead>
+                    <TableHead>Referencia</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {movements.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        No hay movimientos registrados
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  ) : (
+                    movements.map((movement) => (
+                      <TableRow key={movement.id}>
+                        <TableCell>
+                          {new Date(movement.date).toLocaleDateString('es-MX')}
+                        </TableCell>
+                        <TableCell className="font-medium">{movement.product.name}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {movement.type === 'in' && (
+                              <>
+                                <ArrowUpCircle className="h-4 w-4 text-success" />
+                                <span className="text-success">Entrada</span>
+                              </>
+                            )}
+                            {movement.type === 'out' && (
+                              <>
+                                <ArrowDownCircle className="h-4 w-4 text-destructive" />
+                                <span className="text-destructive">Salida</span>
+                              </>
+                            )}
+                            {movement.type === 'adjustment' && (
+                              <>
+                                <RefreshCw className="h-4 w-4 text-warning" />
+                                <span className="text-warning">Ajuste</span>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className={cn(
+                          "text-center font-semibold",
+                          movement.quantity > 0 ? "text-success" : "text-destructive"
+                        )}>
+                          {movement.quantity > 0 ? '+' : ''}{movement.quantity}
+                        </TableCell>
+                        <TableCell>{movement.reason}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {movement.reference || '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
