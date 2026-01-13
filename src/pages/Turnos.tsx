@@ -1,10 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '@/contexts/AppContext';
-import { 
-  shifts as mockShifts,
-  stylists,
-  type Shift,
-} from '@/lib/mockData';
+import { stylists } from '@/lib/mockData';
+import { useShift } from '@/hooks/useShift';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,10 +45,9 @@ import { toast } from 'sonner';
 
 export default function Turnos() {
   const { currentBranch } = useApp();
-  const [shifts, setShifts] = useState<Shift[]>(mockShifts);
+  const { shifts, openShift, hasOpenShift, openTurn, closeTurn, getShiftsForBranch } = useShift(currentBranch.id);
   const [isOpenDialogOpen, setIsOpenDialogOpen] = useState(false);
   const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
-  const [closingShift, setClosingShift] = useState<Shift | null>(null);
 
   const [openFormData, setOpenFormData] = useState({
     userId: '',
@@ -62,65 +58,44 @@ export default function Turnos() {
     finalCash: '',
   });
 
-  const filteredShifts = shifts.filter(s => s.branchId === currentBranch.id);
-  const openShift = filteredShifts.find(s => s.status === 'open');
+  const filteredShifts = getShiftsForBranch(currentBranch.id);
 
-  const today = new Date().toISOString().split('T')[0];
-
-  const openTurn = () => {
+  const handleOpenTurn = () => {
     if (!openFormData.userId || !openFormData.initialCash) {
       toast.error('Completa los campos requeridos');
       return;
     }
 
-    const user = stylists.find(s => s.id === openFormData.userId)!;
-    const now = new Date();
+    const result = openTurn(
+      openFormData.userId,
+      parseFloat(openFormData.initialCash),
+      currentBranch.id
+    );
 
-    const newShift: Shift = {
-      id: `sh${Date.now()}`,
-      branchId: currentBranch.id,
-      userId: openFormData.userId,
-      user,
-      date: today,
-      startTime: now.toTimeString().slice(0, 5),
-      initialCash: parseFloat(openFormData.initialCash),
-      status: 'open',
-    };
-
-    setShifts(prev => [newShift, ...prev]);
-    toast.success('Turno abierto correctamente');
-    setIsOpenDialogOpen(false);
-    setOpenFormData({ userId: '', initialCash: '' });
+    if (result) {
+      toast.success('Turno abierto correctamente');
+      setIsOpenDialogOpen(false);
+      setOpenFormData({ userId: '', initialCash: '' });
+    } else {
+      toast.error('No se pudo abrir el turno');
+    }
   };
 
-  const initiateClose = (shift: Shift) => {
-    setClosingShift(shift);
-    setIsCloseDialogOpen(true);
-  };
-
-  const closeTurn = () => {
-    if (!closingShift || !closeFormData.finalCash) {
+  const handleCloseTurn = () => {
+    if (!openShift || !closeFormData.finalCash) {
       toast.error('Ingresa el efectivo final');
       return;
     }
 
-    const now = new Date();
+    const success = closeTurn(openShift.id, parseFloat(closeFormData.finalCash));
 
-    setShifts(prev => prev.map(s => 
-      s.id === closingShift.id
-        ? {
-            ...s,
-            endTime: now.toTimeString().slice(0, 5),
-            finalCash: parseFloat(closeFormData.finalCash),
-            status: 'closed' as const,
-          }
-        : s
-    ));
-
-    toast.success('Turno cerrado correctamente');
-    setIsCloseDialogOpen(false);
-    setClosingShift(null);
-    setCloseFormData({ finalCash: '' });
+    if (success) {
+      toast.success('Turno cerrado correctamente');
+      setIsCloseDialogOpen(false);
+      setCloseFormData({ finalCash: '' });
+    } else {
+      toast.error('No se pudo cerrar el turno');
+    }
   };
 
   const formatTime = (time: string) => {
@@ -208,7 +183,7 @@ export default function Turnos() {
                     </Button>
                     <Button 
                       className="gradient-bg border-0"
-                      onClick={openTurn}
+                      onClick={handleOpenTurn}
                       disabled={!openFormData.userId || !openFormData.initialCash}
                     >
                       <PlayCircle className="h-4 w-4 mr-2" />
@@ -221,7 +196,7 @@ export default function Turnos() {
           ) : (
             <Button 
               variant="destructive"
-              onClick={() => initiateClose(openShift)}
+              onClick={() => setIsCloseDialogOpen(true)}
             >
               <LogOut className="h-4 w-4 mr-2" />
               Cerrar Turno
@@ -363,26 +338,26 @@ export default function Turnos() {
       </div>
 
       {/* Close Turn Dialog */}
-      <Dialog open={isCloseDialogOpen} onOpenChange={(open) => { setIsCloseDialogOpen(open); if (!open) setClosingShift(null); }}>
+      <Dialog open={isCloseDialogOpen} onOpenChange={setIsCloseDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Cerrar Turno</DialogTitle>
           </DialogHeader>
           
-          {closingShift && (
+          {openShift && (
             <div className="space-y-4 py-4">
               <div className="p-3 bg-secondary/50 rounded-lg text-sm space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Responsable:</span>
-                  <span className="font-medium">{closingShift.user.name}</span>
+                  <span className="font-medium">{openShift.user.name}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Hora de apertura:</span>
-                  <span>{formatTime(closingShift.startTime)}</span>
+                  <span>{formatTime(openShift.startTime)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Efectivo inicial:</span>
-                  <span className="font-medium">${closingShift.initialCash.toLocaleString()}</span>
+                  <span className="font-medium">${openShift.initialCash.toLocaleString()}</span>
                 </div>
               </div>
 
@@ -402,12 +377,12 @@ export default function Turnos() {
               </div>
 
               <div className="flex justify-end gap-3 pt-4">
-                <Button variant="outline" onClick={() => { setIsCloseDialogOpen(false); setClosingShift(null); }}>
+                <Button variant="outline" onClick={() => setIsCloseDialogOpen(false)}>
                   Cancelar
                 </Button>
                 <Button 
                   variant="destructive"
-                  onClick={closeTurn}
+                  onClick={handleCloseTurn}
                   disabled={!closeFormData.finalCash}
                 >
                   <StopCircle className="h-4 w-4 mr-2" />
