@@ -5,6 +5,8 @@ import {
   products,
   type Purchase,
 } from '@/lib/mockData';
+import { ShiftRequiredAlert } from '@/components/ShiftRequiredAlert';
+import { useShift } from '@/hooks/useShift';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -56,6 +58,7 @@ const paymentLabels = {
 
 export default function Compras() {
   const { currentBranch } = useApp();
+  const { hasOpenShift } = useShift(currentBranch.id);
   const [purchases, setPurchases] = useState<Purchase[]>(mockPurchases);
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -69,6 +72,19 @@ export default function Compras() {
   const [payments, setPayments] = useState<Payment[]>([
     { id: 'pay-1', method: 'transfer', amount: 0 }
   ]);
+
+  // Require open shift for purchases
+  if (!hasOpenShift) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Compras</h1>
+          <p className="text-muted-foreground">Registro de compras a proveedores</p>
+        </div>
+        <ShiftRequiredAlert action="registrar compras" />
+      </div>
+    );
+  }
 
   const filteredPurchases = purchases.filter(p => {
     const matchesBranch = p.branchId === currentBranch.id;

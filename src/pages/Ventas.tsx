@@ -10,6 +10,8 @@ import {
   type Service,
 } from '@/lib/mockData';
 import { TicketPrinter, type TicketData } from '@/components/TicketPrinter';
+import { ShiftRequiredAlert } from '@/components/ShiftRequiredAlert';
+import { useShift } from '@/hooks/useShift';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -88,6 +90,7 @@ interface CartItem {
 
 export default function Ventas() {
   const { currentBranch } = useApp();
+  const { hasOpenShift, openShift } = useShift(currentBranch.id);
   const [sales, setSales] = useState<Sale[]>(mockSales);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -104,6 +107,19 @@ export default function Ventas() {
   // Ticket state
   const [showTicket, setShowTicket] = useState(false);
   const [ticketData, setTicketData] = useState<TicketData | null>(null);
+
+  // Require open shift for sales
+  if (!hasOpenShift) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Ventas</h1>
+          <p className="text-muted-foreground">Punto de venta y registro</p>
+        </div>
+        <ShiftRequiredAlert action="registrar ventas" />
+      </div>
+    );
+  }
 
   const filteredSales = sales.filter(s => {
     const matchesBranch = s.branchId === currentBranch.id;

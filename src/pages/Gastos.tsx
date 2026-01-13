@@ -5,6 +5,8 @@ import {
   expenseCategories,
   type Expense,
 } from '@/lib/mockData';
+import { ShiftRequiredAlert } from '@/components/ShiftRequiredAlert';
+import { useShift } from '@/hooks/useShift';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -85,6 +87,7 @@ const paymentLabels = {
 
 export default function Gastos() {
   const { currentBranch } = useApp();
+  const { hasOpenShift } = useShift(currentBranch.id);
   const [expenses, setExpenses] = useState<Expense[]>(mockExpenses);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -99,6 +102,19 @@ export default function Gastos() {
     date: new Date().toISOString().split('T')[0],
     supplier: '',
   });
+
+  // Require open shift for expenses
+  if (!hasOpenShift) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Gastos</h1>
+          <p className="text-muted-foreground">Control de gastos de la sucursal</p>
+        </div>
+        <ShiftRequiredAlert action="registrar gastos" />
+      </div>
+    );
+  }
 
   const filteredExpenses = expenses.filter(e => {
     const matchesBranch = e.branchId === currentBranch.id;
