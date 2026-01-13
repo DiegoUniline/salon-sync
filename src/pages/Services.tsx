@@ -70,6 +70,8 @@ export default function Services() {
     price: 0,
     commission: 0,
     active: true,
+    allowConcurrent: false,
+    maxConcurrent: 1,
   });
 
   // Bulk form lines
@@ -90,7 +92,7 @@ export default function Services() {
   }, {} as Record<string, Service[]>);
 
   const resetForm = () => {
-    setFormData({ name: '', category: 'Corte', duration: 30, price: 0, commission: 0, active: true });
+    setFormData({ name: '', category: 'Corte', duration: 30, price: 0, commission: 0, active: true, allowConcurrent: false, maxConcurrent: 1 });
     setEditingService(null);
   };
 
@@ -103,6 +105,8 @@ export default function Services() {
       price: service.price,
       commission: service.commission || 0,
       active: service.active,
+      allowConcurrent: service.allowConcurrent || false,
+      maxConcurrent: service.maxConcurrent || 1,
     });
     setIsDialogOpen(true);
   };
@@ -341,6 +345,46 @@ export default function Services() {
                   />
                   <Label>Servicio activo</Label>
                 </div>
+                
+                {/* Citas simultáneas */}
+                <div className="border rounded-lg p-4 space-y-4 bg-secondary/30">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm font-medium">Permitir citas simultáneas</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        El estilista puede atender múltiples clientes a la vez con este servicio
+                      </p>
+                    </div>
+                    <Switch
+                      checked={formData.allowConcurrent}
+                      onCheckedChange={(checked) => setFormData(prev => ({ 
+                        ...prev, 
+                        allowConcurrent: checked,
+                        maxConcurrent: checked ? 2 : 1 
+                      }))}
+                    />
+                  </div>
+                  
+                  {formData.allowConcurrent && (
+                    <div className="space-y-2">
+                      <Label>Máximo de clientes simultáneos</Label>
+                      <Select 
+                        value={formData.maxConcurrent.toString()} 
+                        onValueChange={(v) => setFormData(prev => ({ ...prev, maxConcurrent: parseInt(v) }))}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="2">2 clientes</SelectItem>
+                          <SelectItem value="3">3 clientes</SelectItem>
+                          <SelectItem value="4">4 clientes</SelectItem>
+                          <SelectItem value="5">5 clientes</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
                 <div className="flex justify-end gap-3 pt-4">
                   <Button variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>
                     Cancelar
@@ -410,6 +454,7 @@ export default function Services() {
                 <TableHead className="text-center">Duración</TableHead>
                 <TableHead className="text-right">Precio</TableHead>
                 <TableHead className="text-center">Comisión</TableHead>
+                <TableHead className="text-center">Simultáneos</TableHead>
                 <TableHead className="text-center">Activo</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
@@ -435,6 +480,15 @@ export default function Services() {
                   <TableCell className="text-right font-semibold">${service.price}</TableCell>
                   <TableCell className="text-center">{service.commission || 0}%</TableCell>
                   <TableCell className="text-center">
+                    {service.allowConcurrent ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-success/10 text-success">
+                        {service.maxConcurrent || 2} máx
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">1 cliente</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
                     <Switch
                       checked={service.active}
                       onCheckedChange={(active) => toggleService(service.id, active)}
@@ -455,7 +509,7 @@ export default function Services() {
               ))}
               {filteredServices.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No se encontraron servicios
                   </TableCell>
                 </TableRow>

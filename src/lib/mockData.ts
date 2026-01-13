@@ -14,6 +14,8 @@ export interface Service {
   price: number;
   commission?: number;
   active: boolean;
+  allowConcurrent?: boolean; // Permite múltiples citas simultáneas para este servicio
+  maxConcurrent?: number; // Máximo de citas simultáneas (default: 1)
 }
 
 export interface Product {
@@ -162,16 +164,16 @@ export const stylists: Stylist[] = [
 export const serviceCategories = ['Corte', 'Color', 'Barba', 'Uñas', 'Facial', 'Peinado', 'Tratamiento'];
 
 export const services: Service[] = [
-  { id: 'sv1', name: 'Corte Clásico', category: 'Corte', duration: 30, price: 250, active: true },
-  { id: 'sv2', name: 'Corte + Barba', category: 'Corte', duration: 45, price: 350, active: true },
-  { id: 'sv3', name: 'Coloración Completa', category: 'Color', duration: 120, price: 800, active: true },
-  { id: 'sv4', name: 'Mechas', category: 'Color', duration: 90, price: 650, active: true },
-  { id: 'sv5', name: 'Arreglo de Barba', category: 'Barba', duration: 20, price: 150, active: true },
-  { id: 'sv6', name: 'Manicure', category: 'Uñas', duration: 40, price: 200, active: true },
-  { id: 'sv7', name: 'Pedicure', category: 'Uñas', duration: 50, price: 280, active: true },
-  { id: 'sv8', name: 'Facial Express', category: 'Facial', duration: 30, price: 300, active: true },
-  { id: 'sv9', name: 'Peinado Especial', category: 'Peinado', duration: 60, price: 400, active: true },
-  { id: 'sv10', name: 'Tratamiento Capilar', category: 'Tratamiento', duration: 45, price: 350, active: true },
+  { id: 'sv1', name: 'Corte Clásico', category: 'Corte', duration: 30, price: 250, active: true, allowConcurrent: false },
+  { id: 'sv2', name: 'Corte + Barba', category: 'Corte', duration: 45, price: 350, active: true, allowConcurrent: false },
+  { id: 'sv3', name: 'Coloración Completa', category: 'Color', duration: 120, price: 800, active: true, allowConcurrent: false },
+  { id: 'sv4', name: 'Mechas', category: 'Color', duration: 90, price: 650, active: true, allowConcurrent: false },
+  { id: 'sv5', name: 'Arreglo de Barba', category: 'Barba', duration: 20, price: 150, active: true, allowConcurrent: false },
+  { id: 'sv6', name: 'Manicure', category: 'Uñas', duration: 40, price: 200, active: true, allowConcurrent: true, maxConcurrent: 2 },
+  { id: 'sv7', name: 'Pedicure', category: 'Uñas', duration: 50, price: 280, active: true, allowConcurrent: true, maxConcurrent: 2 },
+  { id: 'sv8', name: 'Facial Express', category: 'Facial', duration: 30, price: 300, active: true, allowConcurrent: false },
+  { id: 'sv9', name: 'Peinado Especial', category: 'Peinado', duration: 60, price: 400, active: true, allowConcurrent: false },
+  { id: 'sv10', name: 'Tratamiento Capilar', category: 'Tratamiento', duration: 45, price: 350, active: true, allowConcurrent: false },
 ];
 
 export const productCategories = ['Shampoo', 'Acondicionador', 'Styling', 'Tratamiento', 'Accesorios'];
