@@ -9,6 +9,7 @@ import {
   products,
   type Appointment, 
 } from '@/lib/mockData';
+import { TicketPrinter, type TicketData } from '@/components/TicketPrinter';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,6 +61,7 @@ import {
   PlayCircle,
   Package,
   Percent,
+  Receipt,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -107,6 +109,17 @@ export default function Citas() {
   const [payments, setPayments] = useState<Payment[]>([
     { id: 'pay-1', method: 'cash', amount: 0 }
   ]);
+  
+  // Ticket state
+  const [showTicket, setShowTicket] = useState(false);
+  const [ticketData, setTicketData] = useState<TicketData | null>(null);
+
+  const paymentLabels: Record<string, string> = {
+    cash: 'Efectivo',
+    card: 'Tarjeta',
+    transfer: 'Transferencia',
+    mixed: 'Mixto',
+  };
 
   // Handle URL params from Agenda - runs on every searchParams change
   useEffect(() => {
@@ -460,10 +473,47 @@ export default function Citas() {
   };
 
   const updateStatus = (id: string, status: Appointment['status']) => {
+    const appointment = appointments.find(a => a.id === id);
     setAppointments(prev => prev.map(a => 
       a.id === id ? { ...a, status } : a
     ));
     toast.success(`Cita marcada como ${statusLabels[status].toLowerCase()}`);
+    
+    // Show ticket when completing appointment
+    if (status === 'completed' && appointment) {
+      showAppointmentTicket(appointment);
+    }
+  };
+
+  const showAppointmentTicket = (appointment: Appointment) => {
+    const folio = `C${appointment.id.replace('a', '')}`;
+    const serviceItems = appointment.services.map(s => ({
+      name: s.name,
+      quantity: 1,
+      price: s.price,
+    }));
+    const productItems = (appointment.products || []).map(p => ({
+      name: p.product.name,
+      quantity: p.quantity,
+      price: p.product.price,
+    }));
+    
+    const paymentMethod = appointment.paymentMethod || 'cash';
+    
+    setTicketData({
+      folio,
+      date: new Date(`${appointment.date}T${appointment.time}`),
+      clientName: appointment.client.name,
+      clientPhone: appointment.client.phone,
+      professionalName: appointment.stylist.name,
+      services: serviceItems,
+      products: productItems,
+      subtotal: appointment.total,
+      discount: 0,
+      total: appointment.total,
+      paymentMethod: paymentLabels[paymentMethod] || paymentMethod,
+    });
+    setShowTicket(true);
   };
 
   const deleteAppointment = (id: string) => {
@@ -869,9 +919,20 @@ export default function Citas() {
                             variant="ghost"
                             className="h-8 w-8 text-success"
                             onClick={() => updateStatus(appointment.id, 'completed')}
-                            title="Completar"
+                            title="Completar y cobrar"
                           >
                             <CheckCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {appointment.status === 'completed' && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-primary"
+                            onClick={() => showAppointmentTicket(appointment)}
+                            title="Imprimir ticket"
+                          >
+                            <Receipt className="h-4 w-4" />
                           </Button>
                         )}
                         {(appointment.status === 'scheduled' || appointment.status === 'in-progress') && (
@@ -909,6 +970,15 @@ export default function Citas() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Ticket Printer */}
+      {ticketData && (
+        <TicketPrinter
+          open={showTicket}
+          onOpenChange={setShowTicket}
+          data={ticketData}
+        />
+      )}
     </div>
   );
 }
