@@ -147,6 +147,72 @@ export interface CashCut {
   directSalesCount: number;
 }
 
+// Schedule types
+export interface DaySchedule {
+  isOpen: boolean;
+  startTime: string;
+  endTime: string;
+}
+
+export interface WeekSchedule {
+  [key: number]: DaySchedule; // 0 = Sunday, 1 = Monday, etc.
+}
+
+export interface BranchSchedule {
+  branchId: string;
+  schedule: WeekSchedule;
+}
+
+export interface StylistSchedule {
+  stylistId: string;
+  branchId: string;
+  schedule: WeekSchedule;
+}
+
+export interface BlockedDay {
+  id: string;
+  type: 'all' | 'branch' | 'stylist';
+  targetId?: string; // branchId or stylistId depending on type
+  startDate: string;
+  endDate: string;
+  reason: string;
+}
+
+export const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+export const dayNamesShort = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+// Default schedule template
+export const defaultSchedule: WeekSchedule = {
+  0: { isOpen: false, startTime: '09:00', endTime: '18:00' }, // Domingo
+  1: { isOpen: true, startTime: '09:00', endTime: '20:00' },  // Lunes
+  2: { isOpen: true, startTime: '09:00', endTime: '20:00' },  // Martes
+  3: { isOpen: true, startTime: '09:00', endTime: '20:00' },  // Miércoles
+  4: { isOpen: true, startTime: '09:00', endTime: '20:00' },  // Jueves
+  5: { isOpen: true, startTime: '09:00', endTime: '20:00' },  // Viernes
+  6: { isOpen: true, startTime: '09:00', endTime: '18:00' },  // Sábado
+};
+
+// Mock branch schedules
+export const branchSchedules: BranchSchedule[] = [
+  { branchId: 'b1', schedule: { ...defaultSchedule } },
+  { branchId: 'b2', schedule: { ...defaultSchedule } },
+  { branchId: 'b3', schedule: { ...defaultSchedule, 0: { isOpen: true, startTime: '10:00', endTime: '16:00' } } },
+];
+
+// Mock stylist schedules
+export const stylistSchedules: StylistSchedule[] = [
+  { stylistId: 's1', branchId: 'b1', schedule: { ...defaultSchedule } },
+  { stylistId: 's2', branchId: 'b1', schedule: { ...defaultSchedule, 0: { isOpen: false, startTime: '09:00', endTime: '18:00' }, 6: { isOpen: false, startTime: '09:00', endTime: '18:00' } } },
+  { stylistId: 's3', branchId: 'b1', schedule: { ...defaultSchedule } },
+];
+
+// Mock blocked days
+export const blockedDays: BlockedDay[] = [
+  { id: 'bd1', type: 'all', startDate: '2025-12-25', endDate: '2025-12-25', reason: 'Navidad' },
+  { id: 'bd2', type: 'all', startDate: '2026-01-01', endDate: '2026-01-01', reason: 'Año Nuevo' },
+  { id: 'bd3', type: 'stylist', targetId: 's2', startDate: '2026-01-20', endDate: '2026-01-24', reason: 'Vacaciones' },
+];
+
 // Mock Data
 export const branches: Branch[] = [
   { id: 'b1', name: 'Sucursal Centro', address: 'Av. Principal 123', phone: '555-0101' },

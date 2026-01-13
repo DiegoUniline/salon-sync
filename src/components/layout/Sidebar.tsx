@@ -14,6 +14,7 @@ import {
   DollarSign,
   Clock,
   FileText,
+  CalendarClock,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -32,6 +33,7 @@ const navItems = [
   { path: '/ventas', icon: DollarSign, label: 'Ventas' },
   { path: '/turnos', icon: Clock, label: 'Turnos' },
   { path: '/cortes', icon: FileText, label: 'Cortes' },
+  { path: '/horarios', icon: CalendarClock, label: 'Horarios' },
   { path: '/configuracion', icon: Settings, label: 'Configuración' },
 ];
 
