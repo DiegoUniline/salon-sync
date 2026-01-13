@@ -53,6 +53,9 @@ export function OdooLineEditor({
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Get only editable columns
+  const editableColumns = columns.filter(c => !c.readOnly);
+
   const getCellKey = (lineId: string, colKey: string) => `${lineId}-${colKey}`;
 
   const focusCell = (lineId: string, colKey: string) => {
@@ -66,50 +69,61 @@ export function OdooLineEditor({
     }, 10);
   };
 
+  // Find next editable column index
+  const getNextEditableColIndex = (currentColIndex: number): number => {
+    for (let i = currentColIndex + 1; i < columns.length; i++) {
+      if (!columns[i].readOnly) {
+        return i;
+      }
+    }
+    return -1; // No more editable columns
+  };
+
+  // Find first editable column
+  const getFirstEditableColIndex = (): number => {
+    return columns.findIndex(c => !c.readOnly);
+  };
+
   const handleKeyDown = (
     e: KeyboardEvent<HTMLInputElement>,
     lineIndex: number,
     colIndex: number,
     line: LineItem
   ) => {
-    const editableColumns = columns.filter(c => !c.readOnly);
-    
     if (e.key === 'Tab') {
       e.preventDefault();
       setShowDropdown(false);
       setSearchQuery('');
 
-      const isLastColumn = colIndex === columns.length - 1;
+      const nextEditableColIndex = getNextEditableColIndex(colIndex);
+      const isLastEditableCol = nextEditableColIndex === -1;
       const isLastLine = lineIndex === lines.length - 1;
 
-      if (isLastColumn && isLastLine) {
-        // Last cell of last line - add new line
+      if (isLastEditableCol && isLastLine) {
+        // Last editable cell of last line - add new line
         onAddLine();
         setTimeout(() => {
-          const newLineId = lines.length > 0 ? `new-${Date.now()}` : '';
-          if (columns[0]) {
-            focusCell(newLineId, columns[0].key);
+          if (lines.length > 0) {
+            // Focus will be handled by useEffect when new line is added
           }
         }, 50);
-      } else if (isLastColumn) {
-        // Move to first column of next line
+      } else if (isLastEditableCol) {
+        // Move to first editable column of next line
         const nextLine = lines[lineIndex + 1];
-        if (nextLine) {
-          focusCell(nextLine.id, columns[0].key);
+        const firstEditableIndex = getFirstEditableColIndex();
+        if (nextLine && firstEditableIndex >= 0) {
+          focusCell(nextLine.id, columns[firstEditableIndex].key);
         }
       } else {
-        // Move to next column
-        const nextCol = columns[colIndex + 1];
-        if (nextCol) {
-          focusCell(line.id, nextCol.key);
-        }
+        // Move to next editable column in same line
+        focusCell(line.id, columns[nextEditableColIndex].key);
       }
     } else if (e.key === 'Enter') {
       e.preventDefault();
       setShowDropdown(false);
       setSearchQuery('');
       
-      // Move to next line, same column
+      // Move to same column in next line, or add new line
       const nextLine = lines[lineIndex + 1];
       if (nextLine) {
         focusCell(nextLine.id, columns[colIndex].key);
@@ -119,28 +133,22 @@ export function OdooLineEditor({
     } else if (e.key === 'Escape') {
       setShowDropdown(false);
       setSearchQuery('');
-    } else if (e.key === 'ArrowDown' && showDropdown) {
-      e.preventDefault();
-      // Handle dropdown navigation
-    } else if (e.key === 'ArrowUp' && showDropdown) {
-      e.preventDefault();
-      // Handle dropdown navigation
     }
   };
 
-  // Add first line automatically if empty and user focuses container
   const handleContainerClick = () => {
     if (lines.length === 0) {
       onAddLine();
     }
   };
 
+  // Focus first editable cell when new line is added
   useEffect(() => {
-    if (lines.length > 0 && activeCell === null) {
-      const firstLine = lines[lines.length - 1];
-      const firstCol = columns[0];
-      if (firstLine && firstCol) {
-        focusCell(firstLine.id, firstCol.key);
+    if (lines.length > 0) {
+      const lastLine = lines[lines.length - 1];
+      const firstEditableIndex = getFirstEditableColIndex();
+      if (lastLine && firstEditableIndex >= 0) {
+        focusCell(lastLine.id, columns[firstEditableIndex].key);
       }
     }
   }, [lines.length]);
@@ -308,6 +316,16 @@ function SearchCell({
     (item.subLabel && item.subLabel.toLowerCase().includes(localQuery.toLowerCase()))
   );
 
+  // Find next editable column after search selection
+  const getNextEditableColIndex = (currentColIndex: number): number => {
+    for (let i = currentColIndex + 1; i < columns.length; i++) {
+      if (!columns[i].readOnly) {
+        return i;
+      }
+    }
+    return -1;
+  };
+
   const handleSelect = (item: any) => {
     onUpdateLine(line.id, col.key, item.label);
     if (col.onSelect) {
@@ -316,10 +334,10 @@ function SearchCell({
     setShowDropdown(false);
     setLocalQuery('');
     
-    // Move to next column
-    const nextCol = columns[colIndex + 1];
-    if (nextCol) {
-      const key = getCellKey(line.id, nextCol.key);
+    // Move to next editable column
+    const nextEditableIndex = getNextEditableColIndex(colIndex);
+    if (nextEditableIndex >= 0) {
+      const key = getCellKey(line.id, columns[nextEditableIndex].key);
       setTimeout(() => {
         const input = inputRefs.current.get(key);
         if (input) {

@@ -58,6 +58,7 @@ import {
   XCircle,
   PlayCircle,
   Package,
+  Percent,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -93,6 +94,7 @@ export default function Citas() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState('09:00');
   const [notes, setNotes] = useState('');
+  const [generalDiscount, setGeneralDiscount] = useState(0);
   
   // Odoo-style lines
   const [serviceLines, setServiceLines] = useState<LineItem[]>([]);
@@ -120,6 +122,7 @@ export default function Citas() {
     setDate(new Date().toISOString().split('T')[0]);
     setTime('09:00');
     setNotes('');
+    setGeneralDiscount(0);
     setServiceLines([]);
     setProductLines([]);
     setPayments([{ id: 'pay-1', method: 'cash', amount: 0 }]);
@@ -134,23 +137,27 @@ export default function Citas() {
     setDate(appointment.date);
     setTime(appointment.time);
     setNotes(appointment.notes || '');
+    setGeneralDiscount(0);
     
-    // Convert services to lines
+    // Convert services to lines with discount
     setServiceLines(appointment.services.map(s => ({
-      id: `sl-${s.id}`,
+      id: `sl-${s.id}-${Date.now()}`,
       serviceId: s.id,
       serviceName: s.name,
       duration: s.duration,
       price: s.price,
+      discount: 0,
+      subtotal: s.price,
     })));
     
-    // Convert products to lines
+    // Convert products to lines with discount
     setProductLines(appointment.products?.map(p => ({
-      id: `pl-${p.product.id}`,
+      id: `pl-${p.product.id}-${Date.now()}`,
       productId: p.product.id,
       productName: p.product.name,
       quantity: p.quantity,
       price: p.product.price,
+      discount: 0,
       subtotal: p.quantity * p.product.price,
     })) || []);
     
@@ -158,13 +165,29 @@ export default function Citas() {
     setIsDialogOpen(true);
   };
 
-  // Calculate totals
-  const servicesTotal = serviceLines.reduce((sum, line) => sum + (line.price || 0), 0);
-  const productsTotal = productLines.reduce((sum, line) => sum + (line.subtotal || 0), 0);
-  const total = servicesTotal + productsTotal;
+  // Calculate totals with discounts
+  const servicesSubtotal = serviceLines.reduce((sum, line) => sum + (line.price || 0), 0);
+  const servicesDiscount = serviceLines.reduce((sum, line) => {
+    const price = line.price || 0;
+    const discount = line.discount || 0;
+    return sum + (price * discount / 100);
+  }, 0);
+  const servicesTotal = servicesSubtotal - servicesDiscount;
+
+  const productsSubtotal = productLines.reduce((sum, line) => sum + (line.subtotal || 0), 0);
+  const productsDiscount = productLines.reduce((sum, line) => {
+    const subtotal = line.subtotal || 0;
+    const discount = line.discount || 0;
+    return sum + (subtotal * discount / 100);
+  }, 0);
+  const productsTotal = productsSubtotal - productsDiscount;
+
+  const subtotal = servicesTotal + productsTotal;
+  const generalDiscountAmount = subtotal * generalDiscount / 100;
+  const total = subtotal - generalDiscountAmount;
   const totalDuration = serviceLines.reduce((sum, line) => sum + (line.duration || 0), 0);
 
-  // Column configs
+  // Column configs with discount
   const serviceColumns: ColumnConfig[] = [
     {
       key: 'serviceName',
@@ -181,7 +204,14 @@ export default function Citas() {
       onSelect: (item, lineId) => {
         setServiceLines(prev => prev.map(line =>
           line.id === lineId 
-            ? { ...line, serviceId: item.id, serviceName: item.label, duration: item.data.duration, price: item.data.price }
+            ? { 
+                ...line, 
+                serviceId: item.id, 
+                serviceName: item.label, 
+                duration: item.data.duration, 
+                price: item.data.price,
+                subtotal: item.data.price * (1 - (line.discount || 0) / 100)
+              }
             : line
         ));
       },
@@ -190,7 +220,7 @@ export default function Citas() {
       key: 'duration',
       label: 'Duración',
       type: 'number',
-      width: 'w-24',
+      width: 'w-20',
       readOnly: true,
       format: (v) => `${v || 0} min`,
     },
@@ -198,7 +228,24 @@ export default function Citas() {
       key: 'price',
       label: 'Precio',
       type: 'number',
-      width: 'w-28',
+      width: 'w-24',
+      readOnly: true,
+      format: (v) => `$${(v || 0).toLocaleString()}`,
+    },
+    {
+      key: 'discount',
+      label: 'Desc. %',
+      type: 'number',
+      width: 'w-20',
+      min: 0,
+      max: 100,
+      placeholder: '0',
+    },
+    {
+      key: 'subtotal',
+      label: 'Subtotal',
+      type: 'number',
+      width: 'w-24',
       readOnly: true,
       format: (v) => `$${(v || 0).toLocaleString()}`,
     },
@@ -220,31 +267,47 @@ export default function Citas() {
       onSelect: (item, lineId) => {
         setProductLines(prev => prev.map(line =>
           line.id === lineId 
-            ? { ...line, productId: item.id, productName: item.label, price: item.data.price, quantity: 1, subtotal: item.data.price }
+            ? { 
+                ...line, 
+                productId: item.id, 
+                productName: item.label, 
+                price: item.data.price, 
+                quantity: 1, 
+                subtotal: item.data.price 
+              }
             : line
         ));
       },
     },
     {
       key: 'quantity',
-      label: 'Cantidad',
+      label: 'Cant.',
       type: 'number',
-      width: 'w-24',
+      width: 'w-16',
       min: 1,
     },
     {
       key: 'price',
-      label: 'Precio Unit.',
+      label: 'Precio',
       type: 'number',
-      width: 'w-28',
+      width: 'w-24',
       readOnly: true,
       format: (v) => `$${(v || 0).toLocaleString()}`,
+    },
+    {
+      key: 'discount',
+      label: 'Desc. %',
+      type: 'number',
+      width: 'w-20',
+      min: 0,
+      max: 100,
+      placeholder: '0',
     },
     {
       key: 'subtotal',
       label: 'Subtotal',
       type: 'number',
-      width: 'w-28',
+      width: 'w-24',
       readOnly: true,
       format: (v) => `$${(v || 0).toLocaleString()}`,
     },
@@ -253,14 +316,20 @@ export default function Citas() {
   const addServiceLine = () => {
     setServiceLines(prev => [
       ...prev,
-      { id: `sl-${Date.now()}`, serviceId: '', serviceName: '', duration: 0, price: 0 }
+      { id: `sl-${Date.now()}`, serviceId: '', serviceName: '', duration: 0, price: 0, discount: 0, subtotal: 0 }
     ]);
   };
 
   const updateServiceLine = (lineId: string, key: string, value: any) => {
-    setServiceLines(prev => prev.map(line =>
-      line.id === lineId ? { ...line, [key]: value } : line
-    ));
+    setServiceLines(prev => prev.map(line => {
+      if (line.id !== lineId) return line;
+      const updated = { ...line, [key]: value };
+      // Recalculate subtotal when discount changes
+      if (key === 'discount') {
+        updated.subtotal = (updated.price || 0) * (1 - (updated.discount || 0) / 100);
+      }
+      return updated;
+    }));
   };
 
   const removeServiceLine = (lineId: string) => {
@@ -270,7 +339,7 @@ export default function Citas() {
   const addProductLine = () => {
     setProductLines(prev => [
       ...prev,
-      { id: `pl-${Date.now()}`, productId: '', productName: '', quantity: 1, price: 0, subtotal: 0 }
+      { id: `pl-${Date.now()}`, productId: '', productName: '', quantity: 1, price: 0, discount: 0, subtotal: 0 }
     ]);
   };
 
@@ -278,10 +347,9 @@ export default function Citas() {
     setProductLines(prev => prev.map(line => {
       if (line.id !== lineId) return line;
       const updated = { ...line, [key]: value };
-      // Recalculate subtotal when quantity changes
-      if (key === 'quantity') {
-        updated.subtotal = (updated.quantity || 0) * (updated.price || 0);
-      }
+      // Recalculate subtotal when quantity or discount changes
+      const baseSubtotal = (updated.quantity || 0) * (updated.price || 0);
+      updated.subtotal = baseSubtotal * (1 - (updated.discount || 0) / 100);
       return updated;
     }));
   };
@@ -501,22 +569,30 @@ export default function Citas() {
                 </div>
               </div>
 
-              {/* Services - Odoo style */}
+              {/* Services - Odoo style with discount */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-base font-semibold flex items-center gap-2">
                     <Scissors className="h-4 w-4" />
                     Servicios
                   </Label>
-                  {totalDuration > 0 && (
-                    <Badge variant="secondary">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {totalDuration} min
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {totalDuration > 0 && (
+                      <Badge variant="secondary">
+                        <Clock className="h-3 w-3 mr-1" />
+                        {totalDuration} min
+                      </Badge>
+                    )}
+                    {servicesDiscount > 0 && (
+                      <Badge variant="outline" className="text-success">
+                        <Percent className="h-3 w-3 mr-1" />
+                        -${servicesDiscount.toLocaleString()}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Usa Tab para moverte entre campos. Al final, Tab agrega una nueva línea.
+                  Tab para moverte entre campos editables. Al final, Tab agrega nueva línea.
                 </p>
                 <OdooLineEditor
                   lines={serviceLines}
@@ -531,12 +607,20 @@ export default function Citas() {
                 />
               </div>
 
-              {/* Products - Odoo style */}
+              {/* Products - Odoo style with discount */}
               <div className="space-y-2">
-                <Label className="text-base font-semibold flex items-center gap-2">
-                  <Package className="h-4 w-4" />
-                  Productos (opcional)
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Productos (opcional)
+                  </Label>
+                  {productsDiscount > 0 && (
+                    <Badge variant="outline" className="text-success">
+                      <Percent className="h-3 w-3 mr-1" />
+                      -${productsDiscount.toLocaleString()}
+                    </Badge>
+                  )}
+                </div>
                 <OdooLineEditor
                   lines={productLines}
                   columns={productColumns}
@@ -548,6 +632,34 @@ export default function Citas() {
                   totalValue={productsTotal}
                   emptyMessage="Haz clic para agregar productos"
                 />
+              </div>
+
+              {/* General Discount */}
+              <div className="p-4 bg-secondary/30 rounded-lg space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="font-semibold flex items-center gap-2">
+                    <Percent className="h-4 w-4" />
+                    Descuento General
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={generalDiscount}
+                      onChange={(e) => setGeneralDiscount(parseFloat(e.target.value) || 0)}
+                      className="w-20 text-right"
+                      placeholder="0"
+                    />
+                    <span className="text-muted-foreground">%</span>
+                  </div>
+                </div>
+                {generalDiscount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Descuento aplicado:</span>
+                    <span className="text-success font-medium">-${generalDiscountAmount.toLocaleString()}</span>
+                  </div>
+                )}
               </div>
 
               {/* Payments */}
@@ -569,9 +681,27 @@ export default function Citas() {
               </div>
 
               {/* Grand Total */}
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/20 to-primary/10 rounded-lg border border-primary/30">
-                <span className="text-lg font-semibold">Total de la Cita</span>
-                <span className="text-3xl font-bold">${total.toLocaleString()}</span>
+              <div className="p-4 bg-gradient-to-r from-primary/20 to-primary/10 rounded-lg border border-primary/30">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal servicios:</span>
+                    <span>${servicesTotal.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal productos:</span>
+                    <span>${productsTotal.toLocaleString()}</span>
+                  </div>
+                  {generalDiscount > 0 && (
+                    <div className="flex justify-between text-sm text-success">
+                      <span>Descuento general ({generalDiscount}%):</span>
+                      <span>-${generalDiscountAmount.toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-2 border-t border-primary/30">
+                    <span className="text-lg font-semibold">Total de la Cita</span>
+                    <span className="text-3xl font-bold">${total.toLocaleString()}</span>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3">
