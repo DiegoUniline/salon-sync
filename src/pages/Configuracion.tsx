@@ -63,8 +63,23 @@ import {
   Settings2,
   Receipt,
   Briefcase,
+  Apple,
+  Stethoscope,
+  Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+
+// Get the appropriate icon for services based on business type
+const getServiceIcon = (type: BusinessType) => {
+  switch (type) {
+    case 'salon': return Scissors;
+    case 'nutrition': return Apple;
+    case 'medical': return Stethoscope;
+    default: return Scissors;
+  }
+};
 
 export default function Configuracion() {
   const { businessConfig, updateBusinessConfig, terms } = useApp();
@@ -423,7 +438,10 @@ export default function Configuracion() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span className="flex items-center gap-2">
-                    <Scissors className="h-5 w-5 text-primary" />
+                    {(() => {
+                      const ServiceIcon = getServiceIcon(businessConfig.type);
+                      return <ServiceIcon className="h-5 w-5 text-primary" />;
+                    })()}
                     Categorías de {terms.services}
                   </span>
                   <Button size="sm" variant="outline" onClick={() => openCategoryDialog('service')}>
@@ -484,40 +502,183 @@ export default function Configuracion() {
 
         {/* Tickets */}
         <TabsContent value="tickets" className="space-y-6">
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Receipt className="h-5 w-5 text-primary" />
-                Configuración de Tickets
-              </CardTitle>
-              <CardDescription>
-                Personaliza qué información aparece en los tickets impresos
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {businessConfig.ticketFields.map(field => (
-                  <div key={field.id} className="flex items-center justify-between p-3 rounded-lg border">
-                    <span className="text-sm">{field.label}</span>
-                    <Switch
-                      checked={field.enabled}
-                      onCheckedChange={() => toggleTicketField(field.id)}
-                    />
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Settings */}
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Receipt className="h-5 w-5 text-primary" />
+                  Configuración de Tickets
+                </CardTitle>
+                <CardDescription>
+                  Personaliza qué información aparece en los tickets impresos
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                  {businessConfig.ticketFields.map(field => (
+                    <div key={field.id} className="flex items-center justify-between p-3 rounded-lg border">
+                      <span className="text-sm">{field.label}</span>
+                      <Switch
+                        checked={field.enabled}
+                        onCheckedChange={() => toggleTicketField(field.id)}
+                      />
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="space-y-2 pt-4 border-t">
+                  <Label>Mensaje de pie del ticket</Label>
+                  <Textarea
+                    value={businessConfig.ticketFooter || ''}
+                    onChange={(e) => updateBusinessConfig({ ticketFooter: e.target.value })}
+                    placeholder="¡Gracias por su preferencia!"
+                    rows={2}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Live Preview */}
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Eye className="h-5 w-5 text-primary" />
+                  Vista Previa del Ticket
+                </CardTitle>
+                <CardDescription>
+                  Así se verá tu ticket impreso
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-white text-black rounded-lg p-4 font-mono text-xs max-h-[500px] overflow-y-auto shadow-inner">
+                  {/* Header */}
+                  <div className="text-center mb-3">
+                    {businessConfig.ticketFields.find(f => f.id === 'logo')?.enabled && (
+                      <div className="text-3xl mb-1">{businessTypeIcons[businessConfig.type]}</div>
+                    )}
+                    {businessConfig.ticketFields.find(f => f.id === 'businessName')?.enabled && (
+                      <div className="font-bold text-sm">{businessConfig.name || 'Mi Negocio'}</div>
+                    )}
+                    {businessConfig.ticketFields.find(f => f.id === 'address')?.enabled && businessConfig.address && (
+                      <div className="text-[10px]">{businessConfig.address}</div>
+                    )}
+                    {businessConfig.ticketFields.find(f => f.id === 'phone')?.enabled && businessConfig.phone && (
+                      <div className="text-[10px]">Tel: {businessConfig.phone}</div>
+                    )}
+                    {businessConfig.ticketFields.find(f => f.id === 'rfc')?.enabled && businessConfig.rfc && (
+                      <div className="text-[10px]">RFC: {businessConfig.rfc}</div>
+                    )}
                   </div>
-                ))}
-              </div>
-              
-              <div className="space-y-2 pt-4 border-t">
-                <Label>Mensaje de pie del ticket</Label>
-                <Textarea
-                  value={businessConfig.ticketFooter || ''}
-                  onChange={(e) => updateBusinessConfig({ ticketFooter: e.target.value })}
-                  placeholder="¡Gracias por su preferencia!"
-                  rows={2}
-                />
-              </div>
-            </CardContent>
-          </Card>
+
+                  <div className="border-t border-dashed border-gray-400 my-2" />
+
+                  {/* Folio & Date */}
+                  <div className="space-y-0.5">
+                    {businessConfig.ticketFields.find(f => f.id === 'folio')?.enabled && (
+                      <div className="flex justify-between">
+                        <span>Folio:</span>
+                        <span className="font-bold">#0001</span>
+                      </div>
+                    )}
+                    {businessConfig.ticketFields.find(f => f.id === 'date')?.enabled && (
+                      <div className="flex justify-between">
+                        <span>Fecha:</span>
+                        <span>{format(new Date(), "dd/MM/yyyy HH:mm", { locale: es })}</span>
+                      </div>
+                    )}
+                    {businessConfig.ticketFields.find(f => f.id === 'clientName')?.enabled && (
+                      <div className="flex justify-between">
+                        <span>{terms.client}:</span>
+                        <span>María García</span>
+                      </div>
+                    )}
+                    {businessConfig.ticketFields.find(f => f.id === 'clientPhone')?.enabled && (
+                      <div className="flex justify-between">
+                        <span>Tel {terms.client}:</span>
+                        <span>555-1234</span>
+                      </div>
+                    )}
+                    {businessConfig.ticketFields.find(f => f.id === 'professional')?.enabled && (
+                      <div className="flex justify-between">
+                        <span>Atendió:</span>
+                        <span>{terms.professional} Ejemplo</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border-t border-dashed border-gray-400 my-2" />
+
+                  {/* Services */}
+                  {businessConfig.ticketFields.find(f => f.id === 'services')?.enabled && (
+                    <div className="mb-2">
+                      <div className="font-bold mb-1">{terms.services.toUpperCase()}</div>
+                      <div className="flex justify-between">
+                        <span>1x {terms.service} Ejemplo</span>
+                        <span>$350.00</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Products */}
+                  {businessConfig.ticketFields.find(f => f.id === 'products')?.enabled && (
+                    <div className="mb-2">
+                      <div className="font-bold mb-1">PRODUCTOS</div>
+                      <div className="flex justify-between">
+                        <span>1x Producto Ejemplo</span>
+                        <span>$150.00</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="border-t border-dashed border-gray-400 my-2" />
+
+                  {/* Totals */}
+                  <div className="space-y-0.5">
+                    {businessConfig.ticketFields.find(f => f.id === 'subtotal')?.enabled && (
+                      <div className="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>$500.00</span>
+                      </div>
+                    )}
+                    {businessConfig.ticketFields.find(f => f.id === 'discount')?.enabled && (
+                      <div className="flex justify-between text-green-700">
+                        <span>Descuento:</span>
+                        <span>-$50.00</span>
+                      </div>
+                    )}
+                    {businessConfig.ticketFields.find(f => f.id === 'total')?.enabled && (
+                      <div className="flex justify-between font-bold text-sm pt-1 border-t border-gray-300">
+                        <span>TOTAL:</span>
+                        <span>$450.00</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Payment */}
+                  {businessConfig.ticketFields.find(f => f.id === 'paymentMethod')?.enabled && (
+                    <>
+                      <div className="border-t border-dashed border-gray-400 my-2" />
+                      <div className="flex justify-between">
+                        <span>Pagó con:</span>
+                        <span>Efectivo</span>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Footer */}
+                  {businessConfig.ticketFields.find(f => f.id === 'footer')?.enabled && businessConfig.ticketFooter && (
+                    <>
+                      <div className="border-t border-dashed border-gray-400 my-2" />
+                      <div className="text-center text-[10px]">
+                        {businessConfig.ticketFooter}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 
