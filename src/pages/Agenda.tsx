@@ -1,15 +1,8 @@
 import { useState, useMemo, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
-import { appointments, stylists, branches, type Appointment } from '@/lib/mockData';
+import { appointments as mockAppointments, stylists, branches, type Appointment } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Popover,
@@ -23,11 +16,10 @@ import {
   LayoutGrid,
   List,
   Plus,
-  Filter,
   Building2,
   Users,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { AppointmentFormDialog } from '@/components/AppointmentFormDialog';
 
 type ViewMode = 'day' | 'week' | 'month';
 
@@ -43,22 +35,22 @@ const statusColors = {
   'cancelled': 'bg-destructive/20 border-destructive/30 text-destructive',
 };
 
-const statusLabels = {
-  'scheduled': 'Agendada',
-  'in-progress': 'En proceso',
-  'completed': 'Completada',
-  'cancelled': 'Cancelada',
-};
-
 export default function Agenda() {
-  const navigate = useNavigate();
   const { currentBranch } = useApp();
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
   
   // Multi-filters
   const [selectedBranches, setSelectedBranches] = useState<string[]>([currentBranch.id]);
   const [selectedStylists, setSelectedStylists] = useState<string[]>([]);
+
+  // Dialog state for creating appointments
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogInitialDate, setDialogInitialDate] = useState<string>('');
+  const [dialogInitialTime, setDialogInitialTime] = useState<string>('');
+  const [dialogInitialStylist, setDialogInitialStylist] = useState<string>('');
+  const [dialogInitialDuration, setDialogInitialDuration] = useState<number | undefined>();
 
   // Drag selection state
   const [isDragging, setIsDragging] = useState(false);
@@ -89,20 +81,17 @@ export default function Agenda() {
     const startPadding = (firstDay.getDay() + 6) % 7; // Monday = 0
     const days: (Date | null)[] = [];
     
-    // Add padding for days before month starts
     for (let i = 0; i < startPadding; i++) {
       const d = new Date(firstDay);
       d.setDate(d.getDate() - (startPadding - i));
       days.push(d);
     }
     
-    // Add month days
     for (let i = 1; i <= lastDay.getDate(); i++) {
       days.push(new Date(year, month, i));
     }
     
-    // Add padding for days after month ends
-    const remaining = 42 - days.length; // 6 rows * 7 days
+    const remaining = 42 - days.length;
     for (let i = 1; i <= remaining; i++) {
       const d = new Date(lastDay);
       d.setDate(lastDay.getDate() + i);
@@ -115,8 +104,6 @@ export default function Agenda() {
   const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
   const monthDates = useMemo(() => getMonthDates(selectedDate), [selectedDate]);
 
-  const dateStr = selectedDate.toISOString().split('T')[0];
-  
   const getAppointmentsForDate = (date: Date) => {
     const str = date.toISOString().split('T')[0];
     return appointments.filter(a => {
@@ -158,7 +145,6 @@ export default function Agenda() {
     return date.getMonth() === selectedDate.getMonth();
   };
 
-  // Toggle branch filter
   const toggleBranch = (branchId: string) => {
     setSelectedBranches(prev => 
       prev.includes(branchId) 
@@ -167,7 +153,6 @@ export default function Agenda() {
     );
   };
 
-  // Toggle stylist filter
   const toggleStylist = (stylistId: string) => {
     setSelectedStylists(prev => 
       prev.includes(stylistId) 
@@ -176,11 +161,19 @@ export default function Agenda() {
     );
   };
 
-  // Handle slot click - navigate to new appointment with preselected data
+  // Open dialog for new appointment
+  const openNewAppointmentDialog = (date: Date, time: string, stylistId: string, duration?: number) => {
+    setDialogInitialDate(date.toISOString().split('T')[0]);
+    setDialogInitialTime(time);
+    setDialogInitialStylist(stylistId);
+    setDialogInitialDuration(duration);
+    setIsDialogOpen(true);
+  };
+
+  // Handle slot click
   const handleSlotClick = (time: string, stylistId: string, date: Date) => {
-    if (dragRef.current) return; // Don't trigger on drag end
-    const dateStr = date.toISOString().split('T')[0];
-    navigate(`/citas?date=${dateStr}&time=${time}&stylist=${stylistId}`);
+    if (dragRef.current) return;
+    openNewAppointmentDialog(date, time, stylistId);
   };
 
   // Drag handlers for time range selection
@@ -205,15 +198,11 @@ export default function Agenda() {
       const startTime = timeSlots[Math.min(startIndex, endIndex)];
       const endTime = timeSlots[Math.max(startIndex, endIndex)];
       
-      // Calculate duration in minutes
       const startHour = parseInt(startTime.split(':')[0]);
-      const endHour = parseInt(endTime.split(':')[0]) + 1; // Add 1 because we include the end slot
+      const endHour = parseInt(endTime.split(':')[0]) + 1;
       const duration = (endHour - startHour) * 60;
 
-      const dateStr = dragStart.date.toISOString().split('T')[0];
-      
-      // Navigate with time range
-      navigate(`/citas?date=${dateStr}&time=${startTime}&duration=${duration}&stylist=${dragStart.stylistId}`);
+      openNewAppointmentDialog(dragStart.date, startTime, dragStart.stylistId, duration);
     }
     setIsDragging(false);
     setDragStart(null);
@@ -221,7 +210,6 @@ export default function Agenda() {
     setTimeout(() => { dragRef.current = false; }, 100);
   };
 
-  // Check if a slot is in the drag selection range
   const isSlotInDragRange = (time: string, stylistId: string) => {
     if (!isDragging || !dragStart || !dragEnd) return false;
     if (stylistId !== dragStart.stylistId) return false;
@@ -236,10 +224,20 @@ export default function Agenda() {
     return timeIndex >= minIndex && timeIndex <= maxIndex;
   };
 
-  // Display stylists based on filter
   const displayStylists = selectedStylists.length > 0
     ? filteredStylists.filter(s => selectedStylists.includes(s.id))
     : filteredStylists;
+
+  // Handle appointment save
+  const handleSaveAppointment = (appointment: Appointment) => {
+    setAppointments(prev => {
+      const existing = prev.find(a => a.id === appointment.id);
+      if (existing) {
+        return prev.map(a => a.id === appointment.id ? appointment : a);
+      }
+      return [...prev, appointment];
+    });
+  };
 
   return (
     <div className="space-y-6" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
@@ -247,9 +245,9 @@ export default function Agenda() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Agenda</h1>
-          <p className="text-muted-foreground">Gestiona tus citas - Click o arrastra para crear</p>
+          <p className="text-muted-foreground">Click o arrastra en un horario para crear cita</p>
         </div>
-        <Button className="gradient-bg border-0" onClick={() => navigate('/citas')}>
+        <Button className="gradient-bg border-0" onClick={() => openNewAppointmentDialog(selectedDate, '09:00', displayStylists[0]?.id || '')}>
           <Plus className="h-4 w-4 mr-2" />
           Nueva Cita
         </Button>
@@ -496,7 +494,7 @@ export default function Agenda() {
                         onClick={() => {
                           if (!appointment) {
                             const stylistId = displayStylists[0]?.id || '';
-                            handleSlotClick(time, stylistId, date);
+                            openNewAppointmentDialog(date, time, stylistId);
                           }
                         }}
                       >
@@ -596,6 +594,17 @@ export default function Agenda() {
           </div>
         </div>
       )}
+
+      {/* Appointment Form Dialog */}
+      <AppointmentFormDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        initialDate={dialogInitialDate}
+        initialTime={dialogInitialTime}
+        initialStylistId={dialogInitialStylist}
+        initialDuration={dialogInitialDuration}
+        onSave={handleSaveAppointment}
+      />
     </div>
   );
 }
