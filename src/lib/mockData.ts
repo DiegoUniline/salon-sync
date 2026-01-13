@@ -54,7 +54,7 @@ export interface Appointment {
   date: string;
   time: string;
   services: Service[];
-  products?: Product[];
+  products?: { product: Product; quantity: number }[];
   status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
   paymentMethod?: 'cash' | 'card' | 'transfer' | 'mixed';
   total: number;
@@ -65,13 +65,15 @@ export interface Sale {
   id: string;
   branchId: string;
   date: string;
+  time: string;
   type: 'appointment' | 'direct';
   appointmentId?: string;
-  products: { product: Product; quantity: number }[];
-  services?: Service[];
+  items: { type: 'product' | 'service'; item: Product | Service; quantity: number }[];
   paymentMethod: 'cash' | 'card' | 'transfer' | 'mixed';
+  payments?: { method: 'cash' | 'card' | 'transfer'; amount: number }[];
   total: number;
   stylistId?: string;
+  clientName?: string;
 }
 
 export interface Expense {
@@ -82,17 +84,65 @@ export interface Expense {
   description: string;
   amount: number;
   paymentMethod: 'cash' | 'card' | 'transfer';
+  supplier?: string;
+}
+
+export interface Purchase {
+  id: string;
+  branchId: string;
+  date: string;
+  supplier: string;
+  items: { product: Product; quantity: number; unitCost: number }[];
+  total: number;
+  paymentMethod: 'cash' | 'card' | 'transfer';
+  notes?: string;
+}
+
+export interface InventoryMovement {
+  id: string;
+  branchId: string;
+  productId: string;
+  product: Product;
+  type: 'in' | 'out' | 'adjustment';
+  quantity: number;
+  reason: string;
+  date: string;
+  reference?: string;
 }
 
 export interface Shift {
   id: string;
   branchId: string;
   userId: string;
+  user: Stylist;
   startTime: string;
   endTime?: string;
   initialCash: number;
   finalCash?: number;
   status: 'open' | 'closed';
+  date: string;
+}
+
+export interface CashCut {
+  id: string;
+  shiftId: string;
+  branchId: string;
+  date: string;
+  userId: string;
+  user: Stylist;
+  initialCash: number;
+  finalCash: number;
+  expectedCash: number;
+  difference: number;
+  salesByMethod: {
+    cash: number;
+    card: number;
+    transfer: number;
+  };
+  totalSales: number;
+  totalExpenses: number;
+  appointmentsCount: number;
+  directSalesCount: number;
 }
 
 // Mock Data
@@ -144,10 +194,13 @@ export const clients: Client[] = [
   { id: 'c4', name: 'Fernanda Castro', phone: '555-1004', email: 'fer@email.com' },
   { id: 'c5', name: 'Diego Morales', phone: '555-1005' },
   { id: 'c6', name: 'Sofía Vargas', phone: '555-1006', email: 'sofia@email.com' },
+  { id: 'c7', name: 'Andrea López', phone: '555-1007', email: 'andrea@email.com' },
+  { id: 'c8', name: 'Luis Ramírez', phone: '555-1008' },
 ];
 
 // Generate appointments for today
 const today = new Date().toISOString().split('T')[0];
+const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
 export const appointments: Appointment[] = [
   {
@@ -244,6 +297,166 @@ export const paymentMethods = [
   { id: 'card', name: 'Tarjeta', icon: 'CreditCard' },
   { id: 'transfer', name: 'Transferencia', icon: 'ArrowRightLeft' },
   { id: 'mixed', name: 'Mixto', icon: 'Layers' },
+];
+
+// Sample expenses
+export const expenses: Expense[] = [
+  { id: 'e1', branchId: 'b1', date: today, category: 'supplies', description: 'Compra de toallas', amount: 1500, paymentMethod: 'card', supplier: 'Proveedor ABC' },
+  { id: 'e2', branchId: 'b1', date: today, category: 'utilities', description: 'Pago de luz', amount: 2800, paymentMethod: 'transfer' },
+  { id: 'e3', branchId: 'b1', date: yesterday, category: 'rent', description: 'Renta mensual', amount: 15000, paymentMethod: 'transfer' },
+  { id: 'e4', branchId: 'b1', date: yesterday, category: 'supplies', description: 'Material de limpieza', amount: 850, paymentMethod: 'cash' },
+  { id: 'e5', branchId: 'b1', date: yesterday, category: 'payroll', description: 'Adelanto nómina - Carlos', amount: 3000, paymentMethod: 'cash' },
+];
+
+// Sample purchases
+export const purchases: Purchase[] = [
+  { 
+    id: 'pu1', 
+    branchId: 'b1', 
+    date: today, 
+    supplier: 'Distribuidora Belleza Pro',
+    items: [
+      { product: products[0], quantity: 20, unitCost: 140 },
+      { product: products[1], quantity: 15, unitCost: 130 },
+    ],
+    total: 4750,
+    paymentMethod: 'transfer',
+  },
+  { 
+    id: 'pu2', 
+    branchId: 'b1', 
+    date: yesterday, 
+    supplier: 'Cosméticos del Norte',
+    items: [
+      { product: products[4], quantity: 10, unitCost: 175 },
+      { product: products[5], quantity: 8, unitCost: 210 },
+    ],
+    total: 3430,
+    paymentMethod: 'card',
+  },
+];
+
+// Sample sales
+export const sales: Sale[] = [
+  {
+    id: 'sl1',
+    branchId: 'b1',
+    date: today,
+    time: '09:30',
+    type: 'appointment',
+    appointmentId: 'a1',
+    items: [{ type: 'service', item: services[0], quantity: 1 }],
+    paymentMethod: 'card',
+    total: 250,
+    stylistId: 's2',
+    clientName: 'Roberto Hernández',
+  },
+  {
+    id: 'sl2',
+    branchId: 'b1',
+    date: today,
+    time: '10:15',
+    type: 'direct',
+    items: [
+      { type: 'product', item: products[0], quantity: 1 },
+      { type: 'product', item: products[2], quantity: 2 },
+    ],
+    paymentMethod: 'cash',
+    total: 640,
+    clientName: 'Cliente mostrador',
+  },
+  {
+    id: 'sl3',
+    branchId: 'b1',
+    date: today,
+    time: '11:00',
+    type: 'direct',
+    items: [
+      { type: 'product', item: products[5], quantity: 1 },
+    ],
+    paymentMethod: 'transfer',
+    total: 420,
+    clientName: 'Ana Rodríguez',
+  },
+  {
+    id: 'sl4',
+    branchId: 'b1',
+    date: yesterday,
+    time: '14:00',
+    type: 'appointment',
+    items: [
+      { type: 'service', item: services[2], quantity: 1 },
+      { type: 'product', item: products[4], quantity: 1 },
+    ],
+    paymentMethod: 'mixed',
+    payments: [
+      { method: 'cash', amount: 500 },
+      { method: 'card', amount: 650 },
+    ],
+    total: 1150,
+    stylistId: 's3',
+    clientName: 'Laura Méndez',
+  },
+];
+
+// Sample inventory movements
+export const inventoryMovements: InventoryMovement[] = [
+  { id: 'im1', branchId: 'b1', productId: 'p1', product: products[0], type: 'in', quantity: 20, reason: 'Compra', date: today, reference: 'pu1' },
+  { id: 'im2', branchId: 'b1', productId: 'p2', product: products[1], type: 'in', quantity: 15, reason: 'Compra', date: today, reference: 'pu1' },
+  { id: 'im3', branchId: 'b1', productId: 'p1', product: products[0], type: 'out', quantity: 1, reason: 'Venta', date: today, reference: 'sl2' },
+  { id: 'im4', branchId: 'b1', productId: 'p3', product: products[2], type: 'out', quantity: 2, reason: 'Venta', date: today, reference: 'sl2' },
+  { id: 'im5', branchId: 'b1', productId: 'p6', product: products[5], type: 'adjustment', quantity: -2, reason: 'Ajuste por inventario físico', date: yesterday },
+];
+
+// Sample shifts
+export const shifts: Shift[] = [
+  {
+    id: 'sh1',
+    branchId: 'b1',
+    userId: 's1',
+    user: stylists[0],
+    date: today,
+    startTime: '08:00',
+    initialCash: 2000,
+    status: 'open',
+  },
+  {
+    id: 'sh2',
+    branchId: 'b1',
+    userId: 's1',
+    user: stylists[0],
+    date: yesterday,
+    startTime: '08:00',
+    endTime: '20:00',
+    initialCash: 2000,
+    finalCash: 8500,
+    status: 'closed',
+  },
+];
+
+// Sample cash cuts
+export const cashCuts: CashCut[] = [
+  {
+    id: 'cc1',
+    shiftId: 'sh2',
+    branchId: 'b1',
+    date: yesterday,
+    userId: 's1',
+    user: stylists[0],
+    initialCash: 2000,
+    finalCash: 8500,
+    expectedCash: 8650,
+    difference: -150,
+    salesByMethod: {
+      cash: 4650,
+      card: 3200,
+      transfer: 1800,
+    },
+    totalSales: 9650,
+    totalExpenses: 3850,
+    appointmentsCount: 12,
+    directSalesCount: 5,
+  },
 ];
 
 // Dashboard stats
