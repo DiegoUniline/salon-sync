@@ -50,6 +50,7 @@ export interface UserWithRole {
   id: string;
   name: string;
   email: string;
+  password: string; // Contraseña (simulada)
   roleId: string;
   branchId?: string;
   active: boolean;
@@ -193,12 +194,12 @@ export const getUsersWithRoles = (): UserWithRole[] => {
   } catch (e) {
     console.error('Error loading users:', e);
   }
-  // Usuarios por defecto basados en los estilistas
+  // Usuarios por defecto con contraseñas
   return [
-    { id: 'u1', name: 'María García', email: 'maria@salon.com', roleId: 'admin', branchId: 'b1', active: true },
-    { id: 'u2', name: 'Carlos López', email: 'carlos@salon.com', roleId: 'manager', branchId: 'b1', active: true },
-    { id: 'u3', name: 'Ana Martínez', email: 'ana@salon.com', roleId: 'receptionist', branchId: 'b1', active: true },
-    { id: 'u4', name: 'Luis Hernández', email: 'luis@salon.com', roleId: 'stylist', branchId: 'b1', active: true },
+    { id: 'u1', name: 'María García', email: 'maria@salon.com', password: 'admin123', roleId: 'admin', branchId: 'b1', active: true },
+    { id: 'u2', name: 'Carlos López', email: 'carlos@salon.com', password: '123456', roleId: 'manager', branchId: 'b1', active: true },
+    { id: 'u3', name: 'Ana Martínez', email: 'ana@salon.com', password: '123456', roleId: 'receptionist', branchId: 'b1', active: true },
+    { id: 'u4', name: 'Luis Hernández', email: 'luis@salon.com', password: '123456', roleId: 'stylist', branchId: 'b1', active: true },
   ];
 };
 
