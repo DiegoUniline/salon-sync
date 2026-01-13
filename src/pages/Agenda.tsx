@@ -4,11 +4,18 @@ import { appointments as mockAppointments, stylists, branches, type Appointment 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   ChevronLeft,
   ChevronRight,
@@ -18,21 +25,34 @@ import {
   Plus,
   Building2,
   Users,
+  Clock,
+  Phone,
+  DollarSign,
+  Scissors,
+  X,
 } from 'lucide-react';
 import { AppointmentFormDialog } from '@/components/AppointmentFormDialog';
 
 type ViewMode = 'day' | 'week' | 'month';
 
-const timeSlots = Array.from({ length: 13 }, (_, i) => {
+// More time slots for better granularity, smaller height
+const timeSlots = Array.from({ length: 14 }, (_, i) => {
   const hour = i + 8;
   return `${hour.toString().padStart(2, '0')}:00`;
 });
 
 const statusColors = {
-  'scheduled': 'bg-info/20 border-info/30 text-info',
-  'in-progress': 'bg-warning/20 border-warning/30 text-warning',
-  'completed': 'bg-success/20 border-success/30 text-success',
-  'cancelled': 'bg-destructive/20 border-destructive/30 text-destructive',
+  'scheduled': 'bg-info/20 border-info text-info',
+  'in-progress': 'bg-warning/20 border-warning text-warning',
+  'completed': 'bg-success/20 border-success text-success',
+  'cancelled': 'bg-destructive/20 border-destructive text-destructive',
+};
+
+const statusLabels = {
+  'scheduled': 'Programada',
+  'in-progress': 'En curso',
+  'completed': 'Completada',
+  'cancelled': 'Cancelada',
 };
 
 export default function Agenda() {
@@ -41,30 +61,28 @@ export default function Agenda() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
   
-  // Multi-filters
   const [selectedBranches, setSelectedBranches] = useState<string[]>([currentBranch.id]);
   const [selectedStylists, setSelectedStylists] = useState<string[]>([]);
 
-  // Dialog state for creating appointments
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogInitialDate, setDialogInitialDate] = useState<string>('');
   const [dialogInitialTime, setDialogInitialTime] = useState<string>('');
   const [dialogInitialStylist, setDialogInitialStylist] = useState<string>('');
   const [dialogInitialDuration, setDialogInitialDuration] = useState<number | undefined>();
 
-  // Drag selection state
+  // Appointment detail popover
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ time: string; stylistId: string; date: Date } | null>(null);
   const [dragEnd, setDragEnd] = useState<{ time: string } | null>(null);
   const dragRef = useRef<boolean>(false);
 
-  // Get stylists filtered by selected branches
   const filteredStylists = stylists.filter(s => s.role !== 'receptionist');
 
-  // Get week dates
   const getWeekDates = (date: Date) => {
     const start = new Date(date);
-    start.setDate(start.getDate() - start.getDay() + 1); // Monday
+    start.setDate(start.getDate() - start.getDay() + 1);
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
@@ -72,13 +90,12 @@ export default function Agenda() {
     });
   };
 
-  // Get month dates
   const getMonthDates = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    const startPadding = (firstDay.getDay() + 6) % 7; // Monday = 0
+    const startPadding = (firstDay.getDay() + 6) % 7;
     const days: (Date | null)[] = [];
     
     for (let i = 0; i < startPadding; i++) {
@@ -131,37 +148,26 @@ export default function Agenda() {
   const formattedDate = viewMode === 'month' 
     ? selectedDate.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
     : viewMode === 'week'
-    ? `${weekDates[0].toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${weekDates[6].toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`
-    : selectedDate.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+    ? `${weekDates[0].toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${weekDates[6].toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`
+    : selectedDate.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' });
 
   const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
-  const isToday = (date: Date) => {
-    const today = new Date();
-    return date.toDateString() === today.toDateString();
-  };
-
-  const isCurrentMonth = (date: Date) => {
-    return date.getMonth() === selectedDate.getMonth();
-  };
+  const isToday = (date: Date) => date.toDateString() === new Date().toDateString();
+  const isCurrentMonth = (date: Date) => date.getMonth() === selectedDate.getMonth();
 
   const toggleBranch = (branchId: string) => {
     setSelectedBranches(prev => 
-      prev.includes(branchId) 
-        ? prev.filter(id => id !== branchId)
-        : [...prev, branchId]
+      prev.includes(branchId) ? prev.filter(id => id !== branchId) : [...prev, branchId]
     );
   };
 
   const toggleStylist = (stylistId: string) => {
     setSelectedStylists(prev => 
-      prev.includes(stylistId) 
-        ? prev.filter(id => id !== stylistId)
-        : [...prev, stylistId]
+      prev.includes(stylistId) ? prev.filter(id => id !== stylistId) : [...prev, stylistId]
     );
   };
 
-  // Open dialog for new appointment
   const openNewAppointmentDialog = (date: Date, time: string, stylistId: string, duration?: number) => {
     setDialogInitialDate(date.toISOString().split('T')[0]);
     setDialogInitialTime(time);
@@ -170,13 +176,11 @@ export default function Agenda() {
     setIsDialogOpen(true);
   };
 
-  // Handle slot click
   const handleSlotClick = (time: string, stylistId: string, date: Date) => {
     if (dragRef.current) return;
     openNewAppointmentDialog(date, time, stylistId);
   };
 
-  // Drag handlers for time range selection
   const handleMouseDown = (time: string, stylistId: string, date: Date) => {
     dragRef.current = false;
     setIsDragging(true);
@@ -218,17 +222,13 @@ export default function Agenda() {
     const endIndex = timeSlots.indexOf(dragEnd.time);
     const timeIndex = timeSlots.indexOf(time);
     
-    const minIndex = Math.min(startIndex, endIndex);
-    const maxIndex = Math.max(startIndex, endIndex);
-    
-    return timeIndex >= minIndex && timeIndex <= maxIndex;
+    return timeIndex >= Math.min(startIndex, endIndex) && timeIndex <= Math.max(startIndex, endIndex);
   };
 
   const displayStylists = selectedStylists.length > 0
     ? filteredStylists.filter(s => selectedStylists.includes(s.id))
     : filteredStylists;
 
-  // Handle appointment save
   const handleSaveAppointment = (appointment: Appointment) => {
     setAppointments(prev => {
       const existing = prev.find(a => a.id === appointment.id);
@@ -239,308 +239,232 @@ export default function Agenda() {
     });
   };
 
+  // Calculate end time for appointment
+  const getEndTime = (startTime: string, durationMinutes: number) => {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const totalMinutes = hours * 60 + minutes + durationMinutes;
+    const endHours = Math.floor(totalMinutes / 60);
+    const endMins = totalMinutes % 60;
+    return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+  };
+
   return (
-    <div className="space-y-6" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Agenda</h1>
-          <p className="text-muted-foreground">Click o arrastra en un horario para crear cita</p>
+    <div className="h-[calc(100vh-6rem)] flex flex-col" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+      {/* Compact Header */}
+      <div className="flex items-center justify-between gap-2 pb-3 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateDate('prev')}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <button 
+            className="font-semibold text-sm capitalize hover:text-primary transition-colors min-w-[140px] text-center"
+            onClick={() => setSelectedDate(new Date())}
+          >
+            {formattedDate}
+          </button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateDate('next')}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
-        <Button className="gradient-bg border-0" onClick={() => openNewAppointmentDialog(selectedDate, '09:00', displayStylists[0]?.id || '')}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nueva Cita
-        </Button>
-      </div>
 
-      {/* Controls */}
-      <div className="glass-card rounded-xl p-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          {/* Date Navigation */}
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="icon" onClick={() => navigateDate('prev')}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className="text-center min-w-[250px]">
-              <p className="font-semibold capitalize">{formattedDate}</p>
-            </div>
-            <Button variant="outline" size="icon" onClick={() => navigateDate('next')}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setSelectedDate(new Date())}>
-              Hoy
-            </Button>
+        <div className="flex items-center gap-2">
+          {/* Compact Filters */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs">
+                <Building2 className="h-3.5 w-3.5" />
+                {selectedBranches.length > 0 && <span className="bg-primary/20 text-primary rounded px-1">{selectedBranches.length}</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-2">
+              {branches.map(branch => (
+                <label key={branch.id} className="flex items-center gap-2 p-1.5 cursor-pointer hover:bg-muted rounded text-sm">
+                  <Checkbox checked={selectedBranches.includes(branch.id)} onCheckedChange={() => toggleBranch(branch.id)} />
+                  {branch.name}
+                </label>
+              ))}
+            </PopoverContent>
+          </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs">
+                <Users className="h-3.5 w-3.5" />
+                {selectedStylists.length > 0 && <span className="bg-primary/20 text-primary rounded px-1">{selectedStylists.length}</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-2">
+              {filteredStylists.map(stylist => (
+                <label key={stylist.id} className="flex items-center gap-2 p-1.5 cursor-pointer hover:bg-muted rounded text-sm">
+                  <Checkbox checked={selectedStylists.includes(stylist.id)} onCheckedChange={() => toggleStylist(stylist.id)} />
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: stylist.color }} />
+                  {stylist.name}
+                </label>
+              ))}
+            </PopoverContent>
+          </Popover>
+
+          <div className="flex border rounded-md p-0.5 bg-muted/50">
+            {[
+              { mode: 'day' as ViewMode, icon: CalendarDays, label: 'D' },
+              { mode: 'week' as ViewMode, icon: List, label: 'S' },
+              { mode: 'month' as ViewMode, icon: LayoutGrid, label: 'M' },
+            ].map(({ mode, label }) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={cn(
+                  "px-2 py-1 text-xs font-medium rounded transition-colors",
+                  viewMode === mode ? "bg-background shadow-sm" : "hover:bg-background/50"
+                )}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
-          {/* Filters & View Mode */}
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Branch Filter */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                  <Building2 className="h-4 w-4" />
-                  Sucursales
-                  {selectedBranches.length > 0 && (
-                    <span className="bg-primary text-primary-foreground text-xs rounded-full px-2">
-                      {selectedBranches.length}
-                    </span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56 p-3">
-                <div className="space-y-2">
-                  <p className="font-medium text-sm mb-3">Filtrar por sucursal</p>
-                  {branches.map(branch => (
-                    <label key={branch.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded">
-                      <Checkbox 
-                        checked={selectedBranches.includes(branch.id)}
-                        onCheckedChange={() => toggleBranch(branch.id)}
-                      />
-                      <span className="text-sm">{branch.name}</span>
-                    </label>
-                  ))}
-                  <div className="border-t pt-2 mt-2">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="w-full"
-                      onClick={() => setSelectedBranches([])}
-                    >
-                      Limpiar filtro
-                    </Button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            {/* Stylist Filter */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                  <Users className="h-4 w-4" />
-                  Estilistas
-                  {selectedStylists.length > 0 && (
-                    <span className="bg-primary text-primary-foreground text-xs rounded-full px-2">
-                      {selectedStylists.length}
-                    </span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56 p-3">
-                <div className="space-y-2">
-                  <p className="font-medium text-sm mb-3">Filtrar por estilista</p>
-                  {filteredStylists.map(stylist => (
-                    <label key={stylist.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded">
-                      <Checkbox 
-                        checked={selectedStylists.includes(stylist.id)}
-                        onCheckedChange={() => toggleStylist(stylist.id)}
-                      />
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: stylist.color }}
-                      />
-                      <span className="text-sm">{stylist.name}</span>
-                    </label>
-                  ))}
-                  <div className="border-t pt-2 mt-2">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="w-full"
-                      onClick={() => setSelectedStylists([])}
-                    >
-                      Limpiar filtro
-                    </Button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            <div className="flex items-center border border-border rounded-lg p-1">
-              <Button
-                variant={viewMode === 'day' ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('day')}
-              >
-                <CalendarDays className="h-4 w-4 mr-1" />
-                Día
-              </Button>
-              <Button
-                variant={viewMode === 'week' ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('week')}
-              >
-                <List className="h-4 w-4 mr-1" />
-                Semana
-              </Button>
-              <Button
-                variant={viewMode === 'month' ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('month')}
-              >
-                <LayoutGrid className="h-4 w-4 mr-1" />
-                Mes
-              </Button>
-            </div>
-          </div>
+          <Button size="sm" className="h-8 gradient-bg border-0" onClick={() => openNewAppointmentDialog(selectedDate, '09:00', displayStylists[0]?.id || '')}>
+            <Plus className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
-      {/* Day View */}
+      {/* Day View - Optimized */}
       {viewMode === 'day' && (
-        <div className="glass-card rounded-xl p-4 overflow-x-auto">
-          <div className="min-w-[800px]">
-            {/* Stylist Headers */}
-            <div className="flex border-b border-border pb-4 mb-4">
-              <div className="w-20 flex-shrink-0" />
-              {displayStylists.map(stylist => (
-                <div key={stylist.id} className="flex-1 text-center px-2">
-                  <div
-                    className="h-10 w-10 rounded-full mx-auto flex items-center justify-center text-white font-medium mb-2"
-                    style={{ backgroundColor: stylist.color }}
-                  >
-                    {stylist.name.charAt(0)}
-                  </div>
-                  <p className="font-medium text-sm truncate">{stylist.name}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Time Grid */}
-            <div className="relative select-none">
-              {timeSlots.map(time => (
-                <div key={time} className="flex items-start border-t border-border/50 min-h-[80px]">
-                  <div className="w-20 flex-shrink-0 pr-4 py-2">
-                    <span className="text-sm text-muted-foreground">{time}</span>
-                  </div>
-                  
-                  {displayStylists.map(stylist => {
-                    const appointment = filteredAppointments.find(
-                      a => a.stylistId === stylist.id && a.time === time
-                    );
-                    const isInDragRange = isSlotInDragRange(time, stylist.id);
-
-                    return (
-                      <div 
-                        key={stylist.id} 
-                        className={cn(
-                          'flex-1 px-1 py-2 cursor-pointer transition-colors min-h-[80px]',
-                          isInDragRange && 'bg-primary/20',
-                          !appointment && 'hover:bg-muted/30'
-                        )}
-                        onMouseDown={() => !appointment && handleMouseDown(time, stylist.id, selectedDate)}
-                        onMouseEnter={() => handleMouseEnter(time)}
-                        onClick={() => !appointment && !dragRef.current && handleSlotClick(time, stylist.id, selectedDate)}
-                      >
-                        {appointment && (
-                          <AppointmentBlock appointment={appointment} />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Week View */}
-      {viewMode === 'week' && (
-        <div className="glass-card rounded-xl p-4 overflow-x-auto">
-          <div className="min-w-[900px]">
-            {/* Day Headers */}
-            <div className="grid grid-cols-8 border-b border-border pb-4 mb-4">
-              <div className="w-16" />
-              {weekDates.map((date, i) => (
-                <div 
-                  key={i} 
-                  className={cn(
-                    'text-center px-1',
-                    isToday(date) && 'text-primary'
-                  )}
+        <div className="flex-1 glass-card rounded-lg overflow-hidden flex flex-col min-h-0">
+          {/* Stylist Headers - Compact */}
+          <div className="flex border-b bg-muted/30 flex-shrink-0">
+            <div className="w-12 flex-shrink-0" />
+            {displayStylists.map(stylist => (
+              <div key={stylist.id} className="flex-1 py-2 px-1 text-center border-l border-border/30">
+                <div
+                  className="h-7 w-7 rounded-full mx-auto flex items-center justify-center text-white text-xs font-medium"
+                  style={{ backgroundColor: stylist.color }}
                 >
-                  <p className="text-sm text-muted-foreground">{dayNames[i]}</p>
-                  <p className={cn(
-                    'text-lg font-semibold mt-1 w-8 h-8 mx-auto flex items-center justify-center rounded-full',
-                    isToday(date) && 'bg-primary text-primary-foreground'
-                  )}>
-                    {date.getDate()}
-                  </p>
+                  {stylist.name.split(' ').map(n => n[0]).join('')}
                 </div>
-              ))}
-            </div>
-
-            {/* Time Grid */}
-            <div className="relative select-none">
-              {timeSlots.map(time => (
-                <div key={time} className="grid grid-cols-8 border-t border-border/50 min-h-[60px]">
-                  <div className="w-16 pr-2 py-2">
-                    <span className="text-xs text-muted-foreground">{time}</span>
-                  </div>
-                  
-                  {weekDates.map((date, i) => {
-                    const dayAppointments = getAppointmentsForDate(date);
-                    const appointment = dayAppointments.find(a => a.time === time);
-
-                    return (
-                      <div 
-                        key={i} 
-                        className={cn(
-                          'px-1 py-1 border-l border-border/30 cursor-pointer transition-colors',
-                          isToday(date) && 'bg-primary/5',
-                          !appointment && 'hover:bg-muted/30'
-                        )}
-                        onClick={() => {
-                          if (!appointment) {
-                            const stylistId = displayStylists[0]?.id || '';
-                            openNewAppointmentDialog(date, time, stylistId);
-                          }
-                        }}
-                      >
-                        {appointment && (
-                          <div
-                            className={cn(
-                              'rounded p-1.5 text-xs cursor-pointer hover:scale-[1.02] transition-transform',
-                              statusColors[appointment.status]
-                            )}
-                            style={{
-                              backgroundColor: `${appointment.stylist.color}20`,
-                              borderLeft: `3px solid ${appointment.stylist.color}`,
-                            }}
-                          >
-                            <p className="font-medium truncate text-foreground">
-                              {appointment.client.name}
-                            </p>
-                            <p className="text-muted-foreground truncate">
-                              {appointment.services[0]?.name}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Month View */}
-      {viewMode === 'month' && (
-        <div className="glass-card rounded-xl p-4">
-          {/* Day Headers */}
-          <div className="grid grid-cols-7 mb-4">
-            {dayNames.map(day => (
-              <div key={day} className="text-center text-sm font-medium text-muted-foreground py-2">
-                {day}
               </div>
             ))}
           </div>
 
-          {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-1">
+          {/* Time Grid - Scrollable */}
+          <div className="flex-1 overflow-y-auto select-none">
+            {timeSlots.map(time => (
+              <div key={time} className="flex border-t border-border/30" style={{ minHeight: '44px' }}>
+                <div className="w-12 flex-shrink-0 text-[10px] text-muted-foreground py-1 text-right pr-2">
+                  {time}
+                </div>
+                
+                {displayStylists.map(stylist => {
+                  const appointment = filteredAppointments.find(
+                    a => a.stylistId === stylist.id && a.time === time
+                  );
+                  const isInDragRange = isSlotInDragRange(time, stylist.id);
+
+                  return (
+                    <div 
+                      key={stylist.id} 
+                      className={cn(
+                        'flex-1 border-l border-border/30 cursor-pointer transition-colors relative',
+                        isInDragRange && 'bg-primary/20',
+                        !appointment && 'hover:bg-muted/40'
+                      )}
+                      onMouseDown={() => !appointment && handleMouseDown(time, stylist.id, selectedDate)}
+                      onMouseEnter={() => handleMouseEnter(time)}
+                      onClick={() => !appointment && !dragRef.current && handleSlotClick(time, stylist.id, selectedDate)}
+                    >
+                      {appointment && (
+                        <AppointmentChip 
+                          appointment={appointment} 
+                          onClick={() => setSelectedAppointment(appointment)}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Week View - Compact */}
+      {viewMode === 'week' && (
+        <div className="flex-1 glass-card rounded-lg overflow-hidden flex flex-col min-h-0">
+          <div className="grid grid-cols-8 border-b bg-muted/30 flex-shrink-0">
+            <div className="w-12" />
+            {weekDates.map((date, i) => (
+              <div 
+                key={i} 
+                className={cn("text-center py-2 border-l border-border/30", isToday(date) && "bg-primary/10")}
+                onClick={() => { setSelectedDate(date); setViewMode('day'); }}
+              >
+                <p className="text-[10px] text-muted-foreground">{dayNames[i]}</p>
+                <p className={cn(
+                  "text-sm font-semibold w-6 h-6 mx-auto flex items-center justify-center rounded-full cursor-pointer hover:bg-primary/20",
+                  isToday(date) && "bg-primary text-primary-foreground"
+                )}>
+                  {date.getDate()}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex-1 overflow-y-auto select-none">
+            {timeSlots.map(time => (
+              <div key={time} className="grid grid-cols-8 border-t border-border/30" style={{ minHeight: '36px' }}>
+                <div className="w-12 text-[10px] text-muted-foreground py-1 text-right pr-2">{time}</div>
+                
+                {weekDates.map((date, i) => {
+                  const dayAppointments = getAppointmentsForDate(date);
+                  const appointment = dayAppointments.find(a => a.time === time);
+
+                  return (
+                    <div 
+                      key={i} 
+                      className={cn(
+                        'border-l border-border/30 cursor-pointer transition-colors p-0.5',
+                        isToday(date) && 'bg-primary/5',
+                        !appointment && 'hover:bg-muted/30'
+                      )}
+                      onClick={() => {
+                        if (appointment) {
+                          setSelectedAppointment(appointment);
+                        } else {
+                          openNewAppointmentDialog(date, time, displayStylists[0]?.id || '');
+                        }
+                      }}
+                    >
+                      {appointment && (
+                        <div
+                          className="rounded px-1 py-0.5 text-[10px] truncate"
+                          style={{
+                            backgroundColor: `${appointment.stylist.color}25`,
+                            borderLeft: `2px solid ${appointment.stylist.color}`,
+                          }}
+                        >
+                          {appointment.client.name.split(' ')[0]}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Month View - Compact */}
+      {viewMode === 'month' && (
+        <div className="flex-1 glass-card rounded-lg overflow-hidden flex flex-col min-h-0">
+          <div className="grid grid-cols-7 bg-muted/30 flex-shrink-0">
+            {dayNames.map(day => (
+              <div key={day} className="text-center text-[10px] font-medium text-muted-foreground py-2">{day}</div>
+            ))}
+          </div>
+
+          <div className="flex-1 grid grid-cols-7 auto-rows-fr overflow-hidden">
             {monthDates.map((date, i) => {
               const dayAppointments = date ? getAppointmentsForDate(date) : [];
               const today = isToday(date!);
@@ -550,42 +474,30 @@ export default function Agenda() {
                 <div
                   key={i}
                   className={cn(
-                    'min-h-[100px] p-2 rounded-lg border border-transparent transition-colors cursor-pointer',
-                    today && 'border-primary bg-primary/5',
-                    !currentMonth && 'opacity-40',
-                    currentMonth && !today && 'hover:bg-muted/30'
+                    'border-t border-l border-border/30 p-1 cursor-pointer hover:bg-muted/20 transition-colors overflow-hidden',
+                    today && 'bg-primary/5',
+                    !currentMonth && 'opacity-40'
                   )}
-                  onClick={() => {
-                    if (date) {
-                      setSelectedDate(date);
-                      setViewMode('day');
-                    }
-                  }}
+                  onClick={() => { if (date) { setSelectedDate(date); setViewMode('day'); } }}
                 >
                   <p className={cn(
-                    'text-sm font-medium mb-1',
-                    today && 'text-primary'
+                    "text-xs font-medium mb-0.5",
+                    today && "text-primary"
                   )}>
                     {date?.getDate()}
                   </p>
-                  <div className="space-y-1">
-                    {dayAppointments.slice(0, 3).map(apt => (
+                  <div className="space-y-0.5">
+                    {dayAppointments.slice(0, 2).map(apt => (
                       <div
                         key={apt.id}
-                        className="text-xs p-1 rounded truncate"
-                        style={{
-                          backgroundColor: `${apt.stylist.color}20`,
-                          borderLeft: `2px solid ${apt.stylist.color}`,
-                        }}
+                        className="text-[9px] px-1 rounded truncate"
+                        style={{ backgroundColor: `${apt.stylist.color}20`, borderLeft: `2px solid ${apt.stylist.color}` }}
                       >
-                        <span className="font-medium">{apt.time}</span>
-                        <span className="text-muted-foreground ml-1">{apt.client.name}</span>
+                        {apt.time} {apt.client.name.split(' ')[0]}
                       </div>
                     ))}
-                    {dayAppointments.length > 3 && (
-                      <p className="text-xs text-muted-foreground text-center">
-                        +{dayAppointments.length - 3} más
-                      </p>
+                    {dayAppointments.length > 2 && (
+                      <p className="text-[9px] text-muted-foreground">+{dayAppointments.length - 2}</p>
                     )}
                   </div>
                 </div>
@@ -595,7 +507,78 @@ export default function Agenda() {
         </div>
       )}
 
-      {/* Appointment Form Dialog */}
+      {/* Appointment Detail Dialog */}
+      <Dialog open={!!selectedAppointment} onOpenChange={() => setSelectedAppointment(null)}>
+        <DialogContent className="max-w-sm">
+          {selectedAppointment && (
+            <>
+              <DialogHeader className="pb-2">
+                <DialogTitle className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-full" 
+                    style={{ backgroundColor: selectedAppointment.stylist.color }}
+                  />
+                  {selectedAppointment.client.name}
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="space-y-3">
+                <Badge className={cn("text-xs", statusColors[selectedAppointment.status])}>
+                  {statusLabels[selectedAppointment.status]}
+                </Badge>
+
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>
+                      {selectedAppointment.time} - {getEndTime(
+                        selectedAppointment.time,
+                        selectedAppointment.services.reduce((sum, s) => sum + s.duration, 0)
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Phone className="h-4 w-4" />
+                    <span>{selectedAppointment.client.phone}</span>
+                  </div>
+                </div>
+
+                <div className="border-t pt-3">
+                  <p className="text-xs text-muted-foreground mb-2">Servicios</p>
+                  <div className="space-y-1.5">
+                    {selectedAppointment.services.map(service => (
+                      <div key={service.id} className="flex justify-between text-sm">
+                        <span className="flex items-center gap-2">
+                          <Scissors className="h-3.5 w-3.5 text-muted-foreground" />
+                          {service.name}
+                        </span>
+                        <span className="font-medium">${service.price}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between border-t pt-3">
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                      style={{ backgroundColor: selectedAppointment.stylist.color }}
+                    >
+                      {selectedAppointment.stylist.name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <span className="text-sm font-medium">{selectedAppointment.stylist.name}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-lg font-bold">
+                    <DollarSign className="h-5 w-5" />
+                    {selectedAppointment.total}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <AppointmentFormDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
@@ -609,31 +592,26 @@ export default function Agenda() {
   );
 }
 
-function AppointmentBlock({ appointment }: { appointment: Appointment }) {
+function AppointmentChip({ appointment, onClick }: { appointment: Appointment; onClick: () => void }) {
   const duration = appointment.services.reduce((sum, s) => sum + s.duration, 0);
-  const heightPixels = (duration / 60) * 80;
+  const slots = Math.ceil(duration / 60);
+  const height = Math.max(slots * 44 - 4, 40);
 
   return (
     <div
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
       className={cn(
-        'rounded-lg border p-2 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg',
-        statusColors[appointment.status]
+        'absolute inset-x-0.5 top-0.5 rounded px-1.5 py-1 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md z-10 overflow-hidden'
       )}
       style={{
-        height: `${Math.max(heightPixels, 60)}px`,
-        backgroundColor: `${appointment.stylist.color}15`,
-        borderColor: `${appointment.stylist.color}40`,
+        height: `${height}px`,
+        backgroundColor: `${appointment.stylist.color}20`,
+        borderLeft: `3px solid ${appointment.stylist.color}`,
       }}
     >
-      <p className="font-medium text-sm truncate text-foreground">
-        {appointment.client.name}
-      </p>
-      <p className="text-xs text-muted-foreground truncate">
-        {appointment.services.map(s => s.name).join(', ')}
-      </p>
-      <p className="text-xs font-medium mt-1 text-foreground">
-        ${appointment.total}
-      </p>
+      <p className="font-medium text-xs truncate">{appointment.client.name}</p>
+      <p className="text-[10px] text-muted-foreground truncate">{appointment.services[0]?.name}</p>
+      {slots > 1 && <p className="text-[10px] font-medium mt-0.5">${appointment.total}</p>}
     </div>
   );
 }
