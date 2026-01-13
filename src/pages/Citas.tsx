@@ -120,12 +120,14 @@ export default function Citas() {
       if (paramStylist) setStylistId(paramStylist);
       if (paramDuration) setPreselectedDuration(parseInt(paramDuration));
       
-      setIsDialogOpen(true);
-      
-      // Clear URL params
-      setSearchParams({});
+      // Use setTimeout to ensure state updates before opening dialog
+      setTimeout(() => {
+        setIsDialogOpen(true);
+        // Clear URL params after dialog opens
+        window.history.replaceState({}, '', '/citas');
+      }, 0);
     }
-  }, [searchParams, setSearchParams]);
+  }, []);
 
   const filteredAppointments = appointments.filter(a => {
     const matchesBranch = a.branchId === currentBranch.id;
