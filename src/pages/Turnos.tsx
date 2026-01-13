@@ -86,6 +86,15 @@ export default function Turnos() {
     transfer: '',
   });
 
+  // Step for close dialog: 'input' = enter amounts, 'summary' = show readonly result
+  const [closeStep, setCloseStep] = useState<'input' | 'summary'>('input');
+  const [closedSummaryData, setClosedSummaryData] = useState<{
+    shiftSummary: typeof shiftSummary;
+    realAmounts: Record<PaymentMethod, number>;
+    differences: Record<PaymentMethod, number>;
+    totalDifference: number;
+  } | null>(null);
+
   const filteredShifts = getShiftsForBranch(currentBranch.id);
 
   // Calculate shift summary for closing
@@ -210,14 +219,16 @@ export default function Turnos() {
     }
 
     // Calculate total difference
-    let totalDifference = 0;
+    let totalDiff = 0;
     const differences: Record<PaymentMethod, number> = { cash: 0, card: 0, transfer: 0 };
+    const realAmountsNum: Record<PaymentMethod, number> = { cash: 0, card: 0, transfer: 0 };
     
     shiftSummary.usedMethods.forEach(method => {
       const real = parseFloat(realAmounts[method]) || 0;
+      realAmountsNum[method] = real;
       const expected = shiftSummary.expectedByMethod[method];
       differences[method] = real - expected;
-      totalDifference += differences[method];
+      totalDiff += differences[method];
     });
 
     const finalCash = parseFloat(realAmounts.cash) || 0;
@@ -233,7 +244,7 @@ export default function Turnos() {
       initialCash: openShift.initialCash,
       finalCash,
       expectedCash: shiftSummary.expectedByMethod.cash,
-      difference: totalDifference,
+      difference: totalDiff,
       salesByMethod: shiftSummary.salesByMethod,
       totalSales: shiftSummary.totalSales,
       totalExpenses: shiftSummary.totalExpenses,
@@ -247,12 +258,25 @@ export default function Turnos() {
     const success = closeTurn(openShift.id, finalCash);
 
     if (success) {
-      toast.success('Turno cerrado y corte generado correctamente');
-      setIsCloseDialogOpen(false);
-      setRealAmounts({ cash: '', card: '', transfer: '' });
+      // Store summary data and switch to summary step
+      setClosedSummaryData({
+        shiftSummary: { ...shiftSummary },
+        realAmounts: realAmountsNum,
+        differences,
+        totalDifference: totalDiff,
+      });
+      setCloseStep('summary');
+      toast.success('Turno cerrado correctamente');
     } else {
       toast.error('No se pudo cerrar el turno');
     }
+  };
+
+  const handleCloseDialog = () => {
+    setIsCloseDialogOpen(false);
+    setRealAmounts({ cash: '', card: '', transfer: '' });
+    setCloseStep('input');
+    setClosedSummaryData(null);
   };
 
   const formatTime = (time: string) => {
@@ -263,17 +287,6 @@ export default function Turnos() {
     return `${formattedHour}:${minutes} ${ampm}`;
   };
 
-  // Calculate total difference for display
-  const totalDifference = useMemo(() => {
-    if (!shiftSummary) return 0;
-    return shiftSummary.usedMethods.reduce((sum, method) => {
-      const real = parseFloat(realAmounts[method]) || 0;
-      const expected = shiftSummary.expectedByMethod[method];
-      return sum + (real - expected);
-    }, 0);
-  }, [shiftSummary, realAmounts]);
-
-  const hasAnyAmount = shiftSummary?.usedMethods.some(m => realAmounts[m] !== '');
 
   return (
     <div className="space-y-6">
@@ -506,20 +519,21 @@ export default function Turnos() {
         </Table>
       </div>
 
-      {/* Close Turn Dialog - COMPLETE with breakdown */}
+      {/* Close Turn Dialog - TWO STEPS */}
       <Dialog open={isCloseDialogOpen} onOpenChange={(open) => {
-        setIsCloseDialogOpen(open);
-        if (!open) setRealAmounts({ cash: '', card: '', transfer: '' });
+        if (!open) handleCloseDialog();
+        else setIsCloseDialogOpen(true);
       }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Calculator className="h-5 w-5" />
-              Cerrar Turno y Corte de Caja
+              {closeStep === 'input' ? 'Cerrar Turno' : 'Resumen del Corte'}
             </DialogTitle>
           </DialogHeader>
           
-          {openShift && shiftSummary && (
+          {/* STEP 1: Input amounts only */}
+          {closeStep === 'input' && openShift && shiftSummary && (
             <div className="space-y-4 py-4">
               {/* Shift Info */}
               <div className="p-4 bg-secondary/30 rounded-lg">
@@ -543,27 +557,91 @@ export default function Turnos() {
                 </div>
               </div>
 
+              {/* Real Amount Inputs */}
+              <div className="space-y-3">
+                <h4 className="font-medium flex items-center gap-2">
+                  <Calculator className="h-4 w-4" />
+                  ¿Cuánto tienes en caja por cada método?
+                </h4>
+                
+                <div className="grid gap-3">
+                  {shiftSummary.usedMethods.map(method => {
+                    const config = paymentMethodConfig[method];
+                    const Icon = config.icon;
+                    
+                    return (
+                      <div key={method} className={cn("p-3 rounded-lg border", config.bg)}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon className={cn("h-5 w-5", config.color)} />
+                          <span className="font-medium">{config.label}</span>
+                        </div>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={realAmounts[method]}
+                            onChange={(e) => setRealAmounts(prev => ({ 
+                              ...prev, 
+                              [method]: e.target.value 
+                            }))}
+                            className="pl-7 bg-background"
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button variant="outline" onClick={handleCloseDialog}>
+                  Cancelar
+                </Button>
+                <Button 
+                  variant="destructive"
+                  onClick={handleCloseTurn}
+                  disabled={!realAmounts.cash}
+                >
+                  <StopCircle className="h-4 w-4 mr-2" />
+                  Cerrar Turno
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 2: Summary - Read Only */}
+          {closeStep === 'summary' && closedSummaryData && (
+            <div className="space-y-4 py-4">
+              {/* Success Banner */}
+              <div className="p-4 bg-success/10 border border-success/30 rounded-lg text-center">
+                <CheckCircle className="h-8 w-8 mx-auto mb-2 text-success" />
+                <p className="font-semibold text-success">Turno cerrado correctamente</p>
+              </div>
+
               {/* Summary Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="p-3 bg-success/10 rounded-lg text-center">
                   <TrendingUp className="h-5 w-5 mx-auto mb-1 text-success" />
                   <p className="text-xs text-muted-foreground">Ventas</p>
-                  <p className="font-bold text-success">${shiftSummary.totalSales.toLocaleString()}</p>
+                  <p className="font-bold text-success">${closedSummaryData.shiftSummary?.totalSales.toLocaleString()}</p>
                 </div>
                 <div className="p-3 bg-destructive/10 rounded-lg text-center">
                   <TrendingDown className="h-5 w-5 mx-auto mb-1 text-destructive" />
                   <p className="text-xs text-muted-foreground">Gastos</p>
-                  <p className="font-bold text-destructive">${shiftSummary.totalExpenses.toLocaleString()}</p>
+                  <p className="font-bold text-destructive">${closedSummaryData.shiftSummary?.totalExpenses.toLocaleString()}</p>
                 </div>
                 <div className="p-3 bg-warning/10 rounded-lg text-center">
                   <ShoppingCart className="h-5 w-5 mx-auto mb-1 text-warning" />
                   <p className="text-xs text-muted-foreground">Compras</p>
-                  <p className="font-bold text-warning">${shiftSummary.totalPurchases.toLocaleString()}</p>
+                  <p className="font-bold text-warning">${closedSummaryData.shiftSummary?.totalPurchases.toLocaleString()}</p>
                 </div>
                 <div className="p-3 bg-primary/10 rounded-lg text-center">
                   <Scissors className="h-5 w-5 mx-auto mb-1 text-primary" />
                   <p className="text-xs text-muted-foreground">Citas</p>
-                  <p className="font-bold">{shiftSummary.completedAppointments}</p>
+                  <p className="font-bold">{closedSummaryData.shiftSummary?.completedAppointments}</p>
                 </div>
               </div>
 
@@ -582,14 +660,18 @@ export default function Turnos() {
                         <TableHead className="text-right text-success">Ventas</TableHead>
                         <TableHead className="text-right text-destructive">Gastos</TableHead>
                         <TableHead className="text-right text-warning">Compras</TableHead>
-                        <TableHead className="text-right font-bold">Esperado</TableHead>
+                        <TableHead className="text-right">Esperado</TableHead>
+                        <TableHead className="text-right">Real</TableHead>
+                        <TableHead className="text-right">Diferencia</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {shiftSummary.usedMethods.map(method => {
+                      {closedSummaryData.shiftSummary?.usedMethods.map(method => {
                         const config = paymentMethodConfig[method];
                         const Icon = config.icon;
-                        const expected = shiftSummary.expectedByMethod[method];
+                        const expected = closedSummaryData.shiftSummary?.expectedByMethod[method] || 0;
+                        const real = closedSummaryData.realAmounts[method];
+                        const diff = closedSummaryData.differences[method];
                         return (
                           <TableRow key={method}>
                             <TableCell>
@@ -599,16 +681,31 @@ export default function Turnos() {
                               </div>
                             </TableCell>
                             <TableCell className="text-right text-success">
-                              +${shiftSummary.salesByMethod[method].toLocaleString()}
+                              +${closedSummaryData.shiftSummary?.salesByMethod[method].toLocaleString()}
                             </TableCell>
                             <TableCell className="text-right text-destructive">
-                              -${shiftSummary.expensesByMethod[method].toLocaleString()}
+                              -${closedSummaryData.shiftSummary?.expensesByMethod[method].toLocaleString()}
                             </TableCell>
                             <TableCell className="text-right text-warning">
-                              -${shiftSummary.purchasesByMethod[method].toLocaleString()}
+                              -${closedSummaryData.shiftSummary?.purchasesByMethod[method].toLocaleString()}
                             </TableCell>
-                            <TableCell className="text-right font-bold">
+                            <TableCell className="text-right font-medium">
                               ${expected.toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              ${real.toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Badge className={cn(
+                                "min-w-[70px] justify-center",
+                                diff === 0
+                                  ? "bg-success/20 text-success border-success/30"
+                                  : diff > 0
+                                    ? "bg-info/20 text-info border-info/30"
+                                    : "bg-destructive/20 text-destructive border-destructive/30"
+                              )}>
+                                {diff >= 0 ? '+' : ''}${diff.toLocaleString()}
+                              </Badge>
                             </TableCell>
                           </TableRow>
                         );
@@ -618,114 +715,40 @@ export default function Turnos() {
                 </div>
               </div>
 
-              {/* Real Amount Inputs */}
-              <div className="space-y-3">
-                <h4 className="font-medium flex items-center gap-2">
-                  <Calculator className="h-4 w-4" />
-                  Ingresa los Montos Reales Recibidos
-                </h4>
-                
-                <div className="grid gap-3">
-                  {shiftSummary.usedMethods.map(method => {
-                    const config = paymentMethodConfig[method];
-                    const Icon = config.icon;
-                    const expected = shiftSummary.expectedByMethod[method];
-                    const real = parseFloat(realAmounts[method]) || 0;
-                    const diff = real - expected;
-                    const hasValue = realAmounts[method] !== '';
-                    
-                    return (
-                      <div key={method} className={cn("p-3 rounded-lg border", config.bg)}>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <Icon className={cn("h-5 w-5", config.color)} />
-                            <span className="font-medium">{config.label}</span>
-                          </div>
-                          <span className="text-sm text-muted-foreground">
-                            Esperado: ${expected.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="relative flex-1">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                            <Input
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              value={realAmounts[method]}
-                              onChange={(e) => setRealAmounts(prev => ({ 
-                                ...prev, 
-                                [method]: e.target.value 
-                              }))}
-                              className="pl-7 bg-background"
-                              placeholder="0.00"
-                            />
-                          </div>
-                          {hasValue && (
-                            <Badge className={cn(
-                              "min-w-[80px] justify-center",
-                              diff === 0
-                                ? "bg-success/20 text-success border-success/30"
-                                : diff > 0
-                                  ? "bg-info/20 text-info border-info/30"
-                                  : "bg-destructive/20 text-destructive border-destructive/30"
-                            )}>
-                              {diff >= 0 ? '+' : ''}{diff.toLocaleString()}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+              {/* Total Difference */}
+              <div className={cn(
+                "p-4 rounded-lg border-2",
+                closedSummaryData.totalDifference === 0
+                  ? "bg-success/10 border-success/30"
+                  : closedSummaryData.totalDifference > 0
+                    ? "bg-info/10 border-info/30"
+                    : "bg-destructive/10 border-destructive/30"
+              )}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {closedSummaryData.totalDifference === 0 
+                      ? <CheckCircle className="h-5 w-5 text-success" />
+                      : <AlertTriangle className="h-5 w-5 text-warning" />
+                    }
+                    <span className="font-medium">Diferencia Total:</span>
+                  </div>
+                  <span className={cn(
+                    "text-xl font-bold",
+                    closedSummaryData.totalDifference === 0
+                      ? "text-success"
+                      : closedSummaryData.totalDifference > 0
+                        ? "text-info"
+                        : "text-destructive"
+                  )}>
+                    {closedSummaryData.totalDifference >= 0 ? '+' : ''}${closedSummaryData.totalDifference.toLocaleString()}
+                  </span>
                 </div>
               </div>
 
-              {/* Total Difference */}
-              {hasAnyAmount && (
-                <div className={cn(
-                  "p-4 rounded-lg border-2",
-                  totalDifference === 0
-                    ? "bg-success/10 border-success/30"
-                    : totalDifference > 0
-                      ? "bg-info/10 border-info/30"
-                      : "bg-destructive/10 border-destructive/30"
-                )}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {totalDifference === 0 
-                        ? <CheckCircle className="h-5 w-5 text-success" />
-                        : <AlertTriangle className="h-5 w-5 text-warning" />
-                      }
-                      <span className="font-medium">Diferencia Total:</span>
-                    </div>
-                    <span className={cn(
-                      "text-xl font-bold",
-                      totalDifference === 0
-                        ? "text-success"
-                        : totalDifference > 0
-                          ? "text-info"
-                          : "text-destructive"
-                    )}>
-                      {totalDifference >= 0 ? '+' : ''}${totalDifference.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-4">
-                <Button variant="outline" onClick={() => {
-                  setIsCloseDialogOpen(false);
-                  setRealAmounts({ cash: '', card: '', transfer: '' });
-                }}>
-                  Cancelar
-                </Button>
-                <Button 
-                  variant="destructive"
-                  onClick={handleCloseTurn}
-                  disabled={!realAmounts.cash}
-                >
-                  <StopCircle className="h-4 w-4 mr-2" />
-                  Cerrar Turno y Generar Corte
+              <div className="flex justify-end pt-4">
+                <Button onClick={handleCloseDialog}>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Listo
                 </Button>
               </div>
             </div>
