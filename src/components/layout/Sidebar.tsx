@@ -16,6 +16,7 @@ import {
   FileText,
   CalendarClock,
   Settings,
+  Shield,
   ChevronLeft,
   ChevronRight,
   Store,
@@ -34,6 +35,7 @@ const navItems = [
   { path: '/turnos', icon: Clock, label: 'Turnos' },
   { path: '/cortes', icon: FileText, label: 'Cortes' },
   { path: '/horarios', icon: CalendarClock, label: 'Horarios' },
+  { path: '/permisos', icon: Shield, label: 'Permisos' },
   { path: '/configuracion', icon: Settings, label: 'Configuración' },
 ];
 
