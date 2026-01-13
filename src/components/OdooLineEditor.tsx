@@ -195,13 +195,17 @@ export function OdooLineEditor({
                       setShowDropdown={setShowDropdown}
                       setActiveCell={setActiveCell}
                     />
+                  ) : col.readOnly ? (
+                    <div className="h-10 px-3 flex items-center justify-end text-muted-foreground font-medium bg-muted/20">
+                      {col.format ? col.format(line[col.key]) : (line[col.key] ?? '')}
+                    </div>
                   ) : (
                     <Input
                       ref={(el) => {
                         if (el) inputRefs.current.set(getCellKey(line.id, col.key), el);
                       }}
                       type={col.type === 'number' ? 'number' : 'text'}
-                      value={col.format ? col.format(line[col.key]) : (line[col.key] ?? '')}
+                      value={line[col.key] ?? ''}
                       onChange={(e) => {
                         const value = col.type === 'number' 
                           ? parseFloat(e.target.value) || 0 
@@ -214,10 +218,8 @@ export function OdooLineEditor({
                       min={col.min}
                       max={col.max}
                       step={col.step}
-                      readOnly={col.readOnly}
                       className={cn(
                         'border-0 rounded-none bg-transparent h-10 focus:ring-1 focus:ring-primary focus:bg-primary/5',
-                        col.readOnly && 'text-muted-foreground cursor-default',
                         col.type === 'number' && 'text-right'
                       )}
                     />
