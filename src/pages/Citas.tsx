@@ -7,9 +7,6 @@ import {
   stylists, 
   products,
   type Appointment, 
-  type Client, 
-  type Service,
-  type Product,
 } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -17,7 +14,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -46,6 +42,8 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
+import { OdooLineEditor, type LineItem, type ColumnConfig } from '@/components/OdooLineEditor';
+import { MultiPaymentSelector, type Payment } from '@/components/MultiPaymentSelector';
 import {
   Plus,
   Search,
@@ -54,8 +52,6 @@ import {
   Clock,
   User,
   Scissors,
-  Phone,
-  Mail,
   Edit,
   Trash2,
   CheckCircle,
@@ -79,13 +75,6 @@ const statusColors = {
   'cancelled': 'bg-destructive/20 text-destructive border-destructive/30',
 };
 
-const paymentLabels = {
-  'cash': 'Efectivo',
-  'card': 'Tarjeta',
-  'transfer': 'Transferencia',
-  'mixed': 'Mixto',
-};
-
 export default function Citas() {
   const { currentBranch } = useApp();
   const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
@@ -95,19 +84,22 @@ export default function Citas() {
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
 
   // Form state
-  const [formData, setFormData] = useState({
-    clientId: '',
-    newClientName: '',
-    newClientPhone: '',
-    newClientEmail: '',
-    stylistId: '',
-    date: new Date().toISOString().split('T')[0],
-    time: '09:00',
-    selectedServices: [] as string[],
-    selectedProducts: [] as { productId: string; quantity: number }[],
-    notes: '',
-    paymentMethod: 'cash' as 'cash' | 'card' | 'transfer' | 'mixed',
-  });
+  const [clientTab, setClientTab] = useState<'existing' | 'new'>('existing');
+  const [clientId, setClientId] = useState('');
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientPhone, setNewClientPhone] = useState('');
+  const [newClientEmail, setNewClientEmail] = useState('');
+  const [stylistId, setStylistId] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [time, setTime] = useState('09:00');
+  const [notes, setNotes] = useState('');
+  
+  // Odoo-style lines
+  const [serviceLines, setServiceLines] = useState<LineItem[]>([]);
+  const [productLines, setProductLines] = useState<LineItem[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([
+    { id: 'pay-1', method: 'cash', amount: 0 }
+  ]);
 
   const filteredAppointments = appointments.filter(a => {
     const matchesBranch = a.branchId === currentBranch.id;
@@ -119,62 +111,211 @@ export default function Citas() {
   });
 
   const resetForm = () => {
-    setFormData({
-      clientId: '',
-      newClientName: '',
-      newClientPhone: '',
-      newClientEmail: '',
-      stylistId: '',
-      date: new Date().toISOString().split('T')[0],
-      time: '09:00',
-      selectedServices: [],
-      selectedProducts: [],
-      notes: '',
-      paymentMethod: 'cash',
-    });
+    setClientTab('existing');
+    setClientId('');
+    setNewClientName('');
+    setNewClientPhone('');
+    setNewClientEmail('');
+    setStylistId('');
+    setDate(new Date().toISOString().split('T')[0]);
+    setTime('09:00');
+    setNotes('');
+    setServiceLines([]);
+    setProductLines([]);
+    setPayments([{ id: 'pay-1', method: 'cash', amount: 0 }]);
     setEditingAppointment(null);
   };
 
   const openEditDialog = (appointment: Appointment) => {
     setEditingAppointment(appointment);
-    setFormData({
-      clientId: appointment.clientId,
-      newClientName: '',
-      newClientPhone: '',
-      newClientEmail: '',
-      stylistId: appointment.stylistId,
-      date: appointment.date,
-      time: appointment.time,
-      selectedServices: appointment.services.map(s => s.id),
-      selectedProducts: appointment.products?.map(p => ({ productId: p.product.id, quantity: p.quantity })) || [],
-      notes: appointment.notes || '',
-      paymentMethod: appointment.paymentMethod || 'cash',
-    });
+    setClientTab('existing');
+    setClientId(appointment.clientId);
+    setStylistId(appointment.stylistId);
+    setDate(appointment.date);
+    setTime(appointment.time);
+    setNotes(appointment.notes || '');
+    
+    // Convert services to lines
+    setServiceLines(appointment.services.map(s => ({
+      id: `sl-${s.id}`,
+      serviceId: s.id,
+      serviceName: s.name,
+      duration: s.duration,
+      price: s.price,
+    })));
+    
+    // Convert products to lines
+    setProductLines(appointment.products?.map(p => ({
+      id: `pl-${p.product.id}`,
+      productId: p.product.id,
+      productName: p.product.name,
+      quantity: p.quantity,
+      price: p.product.price,
+      subtotal: p.quantity * p.product.price,
+    })) || []);
+    
+    setPayments([{ id: 'pay-1', method: 'cash', amount: appointment.total }]);
     setIsDialogOpen(true);
   };
 
-  const calculateTotal = () => {
-    const servicesTotal = formData.selectedServices.reduce((sum, sId) => {
-      const service = services.find(s => s.id === sId);
-      return sum + (service?.price || 0);
-    }, 0);
-    const productsTotal = formData.selectedProducts.reduce((sum, p) => {
-      const product = products.find(pr => pr.id === p.productId);
-      return sum + (product?.price || 0) * p.quantity;
-    }, 0);
-    return servicesTotal + productsTotal;
+  // Calculate totals
+  const servicesTotal = serviceLines.reduce((sum, line) => sum + (line.price || 0), 0);
+  const productsTotal = productLines.reduce((sum, line) => sum + (line.subtotal || 0), 0);
+  const total = servicesTotal + productsTotal;
+  const totalDuration = serviceLines.reduce((sum, line) => sum + (line.duration || 0), 0);
+
+  // Column configs
+  const serviceColumns: ColumnConfig[] = [
+    {
+      key: 'serviceName',
+      label: 'Servicio',
+      type: 'search',
+      placeholder: 'Buscar servicio...',
+      width: 'flex-[2]',
+      searchItems: services.filter(s => s.active).map(s => ({
+        id: s.id,
+        label: s.name,
+        subLabel: `${s.duration} min | $${s.price}`,
+        data: s,
+      })),
+      onSelect: (item, lineId) => {
+        setServiceLines(prev => prev.map(line =>
+          line.id === lineId 
+            ? { ...line, serviceId: item.id, serviceName: item.label, duration: item.data.duration, price: item.data.price }
+            : line
+        ));
+      },
+    },
+    {
+      key: 'duration',
+      label: 'Duración',
+      type: 'number',
+      width: 'w-24',
+      readOnly: true,
+      format: (v) => `${v || 0} min`,
+    },
+    {
+      key: 'price',
+      label: 'Precio',
+      type: 'number',
+      width: 'w-28',
+      readOnly: true,
+      format: (v) => `$${(v || 0).toLocaleString()}`,
+    },
+  ];
+
+  const productColumns: ColumnConfig[] = [
+    {
+      key: 'productName',
+      label: 'Producto',
+      type: 'search',
+      placeholder: 'Buscar producto...',
+      width: 'flex-[2]',
+      searchItems: products.filter(p => p.active && p.stock > 0).map(p => ({
+        id: p.id,
+        label: p.name,
+        subLabel: `Stock: ${p.stock} | $${p.price}`,
+        data: p,
+      })),
+      onSelect: (item, lineId) => {
+        setProductLines(prev => prev.map(line =>
+          line.id === lineId 
+            ? { ...line, productId: item.id, productName: item.label, price: item.data.price, quantity: 1, subtotal: item.data.price }
+            : line
+        ));
+      },
+    },
+    {
+      key: 'quantity',
+      label: 'Cantidad',
+      type: 'number',
+      width: 'w-24',
+      min: 1,
+    },
+    {
+      key: 'price',
+      label: 'Precio Unit.',
+      type: 'number',
+      width: 'w-28',
+      readOnly: true,
+      format: (v) => `$${(v || 0).toLocaleString()}`,
+    },
+    {
+      key: 'subtotal',
+      label: 'Subtotal',
+      type: 'number',
+      width: 'w-28',
+      readOnly: true,
+      format: (v) => `$${(v || 0).toLocaleString()}`,
+    },
+  ];
+
+  const addServiceLine = () => {
+    setServiceLines(prev => [
+      ...prev,
+      { id: `sl-${Date.now()}`, serviceId: '', serviceName: '', duration: 0, price: 0 }
+    ]);
+  };
+
+  const updateServiceLine = (lineId: string, key: string, value: any) => {
+    setServiceLines(prev => prev.map(line =>
+      line.id === lineId ? { ...line, [key]: value } : line
+    ));
+  };
+
+  const removeServiceLine = (lineId: string) => {
+    setServiceLines(prev => prev.filter(line => line.id !== lineId));
+  };
+
+  const addProductLine = () => {
+    setProductLines(prev => [
+      ...prev,
+      { id: `pl-${Date.now()}`, productId: '', productName: '', quantity: 1, price: 0, subtotal: 0 }
+    ]);
+  };
+
+  const updateProductLine = (lineId: string, key: string, value: any) => {
+    setProductLines(prev => prev.map(line => {
+      if (line.id !== lineId) return line;
+      const updated = { ...line, [key]: value };
+      // Recalculate subtotal when quantity changes
+      if (key === 'quantity') {
+        updated.subtotal = (updated.quantity || 0) * (updated.price || 0);
+      }
+      return updated;
+    }));
+  };
+
+  const removeProductLine = (lineId: string) => {
+    setProductLines(prev => prev.filter(line => line.id !== lineId));
   };
 
   const handleSubmit = () => {
-    const client = formData.clientId 
-      ? clients.find(c => c.id === formData.clientId)!
-      : { id: `c${Date.now()}`, name: formData.newClientName, phone: formData.newClientPhone, email: formData.newClientEmail };
+    const client = clientTab === 'existing' && clientId
+      ? clients.find(c => c.id === clientId)!
+      : { id: `c${Date.now()}`, name: newClientName, phone: newClientPhone, email: newClientEmail };
     
-    const stylist = stylists.find(s => s.id === formData.stylistId)!;
-    const selectedServicesList = services.filter(s => formData.selectedServices.includes(s.id));
-    const selectedProductsList = formData.selectedProducts.map(p => ({
-      product: products.find(pr => pr.id === p.productId)!,
-      quantity: p.quantity,
+    if (!client.name) {
+      toast.error('Selecciona o ingresa un cliente');
+      return;
+    }
+
+    if (!stylistId) {
+      toast.error('Selecciona un estilista');
+      return;
+    }
+
+    const validServices = serviceLines.filter(l => l.serviceId);
+    if (validServices.length === 0) {
+      toast.error('Agrega al menos un servicio');
+      return;
+    }
+
+    const stylist = stylists.find(s => s.id === stylistId)!;
+    const selectedServices = validServices.map(line => services.find(s => s.id === line.serviceId)!);
+    const selectedProducts = productLines.filter(l => l.productId).map(line => ({
+      product: products.find(p => p.id === line.productId)!,
+      quantity: line.quantity,
     }));
 
     if (editingAppointment) {
@@ -186,13 +327,13 @@ export default function Citas() {
               clientId: client.id,
               stylist,
               stylistId: stylist.id,
-              date: formData.date,
-              time: formData.time,
-              services: selectedServicesList,
-              products: selectedProductsList,
-              notes: formData.notes,
-              paymentMethod: formData.paymentMethod,
-              total: calculateTotal(),
+              date,
+              time,
+              services: selectedServices,
+              products: selectedProducts,
+              notes,
+              paymentMethod: payments.length > 1 ? 'mixed' : payments[0].method,
+              total,
             }
           : a
       ));
@@ -205,14 +346,14 @@ export default function Citas() {
         stylistId: stylist.id,
         stylist,
         branchId: currentBranch.id,
-        date: formData.date,
-        time: formData.time,
-        services: selectedServicesList,
-        products: selectedProductsList,
+        date,
+        time,
+        services: selectedServices,
+        products: selectedProducts,
         status: 'scheduled',
-        paymentMethod: formData.paymentMethod,
-        total: calculateTotal(),
-        notes: formData.notes,
+        paymentMethod: payments.length > 1 ? 'mixed' : payments[0].method,
+        total,
+        notes,
       };
       setAppointments(prev => [...prev, newAppointment]);
       toast.success('Cita creada correctamente');
@@ -234,25 +375,6 @@ export default function Citas() {
     toast.success('Cita eliminada');
   };
 
-  const toggleProduct = (productId: string) => {
-    setFormData(prev => {
-      const existing = prev.selectedProducts.find(p => p.productId === productId);
-      if (existing) {
-        return { ...prev, selectedProducts: prev.selectedProducts.filter(p => p.productId !== productId) };
-      }
-      return { ...prev, selectedProducts: [...prev.selectedProducts, { productId, quantity: 1 }] };
-    });
-  };
-
-  const updateProductQuantity = (productId: string, quantity: number) => {
-    setFormData(prev => ({
-      ...prev,
-      selectedProducts: prev.selectedProducts.map(p => 
-        p.productId === productId ? { ...p, quantity: Math.max(1, quantity) } : p
-      ),
-    }));
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -268,20 +390,21 @@ export default function Citas() {
               Nueva Cita
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingAppointment ? 'Editar Cita' : 'Nueva Cita'}</DialogTitle>
             </DialogHeader>
             
             <div className="space-y-6 py-4">
-              <Tabs defaultValue="existing" className="w-full">
-                <Label>Cliente</Label>
+              {/* Client Selection */}
+              <Tabs value={clientTab} onValueChange={(v) => setClientTab(v as 'existing' | 'new')} className="w-full">
+                <Label className="text-base font-semibold">Cliente</Label>
                 <TabsList className="mt-2">
                   <TabsTrigger value="existing">Cliente Existente</TabsTrigger>
                   <TabsTrigger value="new">Nuevo Cliente</TabsTrigger>
                 </TabsList>
                 <TabsContent value="existing" className="mt-3">
-                  <Select value={formData.clientId} onValueChange={(v) => setFormData(prev => ({ ...prev, clientId: v }))}>
+                  <Select value={clientId} onValueChange={setClientId}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecciona un cliente" />
                     </SelectTrigger>
@@ -303,8 +426,8 @@ export default function Citas() {
                       <Label htmlFor="newName">Nombre</Label>
                       <Input 
                         id="newName"
-                        value={formData.newClientName}
-                        onChange={(e) => setFormData(prev => ({ ...prev, newClientName: e.target.value }))}
+                        value={newClientName}
+                        onChange={(e) => setNewClientName(e.target.value)}
                         placeholder="Nombre completo"
                       />
                     </div>
@@ -312,8 +435,8 @@ export default function Citas() {
                       <Label htmlFor="newPhone">Teléfono</Label>
                       <Input 
                         id="newPhone"
-                        value={formData.newClientPhone}
-                        onChange={(e) => setFormData(prev => ({ ...prev, newClientPhone: e.target.value }))}
+                        value={newClientPhone}
+                        onChange={(e) => setNewClientPhone(e.target.value)}
                         placeholder="555-0000"
                       />
                     </div>
@@ -323,8 +446,8 @@ export default function Citas() {
                     <Input 
                       id="newEmail"
                       type="email"
-                      value={formData.newClientEmail}
-                      onChange={(e) => setFormData(prev => ({ ...prev, newClientEmail: e.target.value }))}
+                      value={newClientEmail}
+                      onChange={(e) => setNewClientEmail(e.target.value)}
                       placeholder="cliente@email.com"
                     />
                   </div>
@@ -335,7 +458,7 @@ export default function Citas() {
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label>Estilista</Label>
-                  <Select value={formData.stylistId} onValueChange={(v) => setFormData(prev => ({ ...prev, stylistId: v }))}>
+                  <Select value={stylistId} onValueChange={setStylistId}>
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccionar" />
                     </SelectTrigger>
@@ -355,138 +478,100 @@ export default function Citas() {
                   <Label>Fecha</Label>
                   <Input 
                     type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Hora</Label>
-                  <Select value={formData.time} onValueChange={(v) => setFormData(prev => ({ ...prev, time: v }))}>
+                  <Select value={time} onValueChange={setTime}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.from({ length: 24 }, (_, i) => {
+                      {Array.from({ length: 26 }, (_, i) => {
                         const hour = Math.floor(i / 2) + 8;
                         const minutes = i % 2 === 0 ? '00' : '30';
                         if (hour > 20) return null;
-                        const time = `${hour.toString().padStart(2, '0')}:${minutes}`;
-                        return <SelectItem key={time} value={time}>{time}</SelectItem>;
+                        const t = `${hour.toString().padStart(2, '0')}:${minutes}`;
+                        return <SelectItem key={t} value={t}>{t}</SelectItem>;
                       })}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              {/* Services */}
-              <div className="space-y-3">
-                <Label>Servicios</Label>
-                <div className="grid gap-2 sm:grid-cols-2 max-h-[200px] overflow-y-auto p-1">
-                  {services.filter(s => s.active).map(service => (
-                    <label
-                      key={service.id}
-                      className={cn(
-                        'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
-                        formData.selectedServices.includes(service.id)
-                          ? 'border-primary bg-primary/10'
-                          : 'border-border hover:border-primary/50'
-                      )}
-                    >
-                      <Checkbox
-                        checked={formData.selectedServices.includes(service.id)}
-                        onCheckedChange={(checked) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            selectedServices: checked
-                              ? [...prev.selectedServices, service.id]
-                              : prev.selectedServices.filter(id => id !== service.id),
-                          }));
-                        }}
-                      />
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{service.name}</p>
-                        <p className="text-xs text-muted-foreground">{service.duration} min</p>
-                      </div>
-                      <span className="font-semibold">${service.price}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Products */}
-              <div className="space-y-3">
-                <Label>Productos (opcional)</Label>
-                <div className="grid gap-2 sm:grid-cols-2 max-h-[200px] overflow-y-auto p-1">
-                  {products.filter(p => p.active && p.stock > 0).map(product => {
-                    const selected = formData.selectedProducts.find(p => p.productId === product.id);
-                    return (
-                      <div
-                        key={product.id}
-                        className={cn(
-                          'flex items-center gap-3 p-3 rounded-lg border transition-all',
-                          selected ? 'border-primary bg-primary/10' : 'border-border'
-                        )}
-                      >
-                        <Checkbox
-                          checked={!!selected}
-                          onCheckedChange={() => toggleProduct(product.id)}
-                        />
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{product.name}</p>
-                          <p className="text-xs text-muted-foreground">Stock: {product.stock}</p>
-                        </div>
-                        {selected && (
-                          <Input
-                            type="number"
-                            min={1}
-                            max={product.stock}
-                            value={selected.quantity}
-                            onChange={(e) => updateProductQuantity(product.id, parseInt(e.target.value))}
-                            className="w-16 h-8 text-center"
-                          />
-                        )}
-                        <span className="font-semibold">${product.price}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Payment & Notes */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Método de Pago</Label>
-                  <Select 
-                    value={formData.paymentMethod} 
-                    onValueChange={(v: 'cash' | 'card' | 'transfer' | 'mixed') => setFormData(prev => ({ ...prev, paymentMethod: v }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">Efectivo</SelectItem>
-                      <SelectItem value="card">Tarjeta</SelectItem>
-                      <SelectItem value="transfer">Transferencia</SelectItem>
-                      <SelectItem value="mixed">Mixto</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Total</Label>
-                  <div className="h-10 px-3 flex items-center rounded-md border bg-muted font-bold text-lg">
-                    ${calculateTotal().toLocaleString()}
-                  </div>
-                </div>
-              </div>
-
+              {/* Services - Odoo style */}
               <div className="space-y-2">
-                <Label>Notas</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold flex items-center gap-2">
+                    <Scissors className="h-4 w-4" />
+                    Servicios
+                  </Label>
+                  {totalDuration > 0 && (
+                    <Badge variant="secondary">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {totalDuration} min
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Usa Tab para moverte entre campos. Al final, Tab agrega una nueva línea.
+                </p>
+                <OdooLineEditor
+                  lines={serviceLines}
+                  columns={serviceColumns}
+                  onUpdateLine={updateServiceLine}
+                  onRemoveLine={removeServiceLine}
+                  onAddLine={addServiceLine}
+                  showTotal
+                  totalLabel="Subtotal Servicios"
+                  totalValue={servicesTotal}
+                  emptyMessage="Haz clic o presiona Tab para agregar servicios"
+                />
+              </div>
+
+              {/* Products - Odoo style */}
+              <div className="space-y-2">
+                <Label className="text-base font-semibold flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Productos (opcional)
+                </Label>
+                <OdooLineEditor
+                  lines={productLines}
+                  columns={productColumns}
+                  onUpdateLine={updateProductLine}
+                  onRemoveLine={removeProductLine}
+                  onAddLine={addProductLine}
+                  showTotal
+                  totalLabel="Subtotal Productos"
+                  totalValue={productsTotal}
+                  emptyMessage="Haz clic para agregar productos"
+                />
+              </div>
+
+              {/* Payments */}
+              <MultiPaymentSelector
+                payments={payments}
+                onChange={setPayments}
+                total={total}
+              />
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label>Notas (opcional)</Label>
                 <Textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
                   placeholder="Notas adicionales..."
                   rows={2}
                 />
+              </div>
+
+              {/* Grand Total */}
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/20 to-primary/10 rounded-lg border border-primary/30">
+                <span className="text-lg font-semibold">Total de la Cita</span>
+                <span className="text-3xl font-bold">${total.toLocaleString()}</span>
               </div>
 
               <div className="flex justify-end gap-3">
@@ -496,9 +581,8 @@ export default function Citas() {
                 <Button 
                   className="gradient-bg border-0"
                   onClick={handleSubmit}
-                  disabled={(!formData.clientId && !formData.newClientName) || !formData.stylistId || formData.selectedServices.length === 0}
                 >
-                  {editingAppointment ? 'Guardar Cambios' : 'Crear Cita'}
+                  {editingAppointment ? 'Actualizar Cita' : 'Crear Cita'}
                 </Button>
               </div>
             </div>
@@ -508,9 +592,9 @@ export default function Citas() {
 
       {/* Filters */}
       <div className="glass-card rounded-xl p-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-4 sm:flex-row">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Buscar por cliente o teléfono..."
               value={search}
@@ -519,12 +603,12 @@ export default function Citas() {
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="all">Todos los estados</SelectItem>
               <SelectItem value="scheduled">Agendadas</SelectItem>
               <SelectItem value="in-progress">En proceso</SelectItem>
               <SelectItem value="completed">Completadas</SelectItem>
@@ -539,12 +623,12 @@ export default function Citas() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Cliente</TableHead>
               <TableHead>Fecha/Hora</TableHead>
+              <TableHead>Cliente</TableHead>
               <TableHead>Estilista</TableHead>
               <TableHead>Servicios</TableHead>
-              <TableHead>Total</TableHead>
               <TableHead>Estado</TableHead>
+              <TableHead className="text-right">Total</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -552,14 +636,23 @@ export default function Citas() {
             {filteredAppointments.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No hay citas que mostrar
+                  No hay citas registradas
                 </TableCell>
               </TableRow>
             ) : (
               filteredAppointments
-                .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
+                .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`))
                 .map((appointment) => (
                   <TableRow key={appointment.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">{new Date(appointment.date).toLocaleDateString('es-MX')}</p>
+                          <p className="text-sm text-muted-foreground">{appointment.time}</p>
+                        </div>
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div>
                         <p className="font-medium">{appointment.client.name}</p>
@@ -568,19 +661,13 @@ export default function Citas() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span>{new Date(appointment.date).toLocaleDateString('es-MX')}</span>
-                        <Clock className="h-4 w-4 text-muted-foreground ml-2" />
-                        <span>{appointment.time}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="h-3 w-3 rounded-full" 
+                        <div
+                          className="h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium text-white"
                           style={{ backgroundColor: appointment.stylist.color }}
-                        />
-                        {appointment.stylist.name}
+                        >
+                          {appointment.stylist.name.charAt(0)}
+                        </div>
+                        <span>{appointment.stylist.name}</span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -597,20 +684,20 @@ export default function Citas() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="font-semibold">
-                      ${appointment.total.toLocaleString()}
-                    </TableCell>
                     <TableCell>
                       <Badge className={cn('border', statusColors[appointment.status])}>
                         {statusLabels[appointment.status]}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      ${appointment.total.toLocaleString()}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
                         {appointment.status === 'scheduled' && (
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
+                          <Button
+                            size="icon"
+                            variant="ghost"
                             className="h-8 w-8 text-warning"
                             onClick={() => updateStatus(appointment.id, 'in-progress')}
                             title="Iniciar"
@@ -619,9 +706,9 @@ export default function Citas() {
                           </Button>
                         )}
                         {appointment.status === 'in-progress' && (
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
+                          <Button
+                            size="icon"
+                            variant="ghost"
                             className="h-8 w-8 text-success"
                             onClick={() => updateStatus(appointment.id, 'completed')}
                             title="Completar"
@@ -630,9 +717,9 @@ export default function Citas() {
                           </Button>
                         )}
                         {(appointment.status === 'scheduled' || appointment.status === 'in-progress') && (
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
+                          <Button
+                            size="icon"
+                            variant="ghost"
                             className="h-8 w-8 text-destructive"
                             onClick={() => updateStatus(appointment.id, 'cancelled')}
                             title="Cancelar"
@@ -640,17 +727,17 @@ export default function Citas() {
                             <XCircle className="h-4 w-4" />
                           </Button>
                         )}
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           className="h-8 w-8"
                           onClick={() => openEditDialog(appointment)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           className="h-8 w-8 text-destructive"
                           onClick={() => deleteAppointment(appointment.id)}
                         >
