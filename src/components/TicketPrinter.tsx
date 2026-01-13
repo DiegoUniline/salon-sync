@@ -6,14 +6,14 @@ import { getBusinessConfig, type BusinessConfig } from '@/lib/businessConfig';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-interface TicketItem {
+export interface TicketItem {
   name: string;
   quantity: number;
   price: number;
   discount?: number;
 }
 
-interface TicketData {
+export interface TicketData {
   folio: string;
   date: Date;
   clientName?: string;

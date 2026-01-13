@@ -9,6 +9,7 @@ import {
   type Product,
   type Service,
 } from '@/lib/mockData';
+import { TicketPrinter, type TicketData } from '@/components/TicketPrinter';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -99,6 +100,10 @@ export default function Ventas() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer' | 'mixed'>('cash');
   const [mixedPayments, setMixedPayments] = useState<{ method: 'cash' | 'card' | 'transfer'; amount: number }[]>([]);
   const [searchPOS, setSearchPOS] = useState('');
+  
+  // Ticket state
+  const [showTicket, setShowTicket] = useState(false);
+  const [ticketData, setTicketData] = useState<TicketData | null>(null);
 
   const filteredSales = sales.filter(s => {
     const matchesBranch = s.branchId === currentBranch.id;
@@ -174,6 +179,7 @@ export default function Ventas() {
     }
 
     const now = new Date();
+    const folio = `V${Date.now().toString().slice(-6)}`;
     const newSale: Sale = {
       id: `sl${Date.now()}`,
       branchId: currentBranch.id,
@@ -188,6 +194,37 @@ export default function Ventas() {
     };
 
     setSales(prev => [newSale, ...prev]);
+    
+    // Prepare ticket data
+    const serviceItems = cart.filter(c => c.type === 'service').map(c => ({
+      name: c.item.name,
+      quantity: c.quantity,
+      price: 'price' in c.item ? c.item.price : 0,
+    }));
+    
+    const productItems = cart.filter(c => c.type === 'product').map(c => ({
+      name: c.item.name,
+      quantity: c.quantity,
+      price: 'price' in c.item ? c.item.price : 0,
+    }));
+    
+    setTicketData({
+      folio,
+      date: now,
+      clientName: clientName || 'Cliente mostrador',
+      services: serviceItems,
+      products: productItems,
+      subtotal: cartTotal,
+      discount: 0,
+      total: cartTotal,
+      paymentMethod: paymentLabels[paymentMethod],
+      payments: paymentMethod === 'mixed' ? mixedPayments.map(p => ({
+        method: paymentLabels[p.method],
+        amount: p.amount
+      })) : undefined,
+    });
+    
+    setShowTicket(true);
     toast.success('Venta completada');
     
     // Reset
@@ -687,10 +724,55 @@ export default function Ventas() {
                 <span className="font-medium">Total:</span>
                 <span className="text-xl font-bold text-success">${viewingSale.total.toLocaleString()}</span>
               </div>
+
+              <Button
+                className="w-full gradient-bg border-0"
+                onClick={() => {
+                  const serviceItems = viewingSale.items.filter(i => i.type === 'service').map(i => ({
+                    name: i.item.name,
+                    quantity: i.quantity,
+                    price: 'price' in i.item ? i.item.price : 0,
+                  }));
+                  const productItems = viewingSale.items.filter(i => i.type === 'product').map(i => ({
+                    name: i.item.name,
+                    quantity: i.quantity,
+                    price: 'price' in i.item ? i.item.price : 0,
+                  }));
+                  setTicketData({
+                    folio: viewingSale.id.replace('sl', 'V'),
+                    date: new Date(`${viewingSale.date}T${viewingSale.time}`),
+                    clientName: viewingSale.clientName,
+                    services: serviceItems,
+                    products: productItems,
+                    subtotal: viewingSale.total,
+                    discount: 0,
+                    total: viewingSale.total,
+                    paymentMethod: paymentLabels[viewingSale.paymentMethod],
+                    payments: viewingSale.payments?.map(p => ({
+                      method: paymentLabels[p.method],
+                      amount: p.amount
+                    })),
+                  });
+                  setViewingSale(null);
+                  setShowTicket(true);
+                }}
+              >
+                <Receipt className="h-4 w-4 mr-2" />
+                Imprimir Ticket
+              </Button>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Ticket Printer */}
+      {ticketData && (
+        <TicketPrinter
+          open={showTicket}
+          onOpenChange={setShowTicket}
+          data={ticketData}
+        />
+      )}
     </div>
   );
 }
