@@ -113,7 +113,8 @@ export function Header() {
                   {currentUser ? (
                     <>
                       <p className="text-sm font-medium">{currentUser.name}</p>
-                      <div className="flex items-center gap-2">
+                      <p className="text-xs text-muted-foreground">{currentUser.email}</p>
+                      <div className="flex items-center gap-2 mt-1">
                         {currentRole && (
                           <Badge 
                             variant="secondary" 
@@ -126,46 +127,53 @@ export function Header() {
                       </div>
                     </>
                   ) : (
-                    <p className="text-sm text-muted-foreground">Selecciona un usuario</p>
+                    <p className="text-sm text-muted-foreground">Selecciona un usuario para iniciar</p>
                   )}
                 </div>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
-                Cambiar usuario
-              </DropdownMenuLabel>
-              {users.filter(u => u.active).map(user => {
-                const role = roles.find(r => r.id === user.roleId);
-                return (
-                  <DropdownMenuItem 
-                    key={user.id}
-                    onClick={() => setCurrentUserId(user.id)}
-                    className={cn(
-                      'cursor-pointer',
-                      currentUser?.id === user.id && 'bg-accent'
-                    )}
-                  >
-                    <div className="flex items-center gap-2 w-full">
-                      <div 
-                        className="h-6 w-6 rounded-full flex items-center justify-center text-white text-xs"
-                        style={{ backgroundColor: role?.color || '#666' }}
+              
+              {/* Only show user list if no user is logged in OR current user is admin */}
+              {(!currentUser || currentRole?.id === 'admin') && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+                    {currentUser ? 'Cambiar usuario (Admin)' : 'Iniciar sesión como'}
+                  </DropdownMenuLabel>
+                  {users.filter(u => u.active).map(user => {
+                    const role = roles.find(r => r.id === user.roleId);
+                    return (
+                      <DropdownMenuItem 
+                        key={user.id}
+                        onClick={() => setCurrentUserId(user.id)}
+                        className={cn(
+                          'cursor-pointer',
+                          currentUser?.id === user.id && 'bg-accent'
+                        )}
                       >
-                        {user.name.charAt(0)}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm">{user.name}</p>
-                        <p className="text-xs text-muted-foreground">{role?.name}</p>
-                      </div>
-                    </div>
-                  </DropdownMenuItem>
-                );
-              })}
+                        <div className="flex items-center gap-2 w-full">
+                          <div 
+                            className="h-6 w-6 rounded-full flex items-center justify-center text-white text-xs"
+                            style={{ backgroundColor: role?.color || '#666' }}
+                          >
+                            {user.name.charAt(0)}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm">{user.name}</p>
+                            <p className="text-xs text-muted-foreground">{role?.name}</p>
+                          </div>
+                        </div>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </>
+              )}
+              
               {currentUser && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     onClick={() => setCurrentUserId(null)}
-                    className="cursor-pointer text-muted-foreground"
+                    className="cursor-pointer text-destructive focus:text-destructive"
                   >
                     <LogOut className="h-4 w-4 mr-2" />
                     Cerrar sesión
