@@ -28,6 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { OdooLineEditor, type LineItem, type ColumnConfig } from '@/components/OdooLineEditor';
+import { EditableCell } from '@/components/EditableCell';
 import {
   Plus,
   Search,
@@ -144,6 +145,11 @@ export default function Services() {
 
   const toggleService = (id: string, active: boolean) => {
     setServices(prev => prev.map(s => s.id === id ? { ...s, active } : s));
+  };
+
+  const updateServiceField = (id: string, field: string, value: any) => {
+    setServices(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
+    toast.success('Actualizado');
   };
 
   // Bulk operations
@@ -462,23 +468,63 @@ export default function Services() {
             <TableBody>
               {filteredServices.map((service) => (
                 <TableRow key={service.id}>
-                  <TableCell className="font-medium">{service.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <EditableCell
+                      value={service.name}
+                      onSave={(v) => updateServiceField(service.id, 'name', v)}
+                      type="text"
+                    />
+                  </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="p-1.5 rounded bg-primary/10 text-primary">
-                        {categoryIcons[service.category] || <Scissors className="h-3 w-3" />}
-                      </span>
-                      {service.category}
-                    </div>
+                    <EditableCell
+                      value={service.category}
+                      onSave={(v) => updateServiceField(service.id, 'category', v)}
+                      type="select"
+                      options={serviceCategories.map(c => ({ value: c, label: c }))}
+                      displayValue={
+                        <div className="flex items-center gap-2">
+                          <span className="p-1.5 rounded bg-primary/10 text-primary">
+                            {categoryIcons[service.category] || <Scissors className="h-3 w-3" />}
+                          </span>
+                          {service.category}
+                        </div>
+                      }
+                    />
                   </TableCell>
                   <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-1 text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5" />
-                      {service.duration} min
-                    </div>
+                    <EditableCell
+                      value={service.duration}
+                      onSave={(v) => updateServiceField(service.id, 'duration', v)}
+                      type="number"
+                      min={5}
+                      step={5}
+                      displayValue={
+                        <div className="flex items-center justify-center gap-1 text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5" />
+                          {service.duration} min
+                        </div>
+                      }
+                    />
                   </TableCell>
-                  <TableCell className="text-right font-semibold">${service.price}</TableCell>
-                  <TableCell className="text-center">{service.commission || 0}%</TableCell>
+                  <TableCell className="text-right">
+                    <EditableCell
+                      value={service.price}
+                      onSave={(v) => updateServiceField(service.id, 'price', v)}
+                      type="number"
+                      min={0}
+                      displayValue={<span className="font-semibold">${service.price}</span>}
+                    />
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <EditableCell
+                      value={service.commission || 0}
+                      onSave={(v) => updateServiceField(service.id, 'commission', v)}
+                      type="number"
+                      min={0}
+                      max={100}
+                      displayValue={<span>{service.commission || 0}%</span>}
+                    />
+                  </TableCell>
                   <TableCell className="text-center">
                     {service.allowConcurrent ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-success/10 text-success">
