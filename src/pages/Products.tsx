@@ -1,8 +1,18 @@
 import { useState } from 'react';
-import { products, productCategories, type Product } from '@/lib/mockData';
+import { products as mockProducts, productCategories, type Product } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -10,23 +20,42 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
+import { OdooLineEditor, type LineItem, type ColumnConfig } from '@/components/OdooLineEditor';
 import {
   Plus,
   Search,
   Package,
   AlertTriangle,
   Edit,
-  MoreHorizontal,
+  Trash2,
   TrendingUp,
   TrendingDown,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Products() {
+  const [products, setProducts] = useState<Product[]>(mockProducts);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [stockFilter, setStockFilter] = useState<string>('all');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  // Single form
+  const [formData, setFormData] = useState({
+    name: '',
+    category: 'Shampoo',
+    sku: '',
+    price: 0,
+    cost: 0,
+    stock: 0,
+    minStock: 5,
+    active: true,
+  });
+
+  // Bulk form lines
+  const [bulkLines, setBulkLines] = useState<LineItem[]>([]);
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -40,6 +69,145 @@ export default function Products() {
 
   const lowStockCount = products.filter(p => p.stock <= p.minStock).length;
 
+  const resetForm = () => {
+    setFormData({ name: '', category: 'Shampoo', sku: '', price: 0, cost: 0, stock: 0, minStock: 5, active: true });
+    setEditingProduct(null);
+  };
+
+  const openEditDialog = (product: Product) => {
+    setEditingProduct(product);
+    setFormData({
+      name: product.name,
+      category: product.category,
+      sku: product.sku,
+      price: product.price,
+      cost: product.cost,
+      stock: product.stock,
+      minStock: product.minStock,
+      active: product.active,
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = () => {
+    if (!formData.name) {
+      toast.error('Ingresa el nombre del producto');
+      return;
+    }
+
+    if (editingProduct) {
+      setProducts(prev => prev.map(p =>
+        p.id === editingProduct.id ? { ...p, ...formData } : p
+      ));
+      toast.success('Producto actualizado');
+    } else {
+      const newProduct: Product = {
+        id: `p${Date.now()}`,
+        ...formData,
+        sku: formData.sku || `SKU-${Date.now()}`,
+      };
+      setProducts(prev => [...prev, newProduct]);
+      toast.success('Producto creado');
+    }
+
+    setIsDialogOpen(false);
+    resetForm();
+  };
+
+  const deleteProduct = (id: string) => {
+    setProducts(prev => prev.filter(p => p.id !== id));
+    toast.success('Producto eliminado');
+  };
+
+  // Bulk operations
+  const bulkColumns: ColumnConfig[] = [
+    {
+      key: 'name',
+      label: 'Nombre',
+      type: 'text',
+      placeholder: 'Nombre del producto',
+      width: 'flex-[2]',
+    },
+    {
+      key: 'category',
+      label: 'Categoría',
+      type: 'search',
+      placeholder: 'Categoría',
+      width: 'w-36',
+      searchItems: productCategories.map(c => ({ id: c, label: c })),
+    },
+    {
+      key: 'sku',
+      label: 'SKU',
+      type: 'text',
+      placeholder: 'SKU-001',
+      width: 'w-28',
+    },
+    {
+      key: 'cost',
+      label: 'Costo',
+      type: 'number',
+      width: 'w-24',
+      min: 0,
+    },
+    {
+      key: 'price',
+      label: 'Precio',
+      type: 'number',
+      width: 'w-24',
+      min: 0,
+    },
+    {
+      key: 'stock',
+      label: 'Stock',
+      type: 'number',
+      width: 'w-20',
+      min: 0,
+    },
+  ];
+
+  const addBulkLine = () => {
+    setBulkLines(prev => [
+      ...prev,
+      { id: `line-${Date.now()}`, name: '', category: 'Shampoo', sku: '', cost: 0, price: 0, stock: 0 }
+    ]);
+  };
+
+  const updateBulkLine = (lineId: string, key: string, value: any) => {
+    setBulkLines(prev => prev.map(line =>
+      line.id === lineId ? { ...line, [key]: value } : line
+    ));
+  };
+
+  const removeBulkLine = (lineId: string) => {
+    setBulkLines(prev => prev.filter(line => line.id !== lineId));
+  };
+
+  const handleBulkSubmit = () => {
+    const validLines = bulkLines.filter(line => line.name);
+    if (validLines.length === 0) {
+      toast.error('Agrega al menos un producto');
+      return;
+    }
+
+    const newProducts: Product[] = validLines.map(line => ({
+      id: `p${Date.now()}-${Math.random()}`,
+      name: line.name,
+      category: line.category || 'Shampoo',
+      sku: line.sku || `SKU-${Date.now()}`,
+      price: line.price || 0,
+      cost: line.cost || 0,
+      stock: line.stock || 0,
+      minStock: 5,
+      active: true,
+    }));
+
+    setProducts(prev => [...prev, ...newProducts]);
+    toast.success(`${newProducts.length} productos creados`);
+    setBulkLines([]);
+    setIsBulkDialogOpen(false);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -48,10 +216,144 @@ export default function Products() {
           <h1 className="text-2xl font-bold">Productos</h1>
           <p className="text-muted-foreground">Catálogo y control de inventario</p>
         </div>
-        <Button className="gradient-bg border-0">
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo Producto
-        </Button>
+        <div className="flex gap-2">
+          <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Agregar Múltiples
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Agregar Productos (Estilo Odoo)</DialogTitle>
+              </DialogHeader>
+              <div className="py-4">
+                <p className="text-sm text-muted-foreground mb-4">
+                  Usa Tab para moverte entre campos. Al llegar al último campo de la última línea, Tab agrega una nueva línea.
+                </p>
+                <OdooLineEditor
+                  lines={bulkLines}
+                  columns={bulkColumns}
+                  onUpdateLine={updateBulkLine}
+                  onRemoveLine={removeBulkLine}
+                  onAddLine={addBulkLine}
+                  emptyMessage="Haz clic o presiona Tab para agregar productos"
+                />
+                <div className="flex justify-end gap-3 mt-6">
+                  <Button variant="outline" onClick={() => { setBulkLines([]); setIsBulkDialogOpen(false); }}>
+                    Cancelar
+                  </Button>
+                  <Button className="gradient-bg border-0" onClick={handleBulkSubmit}>
+                    Guardar {bulkLines.filter(l => l.name).length} Productos
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button className="gradient-bg border-0">
+                <Plus className="h-4 w-4 mr-2" />
+                Nuevo Producto
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editingProduct ? 'Editar Producto' : 'Nuevo Producto'}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Nombre</Label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Nombre del producto"
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Categoría</Label>
+                    <Select value={formData.category} onValueChange={(v) => setFormData(prev => ({ ...prev, category: v }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {productCategories.map(cat => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>SKU</Label>
+                    <Input
+                      value={formData.sku}
+                      onChange={(e) => setFormData(prev => ({ ...prev, sku: e.target.value }))}
+                      placeholder="SKU-001"
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Costo</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={formData.cost}
+                      onChange={(e) => setFormData(prev => ({ ...prev, cost: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Precio de Venta</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={formData.price}
+                      onChange={(e) => setFormData(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Stock Actual</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={formData.stock}
+                      onChange={(e) => setFormData(prev => ({ ...prev, stock: parseInt(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Stock Mínimo</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={formData.minStock}
+                      onChange={(e) => setFormData(prev => ({ ...prev, minStock: parseInt(e.target.value) || 5 }))}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={formData.active}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, active: checked }))}
+                  />
+                  <Label>Producto activo</Label>
+                </div>
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>
+                    Cancelar
+                  </Button>
+                  <Button className="gradient-bg border-0" onClick={handleSubmit}>
+                    {editingProduct ? 'Actualizar' : 'Crear'}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Low Stock Alert */}
@@ -66,7 +368,7 @@ export default function Products() {
               {lowStockCount} producto{lowStockCount > 1 ? 's' : ''} con stock bajo o agotado
             </p>
           </div>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => setStockFilter('low')}>
             Ver productos
           </Button>
         </div>
@@ -111,7 +413,16 @@ export default function Products() {
       {/* Products Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {filteredProducts.map((product, index) => (
-          <ProductCard key={product.id} product={product} delay={index * 50} />
+          <ProductCard 
+            key={product.id} 
+            product={product} 
+            delay={index * 50}
+            onEdit={() => openEditDialog(product)}
+            onDelete={() => deleteProduct(product.id)}
+            onToggle={(active) => setProducts(prev => prev.map(p => 
+              p.id === product.id ? { ...p, active } : p
+            ))}
+          />
         ))}
       </div>
 
@@ -124,10 +435,18 @@ export default function Products() {
   );
 }
 
-function ProductCard({ product, delay }: { product: Product; delay: number }) {
+interface ProductCardProps {
+  product: Product;
+  delay: number;
+  onEdit: () => void;
+  onDelete: () => void;
+  onToggle: (active: boolean) => void;
+}
+
+function ProductCard({ product, delay, onEdit, onDelete, onToggle }: ProductCardProps) {
   const isLowStock = product.stock <= product.minStock;
   const profit = product.price - product.cost;
-  const profitMargin = ((profit / product.price) * 100).toFixed(0);
+  const profitMargin = product.price > 0 ? ((profit / product.price) * 100).toFixed(0) : '0';
 
   return (
     <div
@@ -142,10 +461,11 @@ function ProductCard({ product, delay }: { product: Product; delay: number }) {
           <Package className="h-5 w-5 text-muted-foreground" />
         </div>
         <div className="flex items-center gap-1">
-          <Switch checked={product.active} className="scale-75" />
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
+          <Switch 
+            checked={product.active} 
+            onCheckedChange={onToggle}
+            className="scale-75" 
+          />
         </div>
       </div>
 
@@ -192,9 +512,12 @@ function ProductCard({ product, delay }: { product: Product; delay: number }) {
       </div>
 
       <div className="flex gap-2 mt-4 pt-4 border-t border-border">
-        <Button variant="outline" size="sm" className="flex-1">
+        <Button variant="outline" size="sm" className="flex-1" onClick={onEdit}>
           <Edit className="h-3.5 w-3.5 mr-1.5" />
           Editar
+        </Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={onDelete}>
+          <Trash2 className="h-4 w-4" />
         </Button>
       </div>
     </div>

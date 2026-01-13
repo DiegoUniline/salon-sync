@@ -1,8 +1,17 @@
 import { useState } from 'react';
-import { services, serviceCategories, type Service } from '@/lib/mockData';
+import { services as mockServices, serviceCategories, type Service } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -10,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
+import { OdooLineEditor, type LineItem, type ColumnConfig } from '@/components/OdooLineEditor';
 import {
   Plus,
   Search,
@@ -21,7 +30,9 @@ import {
   Sparkles,
   Edit,
   MoreHorizontal,
+  Trash2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const categoryIcons: Record<string, React.ReactNode> = {
   'Corte': <Scissors className="h-4 w-4" />,
@@ -34,8 +45,25 @@ const categoryIcons: Record<string, React.ReactNode> = {
 };
 
 export default function Services() {
+  const [services, setServices] = useState<Service[]>(mockServices);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
+
+  // Single form
+  const [formData, setFormData] = useState({
+    name: '',
+    category: 'Corte',
+    duration: 30,
+    price: 0,
+    commission: 0,
+    active: true,
+  });
+
+  // Bulk form lines
+  const [bulkLines, setBulkLines] = useState<LineItem[]>([]);
 
   const filteredServices = services.filter(service => {
     const matchesSearch = service.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -51,6 +79,137 @@ export default function Services() {
     return acc;
   }, {} as Record<string, Service[]>);
 
+  const resetForm = () => {
+    setFormData({ name: '', category: 'Corte', duration: 30, price: 0, commission: 0, active: true });
+    setEditingService(null);
+  };
+
+  const openEditDialog = (service: Service) => {
+    setEditingService(service);
+    setFormData({
+      name: service.name,
+      category: service.category,
+      duration: service.duration,
+      price: service.price,
+      commission: service.commission || 0,
+      active: service.active,
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = () => {
+    if (!formData.name) {
+      toast.error('Ingresa el nombre del servicio');
+      return;
+    }
+
+    if (editingService) {
+      setServices(prev => prev.map(s =>
+        s.id === editingService.id
+          ? { ...s, ...formData }
+          : s
+      ));
+      toast.success('Servicio actualizado');
+    } else {
+      const newService: Service = {
+        id: `s${Date.now()}`,
+        ...formData,
+      };
+      setServices(prev => [...prev, newService]);
+      toast.success('Servicio creado');
+    }
+    
+    setIsDialogOpen(false);
+    resetForm();
+  };
+
+  const deleteService = (id: string) => {
+    setServices(prev => prev.filter(s => s.id !== id));
+    toast.success('Servicio eliminado');
+  };
+
+  // Bulk operations
+  const bulkColumns: ColumnConfig[] = [
+    {
+      key: 'name',
+      label: 'Nombre',
+      type: 'text',
+      placeholder: 'Nombre del servicio',
+      width: 'flex-[2]',
+    },
+    {
+      key: 'category',
+      label: 'Categoría',
+      type: 'search',
+      placeholder: 'Categoría',
+      width: 'w-40',
+      searchItems: serviceCategories.map(c => ({ id: c, label: c })),
+    },
+    {
+      key: 'duration',
+      label: 'Duración (min)',
+      type: 'number',
+      width: 'w-32',
+      min: 5,
+      step: 5,
+    },
+    {
+      key: 'price',
+      label: 'Precio',
+      type: 'number',
+      width: 'w-28',
+      min: 0,
+    },
+    {
+      key: 'commission',
+      label: 'Comisión %',
+      type: 'number',
+      width: 'w-28',
+      min: 0,
+      max: 100,
+    },
+  ];
+
+  const addBulkLine = () => {
+    setBulkLines(prev => [
+      ...prev,
+      { id: `line-${Date.now()}`, name: '', category: 'Corte', duration: 30, price: 0, commission: 0 }
+    ]);
+  };
+
+  const updateBulkLine = (lineId: string, key: string, value: any) => {
+    setBulkLines(prev => prev.map(line =>
+      line.id === lineId ? { ...line, [key]: value } : line
+    ));
+  };
+
+  const removeBulkLine = (lineId: string) => {
+    setBulkLines(prev => prev.filter(line => line.id !== lineId));
+  };
+
+  const handleBulkSubmit = () => {
+    const validLines = bulkLines.filter(line => line.name);
+    if (validLines.length === 0) {
+      toast.error('Agrega al menos un servicio');
+      return;
+    }
+
+    const newServices: Service[] = validLines.map(line => ({
+      id: `s${Date.now()}-${Math.random()}`,
+      name: line.name,
+      category: line.category || 'Corte',
+      duration: line.duration || 30,
+      price: line.price || 0,
+      commission: line.commission || 0,
+      active: true,
+    }));
+
+    setServices(prev => [...prev, ...newServices]);
+    toast.success(`${newServices.length} servicios creados`);
+    setBulkLines([]);
+    setIsBulkDialogOpen(false);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -59,10 +218,127 @@ export default function Services() {
           <h1 className="text-2xl font-bold">Servicios</h1>
           <p className="text-muted-foreground">Catálogo de servicios disponibles</p>
         </div>
-        <Button className="gradient-bg border-0">
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo Servicio
-        </Button>
+        <div className="flex gap-2">
+          <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Agregar Múltiples
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Agregar Servicios (Estilo Odoo)</DialogTitle>
+              </DialogHeader>
+              <div className="py-4">
+                <p className="text-sm text-muted-foreground mb-4">
+                  Usa Tab para moverte entre campos. Al llegar al último campo de la última línea, Tab agrega una nueva línea.
+                </p>
+                <OdooLineEditor
+                  lines={bulkLines}
+                  columns={bulkColumns}
+                  onUpdateLine={updateBulkLine}
+                  onRemoveLine={removeBulkLine}
+                  onAddLine={addBulkLine}
+                  emptyMessage="Haz clic o presiona Tab para agregar servicios"
+                />
+                <div className="flex justify-end gap-3 mt-6">
+                  <Button variant="outline" onClick={() => { setBulkLines([]); setIsBulkDialogOpen(false); }}>
+                    Cancelar
+                  </Button>
+                  <Button className="gradient-bg border-0" onClick={handleBulkSubmit}>
+                    Guardar {bulkLines.filter(l => l.name).length} Servicios
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button className="gradient-bg border-0">
+                <Plus className="h-4 w-4 mr-2" />
+                Nuevo Servicio
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editingService ? 'Editar Servicio' : 'Nuevo Servicio'}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Nombre</Label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Nombre del servicio"
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Categoría</Label>
+                    <Select value={formData.category} onValueChange={(v) => setFormData(prev => ({ ...prev, category: v }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {serviceCategories.map(cat => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Duración (min)</Label>
+                    <Input
+                      type="number"
+                      min={5}
+                      step={5}
+                      value={formData.duration}
+                      onChange={(e) => setFormData(prev => ({ ...prev, duration: parseInt(e.target.value) || 30 }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Precio</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={formData.price}
+                      onChange={(e) => setFormData(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Comisión %</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={formData.commission}
+                      onChange={(e) => setFormData(prev => ({ ...prev, commission: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={formData.active}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, active: checked }))}
+                  />
+                  <Label>Servicio activo</Label>
+                </div>
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>
+                    Cancelar
+                  </Button>
+                  <Button className="gradient-bg border-0" onClick={handleSubmit}>
+                    {editingService ? 'Actualizar' : 'Crear'}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filters */}
@@ -107,7 +383,16 @@ export default function Services() {
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {categoryServices.map((service, index) => (
-                <ServiceCard key={service.id} service={service} delay={index * 50} />
+                <ServiceCard 
+                  key={service.id} 
+                  service={service} 
+                  delay={index * 50}
+                  onEdit={() => openEditDialog(service)}
+                  onDelete={() => deleteService(service.id)}
+                  onToggle={(active) => setServices(prev => prev.map(s => 
+                    s.id === service.id ? { ...s, active } : s
+                  ))}
+                />
               ))}
             </div>
           </div>
@@ -123,7 +408,15 @@ export default function Services() {
   );
 }
 
-function ServiceCard({ service, delay }: { service: Service; delay: number }) {
+interface ServiceCardProps {
+  service: Service;
+  delay: number;
+  onEdit: () => void;
+  onDelete: () => void;
+  onToggle: (active: boolean) => void;
+}
+
+function ServiceCard({ service, delay, onEdit, onDelete, onToggle }: ServiceCardProps) {
   return (
     <div
       className="glass-card-hover rounded-xl p-5 fade-up"
@@ -137,10 +430,11 @@ function ServiceCard({ service, delay }: { service: Service; delay: number }) {
           </span>
         </div>
         <div className="flex items-center gap-1">
-          <Switch checked={service.active} className="scale-75" />
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
+          <Switch 
+            checked={service.active} 
+            onCheckedChange={onToggle}
+            className="scale-75" 
+          />
         </div>
       </div>
 
@@ -162,9 +456,12 @@ function ServiceCard({ service, delay }: { service: Service; delay: number }) {
       )}
 
       <div className="flex gap-2 mt-4 pt-4 border-t border-border">
-        <Button variant="outline" size="sm" className="flex-1">
+        <Button variant="outline" size="sm" className="flex-1" onClick={onEdit}>
           <Edit className="h-3.5 w-3.5 mr-1.5" />
           Editar
+        </Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={onDelete}>
+          <Trash2 className="h-4 w-4" />
         </Button>
       </div>
     </div>

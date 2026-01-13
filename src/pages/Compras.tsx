@@ -4,9 +4,7 @@ import {
   purchases as mockPurchases,
   products,
   type Purchase,
-  type Product,
 } from '@/lib/mockData';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,13 +18,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Table,
   TableBody,
   TableCell,
@@ -34,6 +25,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { OdooLineEditor, type LineItem, type ColumnConfig } from '@/components/OdooLineEditor';
+import { MultiPaymentSelector, type Payment } from '@/components/MultiPaymentSelector';
 import {
   Plus,
   Search,
@@ -68,13 +61,14 @@ export default function Compras() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [viewingPurchase, setViewingPurchase] = useState<Purchase | null>(null);
 
-  const [formData, setFormData] = useState({
-    supplier: '',
-    date: new Date().toISOString().split('T')[0],
-    paymentMethod: 'transfer' as 'cash' | 'card' | 'transfer',
-    notes: '',
-    items: [] as { productId: string; quantity: number; unitCost: number }[],
-  });
+  // Form state
+  const [supplier, setSupplier] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [notes, setNotes] = useState('');
+  const [lines, setLines] = useState<LineItem[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([
+    { id: 'pay-1', method: 'transfer', amount: 0 }
+  ]);
 
   const filteredPurchases = purchases.filter(p => {
     const matchesBranch = p.branchId === currentBranch.id;
@@ -84,68 +78,115 @@ export default function Compras() {
 
   const totalCompras = filteredPurchases.reduce((sum, p) => sum + p.total, 0);
 
-  const resetForm = () => {
-    setFormData({
-      supplier: '',
-      date: new Date().toISOString().split('T')[0],
-      paymentMethod: 'transfer',
-      notes: '',
-      items: [],
-    });
-  };
-
-  const addItem = () => {
-    setFormData(prev => ({
-      ...prev,
-      items: [...prev.items, { productId: '', quantity: 1, unitCost: 0 }],
-    }));
-  };
-
-  const updateItem = (index: number, field: string, value: string | number) => {
-    setFormData(prev => ({
-      ...prev,
-      items: prev.items.map((item, i) => {
-        if (i !== index) return item;
-        const updated = { ...item, [field]: value };
-        if (field === 'productId') {
-          const product = products.find(p => p.id === value);
-          if (product) updated.unitCost = product.cost;
-        }
-        return updated;
-      }),
-    }));
-  };
-
-  const removeItem = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      items: prev.items.filter((_, i) => i !== index),
-    }));
-  };
-
   const calculateTotal = () => {
-    return formData.items.reduce((sum, item) => sum + (item.quantity * item.unitCost), 0);
+    return lines.reduce((sum, line) => sum + ((line.quantity || 0) * (line.unitCost || 0)), 0);
+  };
+
+  const resetForm = () => {
+    setSupplier('');
+    setDate(new Date().toISOString().split('T')[0]);
+    setNotes('');
+    setLines([]);
+    setPayments([{ id: 'pay-1', method: 'transfer', amount: 0 }]);
+  };
+
+  // Line columns config
+  const lineColumns: ColumnConfig[] = [
+    {
+      key: 'productName',
+      label: 'Producto',
+      type: 'search',
+      placeholder: 'Buscar producto...',
+      width: 'flex-[2]',
+      searchItems: products.map(p => ({
+        id: p.id,
+        label: p.name,
+        subLabel: `SKU: ${p.sku} | Stock: ${p.stock}`,
+        data: p,
+      })),
+      onSelect: (item, lineId) => {
+        setLines(prev => prev.map(line =>
+          line.id === lineId 
+            ? { ...line, productId: item.id, productName: item.label, unitCost: item.data.cost }
+            : line
+        ));
+      },
+    },
+    {
+      key: 'quantity',
+      label: 'Cantidad',
+      type: 'number',
+      width: 'w-24',
+      min: 1,
+    },
+    {
+      key: 'unitCost',
+      label: 'Costo Unit.',
+      type: 'number',
+      width: 'w-28',
+      min: 0,
+    },
+    {
+      key: 'subtotal',
+      label: 'Subtotal',
+      type: 'number',
+      width: 'w-28',
+      readOnly: true,
+      format: (value) => `$${(value || 0).toLocaleString()}`,
+    },
+  ];
+
+  const addLine = () => {
+    setLines(prev => [
+      ...prev,
+      { id: `line-${Date.now()}`, productId: '', productName: '', quantity: 1, unitCost: 0, subtotal: 0 }
+    ]);
+  };
+
+  const updateLine = (lineId: string, key: string, value: any) => {
+    setLines(prev => prev.map(line => {
+      if (line.id !== lineId) return line;
+      const updated = { ...line, [key]: value };
+      updated.subtotal = (updated.quantity || 0) * (updated.unitCost || 0);
+      return updated;
+    }));
+  };
+
+  const removeLine = (lineId: string) => {
+    setLines(prev => prev.filter(line => line.id !== lineId));
   };
 
   const handleSubmit = () => {
-    if (!formData.supplier || formData.items.length === 0) {
-      toast.error('Completa los datos de la compra');
+    if (!supplier) {
+      toast.error('Ingresa el proveedor');
+      return;
+    }
+    if (lines.filter(l => l.productId).length === 0) {
+      toast.error('Agrega al menos un producto');
+      return;
+    }
+
+    const total = calculateTotal();
+    const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+    
+    if (totalPaid < total) {
+      toast.error('El monto pagado es menor al total');
       return;
     }
 
     const newPurchase: Purchase = {
       id: `pu${Date.now()}`,
       branchId: currentBranch.id,
-      date: formData.date,
-      supplier: formData.supplier,
-      items: formData.items.map(item => ({
-        product: products.find(p => p.id === item.productId)!,
-        quantity: item.quantity,
-        unitCost: item.unitCost,
+      date,
+      supplier,
+      items: lines.filter(l => l.productId).map(line => ({
+        product: products.find(p => p.id === line.productId)!,
+        quantity: line.quantity,
+        unitCost: line.unitCost,
       })),
-      total: calculateTotal(),
-      paymentMethod: formData.paymentMethod,
-      notes: formData.notes,
+      total,
+      paymentMethod: payments.length > 1 ? 'transfer' : payments[0].method,
+      notes,
     };
 
     setPurchases(prev => [newPurchase, ...prev]);
@@ -158,6 +199,9 @@ export default function Compras() {
     setPurchases(prev => prev.filter(p => p.id !== id));
     toast.success('Compra eliminada');
   };
+
+  // Update payments when total changes
+  const total = calculateTotal();
 
   return (
     <div className="space-y-6">
@@ -174,18 +218,19 @@ export default function Compras() {
               Nueva Compra
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Registrar Compra</DialogTitle>
             </DialogHeader>
             
-            <div className="space-y-4 py-4">
+            <div className="space-y-6 py-4">
+              {/* Header info */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Proveedor</Label>
                   <Input
-                    value={formData.supplier}
-                    onChange={(e) => setFormData(prev => ({ ...prev, supplier: e.target.value }))}
+                    value={supplier}
+                    onChange={(e) => setSupplier(e.target.value)}
                     placeholder="Nombre del proveedor"
                   />
                 </div>
@@ -193,108 +238,47 @@ export default function Compras() {
                   <Label>Fecha</Label>
                   <Input
                     type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
                   />
                 </div>
               </div>
 
+              {/* Products - Odoo style */}
               <div className="space-y-2">
-                <Label>Método de Pago</Label>
-                <Select 
-                  value={formData.paymentMethod} 
-                  onValueChange={(v: 'cash' | 'card' | 'transfer') => setFormData(prev => ({ ...prev, paymentMethod: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Efectivo</SelectItem>
-                    <SelectItem value="card">Tarjeta</SelectItem>
-                    <SelectItem value="transfer">Transferencia</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Items */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>Productos</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={addItem}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    Agregar
-                  </Button>
-                </div>
-                
-                {formData.items.length === 0 ? (
-                  <div className="text-center py-6 text-muted-foreground border border-dashed rounded-lg">
-                    Agrega productos a la compra
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {formData.items.map((item, index) => (
-                      <div key={index} className="flex items-center gap-2 p-3 bg-secondary/30 rounded-lg">
-                        <Select 
-                          value={item.productId}
-                          onValueChange={(v) => updateItem(index, 'productId', v)}
-                        >
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Producto" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map(product => (
-                              <SelectItem key={product.id} value={product.id}>
-                                {product.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={item.quantity}
-                          onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                          className="w-20"
-                          placeholder="Cant."
-                        />
-                        <Input
-                          type="number"
-                          min={0}
-                          value={item.unitCost}
-                          onChange={(e) => updateItem(index, 'unitCost', parseFloat(e.target.value) || 0)}
-                          className="w-24"
-                          placeholder="Costo"
-                        />
-                        <span className="w-24 text-right font-medium">
-                          ${(item.quantity * item.unitCost).toLocaleString()}
-                        </span>
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => removeItem(index)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Notas (opcional)</Label>
-                <Textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Notas adicionales..."
-                  rows={2}
+                <Label className="text-base font-semibold">Productos</Label>
+                <p className="text-sm text-muted-foreground">
+                  Usa Tab para moverte entre campos. Al final de la última línea, Tab agrega una nueva.
+                </p>
+                <OdooLineEditor
+                  lines={lines}
+                  columns={lineColumns}
+                  onUpdateLine={updateLine}
+                  onRemoveLine={removeLine}
+                  onAddLine={addLine}
+                  showTotal
+                  totalLabel="Total de la Compra"
+                  totalValue={total}
+                  emptyMessage="Haz clic o presiona Tab para agregar productos"
                 />
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-primary/10 rounded-lg">
-                <span className="font-medium">Total de la Compra</span>
-                <span className="text-2xl font-bold">${calculateTotal().toLocaleString()}</span>
+              {/* Payments */}
+              <MultiPaymentSelector
+                payments={payments}
+                onChange={setPayments}
+                total={total}
+              />
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label>Notas (opcional)</Label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Notas adicionales..."
+                  rows={2}
+                />
               </div>
 
               <div className="flex justify-end gap-3">
@@ -304,7 +288,7 @@ export default function Compras() {
                 <Button 
                   className="gradient-bg border-0"
                   onClick={handleSubmit}
-                  disabled={!formData.supplier || formData.items.length === 0}
+                  disabled={!supplier || lines.filter(l => l.productId).length === 0}
                 >
                   Registrar Compra
                 </Button>
@@ -478,25 +462,23 @@ export default function Compras() {
                 <p className="font-medium mb-2">Productos:</p>
                 <div className="space-y-2">
                   {viewingPurchase.items.map((item, i) => (
-                    <div key={i} className="flex justify-between items-center text-sm p-2 bg-secondary/30 rounded">
-                      <span>{item.product.name}</span>
-                      <span>
-                        {item.quantity} x ${item.unitCost} = ${(item.quantity * item.unitCost).toLocaleString()}
-                      </span>
+                    <div key={i} className="flex justify-between text-sm">
+                      <span>{item.product.name} x{item.quantity}</span>
+                      <span className="font-medium">${(item.quantity * item.unitCost).toLocaleString()}</span>
                     </div>
                   ))}
                 </div>
               </div>
-
-              <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg">
-                <span className="font-medium">Total:</span>
-                <span className="text-xl font-bold">${viewingPurchase.total.toLocaleString()}</span>
+              
+              <div className="flex justify-between p-3 bg-primary/10 rounded-lg font-semibold">
+                <span>Total</span>
+                <span>${viewingPurchase.total.toLocaleString()}</span>
               </div>
-
+              
               {viewingPurchase.notes && (
                 <div className="text-sm">
-                  <p className="text-muted-foreground">Notas:</p>
-                  <p>{viewingPurchase.notes}</p>
+                  <span className="text-muted-foreground">Notas: </span>
+                  {viewingPurchase.notes}
                 </div>
               )}
             </div>
