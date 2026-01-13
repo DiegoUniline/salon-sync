@@ -20,6 +20,7 @@ import Turnos from "./pages/Turnos";
 import Cortes from "./pages/Cortes";
 import Horarios from "./pages/Horarios";
 import Configuracion from "./pages/Configuracion";
+import Permisos from "./pages/Permisos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="/cortes" element={<Cortes />} />
               <Route path="/horarios" element={<Horarios />} />
               <Route path="/configuracion" element={<Configuracion />} />
+              <Route path="/permisos" element={<Permisos />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Layout>

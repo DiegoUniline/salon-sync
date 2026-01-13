@@ -523,7 +523,85 @@ interface CashCut {
 
 ---
 
-### 13. Schedule (Horarios)
+### 14. Role (Rol de Usuario)
+
+```typescript
+interface ModulePermissions {
+  view: boolean;      // Puede ver el módulo
+  create: boolean;    // Puede crear registros
+  edit: boolean;      // Puede editar registros
+  delete: boolean;    // Puede eliminar registros
+}
+
+interface Role {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  isSystem: boolean;  // Roles del sistema no se pueden eliminar
+  permissions: Record<ModuleId, ModulePermissions>;
+}
+```
+
+| Campo       | Tipo                                    | Descripción                           |
+|-------------|----------------------------------------|---------------------------------------|
+| id          | string                                 | Identificador único                   |
+| name        | string                                 | Nombre del rol                        |
+| description | string                                 | Descripción del rol                   |
+| color       | string                                 | Color para identificar (hex)          |
+| isSystem    | boolean                                | Si es un rol del sistema              |
+| permissions | Record<ModuleId, ModulePermissions>    | Permisos por módulo                   |
+
+**Módulos controlados:**
+- `dashboard` - Panel principal
+- `agenda` - Calendario de citas
+- `ventas` - Registro de ventas
+- `gastos` - Registro de gastos
+- `compras` - Registro de compras
+- `inventario` - Control de stock
+- `servicios` - Catálogo de servicios
+- `productos` - Catálogo de productos
+- `turnos` - Gestión de turnos
+- `cortes` - Cortes de caja
+- `horarios` - Configuración de horarios
+- `configuracion` - Ajustes del sistema
+- `permisos` - Gestión de roles y usuarios
+
+**Roles predefinidos del sistema:**
+| Rol           | Descripción                                          |
+|---------------|------------------------------------------------------|
+| Administrador | Acceso completo a todos los módulos y acciones       |
+| Gerente       | Gestión completa excepto configuración de permisos   |
+| Recepcionista | Gestión de citas, ventas y clientes                  |
+| Estilista     | Ver agenda y registrar servicios propios             |
+
+---
+
+### 15. UserWithRole (Usuario con Rol)
+
+```typescript
+interface UserWithRole {
+  id: string;
+  name: string;
+  email: string;
+  roleId: string;      // FK a Role
+  branchId?: string;   // FK a Branch (opcional, si aplica a todas)
+  active: boolean;
+}
+```
+
+| Campo    | Tipo    | Descripción                              |
+|----------|---------|------------------------------------------|
+| id       | string  | Identificador único                      |
+| name     | string  | Nombre completo                          |
+| email    | string  | Correo electrónico                       |
+| roleId   | string  | FK a Role                                |
+| branchId | string? | FK a Branch (null = todas las sucursales)|
+| active   | boolean | Si el usuario está activo                |
+
+---
+
+### 16. Schedule (Horarios)
 
 ```typescript
 interface DaySchedule {
@@ -804,7 +882,37 @@ interface BlockedDay {
 
 ---
 
-### 12. Configuración (`/configuracion`)
+### 12. Permisos (`/permisos`)
+
+**Propósito:** Gestión de roles y permisos de usuarios.
+
+**Tabs:**
+
+1. **Roles:**
+   - Lista de roles con tarjetas
+   - Crear/editar/duplicar/eliminar roles
+   - Configurar permisos por módulo y acción
+   - Roles del sistema (no eliminables): Admin, Gerente, Recepcionista, Estilista
+
+2. **Usuarios:**
+   - Tabla de usuarios con rol asignado
+   - Crear/editar/eliminar usuarios
+   - Asignar rol y sucursal
+   - Activar/desactivar usuarios
+
+**Editor de permisos:**
+- Lista expandible de módulos
+- 4 acciones por módulo: Ver, Crear, Editar, Eliminar
+- Toggle para habilitar/deshabilitar todos
+- Contador de permisos activos
+
+**Validaciones:**
+- No se pueden eliminar roles del sistema
+- No se puede eliminar un rol si tiene usuarios asignados
+
+---
+
+### 13. Configuración (`/configuracion`)
 
 **Propósito:** Ajustes del sistema.
 
@@ -899,6 +1007,8 @@ El sistema usa LocalStorage para persistir datos. Las claves utilizadas son:
 | `salon_clients`          | Lista de clientes              |
 | `salon_inventory`        | Movimientos de inventario      |
 | `salon_cash_cuts`        | Lista de cortes de caja        |
+| `salon_roles`            | Lista de roles personalizados  |
+| `salon_users_with_roles` | Usuarios con roles asignados   |
 
 ---
 
@@ -1164,6 +1274,50 @@ CREATE TABLE business_config (
   ticket_fields JSONB DEFAULT '[]',
   updated_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Roles del sistema
+CREATE TABLE roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(50) NOT NULL UNIQUE,
+  description TEXT,
+  color VARCHAR(7) DEFAULT '#3B82F6',
+  is_system BOOLEAN DEFAULT FALSE,
+  permissions JSONB NOT NULL, -- Record<ModuleId, ModulePermissions>
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Asignación de roles a usuarios
+CREATE TABLE user_roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  role_id UUID REFERENCES roles(id) ON DELETE RESTRICT NOT NULL,
+  branch_id UUID REFERENCES branches(id), -- NULL = todas las sucursales
+  active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE (user_id, role_id, branch_id)
+);
+
+-- Función para verificar permisos
+CREATE OR REPLACE FUNCTION public.has_permission(
+  _user_id UUID,
+  _module_id TEXT,
+  _action TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM user_roles ur
+    JOIN roles r ON ur.role_id = r.id
+    WHERE ur.user_id = _user_id
+      AND ur.active = TRUE
+      AND (r.permissions->_module_id->>_action)::boolean = TRUE
+  )
+$$;
 
 -- Índices para mejor rendimiento
 CREATE INDEX idx_appointments_date ON appointments(date);
