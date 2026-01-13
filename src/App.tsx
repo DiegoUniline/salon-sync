@@ -4,7 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppProvider } from "@/contexts/AppContext";
+import { PermissionsProvider } from "@/hooks/usePermissions";
 import { Layout } from "@/components/layout/Layout";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 // Pages
 import Index from "./pages/Index";
@@ -28,31 +30,33 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AppProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/agenda" element={<Agenda />} />
-              <Route path="/citas" element={<Citas />} />
-              <Route path="/servicios" element={<Services />} />
-              <Route path="/productos" element={<Products />} />
-              <Route path="/inventario" element={<Inventario />} />
-              <Route path="/compras" element={<Compras />} />
-              <Route path="/gastos" element={<Gastos />} />
-              <Route path="/ventas" element={<Ventas />} />
-              <Route path="/turnos" element={<Turnos />} />
-              <Route path="/cortes" element={<Cortes />} />
-              <Route path="/horarios" element={<Horarios />} />
-              <Route path="/configuracion" element={<Configuracion />} />
-              <Route path="/permisos" element={<Permisos />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Layout>
-        </BrowserRouter>
-      </TooltipProvider>
+      <PermissionsProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<ProtectedRoute moduleId="dashboard"><Index /></ProtectedRoute>} />
+                <Route path="/agenda" element={<ProtectedRoute moduleId="agenda"><Agenda /></ProtectedRoute>} />
+                <Route path="/citas" element={<ProtectedRoute moduleId="agenda"><Citas /></ProtectedRoute>} />
+                <Route path="/servicios" element={<ProtectedRoute moduleId="servicios"><Services /></ProtectedRoute>} />
+                <Route path="/productos" element={<ProtectedRoute moduleId="productos"><Products /></ProtectedRoute>} />
+                <Route path="/inventario" element={<ProtectedRoute moduleId="inventario"><Inventario /></ProtectedRoute>} />
+                <Route path="/compras" element={<ProtectedRoute moduleId="compras"><Compras /></ProtectedRoute>} />
+                <Route path="/gastos" element={<ProtectedRoute moduleId="gastos"><Gastos /></ProtectedRoute>} />
+                <Route path="/ventas" element={<ProtectedRoute moduleId="ventas"><Ventas /></ProtectedRoute>} />
+                <Route path="/turnos" element={<ProtectedRoute moduleId="turnos"><Turnos /></ProtectedRoute>} />
+                <Route path="/cortes" element={<ProtectedRoute moduleId="cortes"><Cortes /></ProtectedRoute>} />
+                <Route path="/horarios" element={<ProtectedRoute moduleId="horarios"><Horarios /></ProtectedRoute>} />
+                <Route path="/configuracion" element={<ProtectedRoute moduleId="configuracion"><Configuracion /></ProtectedRoute>} />
+                <Route path="/permisos" element={<ProtectedRoute moduleId="permisos"><Permisos /></ProtectedRoute>} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Layout>
+          </BrowserRouter>
+        </TooltipProvider>
+      </PermissionsProvider>
     </AppProvider>
   </QueryClientProvider>
 );

@@ -1,7 +1,8 @@
-import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { cn } from '@/lib/utils';
+import { type ModuleId } from '@/lib/permissions';
 import {
   LayoutDashboard,
   Calendar,
@@ -22,26 +23,30 @@ import {
   Store,
 } from 'lucide-react';
 
-const navItems = [
-  { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/agenda', icon: Calendar, label: 'Agenda' },
-  { path: '/citas', icon: CalendarCheck, label: 'Citas' },
-  { path: '/servicios', icon: Scissors, label: 'Servicios' },
-  { path: '/productos', icon: Package, label: 'Productos' },
-  { path: '/inventario', icon: Warehouse, label: 'Inventario' },
-  { path: '/compras', icon: ShoppingCart, label: 'Compras' },
-  { path: '/gastos', icon: Receipt, label: 'Gastos' },
-  { path: '/ventas', icon: DollarSign, label: 'Ventas' },
-  { path: '/turnos', icon: Clock, label: 'Turnos' },
-  { path: '/cortes', icon: FileText, label: 'Cortes' },
-  { path: '/horarios', icon: CalendarClock, label: 'Horarios' },
-  { path: '/permisos', icon: Shield, label: 'Permisos' },
-  { path: '/configuracion', icon: Settings, label: 'Configuración' },
+const navItems: { path: string; icon: typeof LayoutDashboard; label: string; moduleId: ModuleId }[] = [
+  { path: '/', icon: LayoutDashboard, label: 'Dashboard', moduleId: 'dashboard' },
+  { path: '/agenda', icon: Calendar, label: 'Agenda', moduleId: 'agenda' },
+  { path: '/citas', icon: CalendarCheck, label: 'Citas', moduleId: 'agenda' },
+  { path: '/servicios', icon: Scissors, label: 'Servicios', moduleId: 'servicios' },
+  { path: '/productos', icon: Package, label: 'Productos', moduleId: 'productos' },
+  { path: '/inventario', icon: Warehouse, label: 'Inventario', moduleId: 'inventario' },
+  { path: '/compras', icon: ShoppingCart, label: 'Compras', moduleId: 'compras' },
+  { path: '/gastos', icon: Receipt, label: 'Gastos', moduleId: 'gastos' },
+  { path: '/ventas', icon: DollarSign, label: 'Ventas', moduleId: 'ventas' },
+  { path: '/turnos', icon: Clock, label: 'Turnos', moduleId: 'turnos' },
+  { path: '/cortes', icon: FileText, label: 'Cortes', moduleId: 'cortes' },
+  { path: '/horarios', icon: CalendarClock, label: 'Horarios', moduleId: 'horarios' },
+  { path: '/permisos', icon: Shield, label: 'Permisos', moduleId: 'permisos' },
+  { path: '/configuracion', icon: Settings, label: 'Configuración', moduleId: 'configuracion' },
 ];
 
 export function Sidebar() {
   const location = useLocation();
   const { sidebarCollapsed, setSidebarCollapsed } = useApp();
+  const { canView, currentUser, currentRole } = usePermissions();
+
+  // Filter nav items based on permissions
+  const visibleItems = navItems.filter(item => canView(item.moduleId));
 
   return (
     <aside
@@ -80,7 +85,7 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-3">
         <ul className="space-y-1">
-          {navItems.map(({ path, icon: Icon, label }) => {
+          {visibleItems.map(({ path, icon: Icon, label }) => {
             const isActive = location.pathname === path;
             return (
               <li key={path}>
@@ -102,7 +107,7 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      {/* Branch indicator */}
+      {/* User/Role indicator */}
       <div className={cn(
         'border-t border-sidebar-border p-3',
         sidebarCollapsed && 'flex justify-center'
@@ -111,8 +116,22 @@ export function Sidebar() {
           'flex items-center gap-2 text-sm text-sidebar-foreground/70',
           sidebarCollapsed && 'justify-center'
         )}>
-          <Store className="h-4 w-4 flex-shrink-0" />
-          {!sidebarCollapsed && <span className="truncate">Sucursal Centro</span>}
+          {currentUser && currentRole ? (
+            <>
+              <div 
+                className="h-4 w-4 rounded-full flex-shrink-0" 
+                style={{ backgroundColor: currentRole.color }}
+              />
+              {!sidebarCollapsed && (
+                <span className="truncate">{currentUser.name}</span>
+              )}
+            </>
+          ) : (
+            <>
+              <Store className="h-4 w-4 flex-shrink-0" />
+              {!sidebarCollapsed && <span className="truncate">Sin usuario</span>}
+            </>
+          )}
         </div>
       </div>
     </aside>

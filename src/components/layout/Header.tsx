@@ -1,4 +1,5 @@
 import { useApp } from '@/contexts/AppContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { branches } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import {
@@ -10,6 +11,15 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Sun,
   Moon,
@@ -17,10 +27,13 @@ import {
   Bell,
   User,
   Store,
+  LogOut,
+  UserCog,
 } from 'lucide-react';
 
 export function Header() {
   const { currentBranch, setCurrentBranchId, theme, toggleTheme, sidebarCollapsed } = useApp();
+  const { currentUser, currentRole, users, roles, setCurrentUserId } = usePermissions();
 
   return (
     <header
@@ -77,11 +90,90 @@ export function Header() {
           </Button>
 
           {/* User menu */}
-          <Button variant="ghost" size="icon" className="h-9 w-9">
-            <div className="h-8 w-8 rounded-full gradient-bg flex items-center justify-center">
-              <User className="h-4 w-4 text-white" />
-            </div>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9">
+                {currentUser && currentRole ? (
+                  <div 
+                    className="h-8 w-8 rounded-full flex items-center justify-center text-white font-medium text-sm"
+                    style={{ backgroundColor: currentRole.color }}
+                  >
+                    {currentUser.name.charAt(0).toUpperCase()}
+                  </div>
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  {currentUser ? (
+                    <>
+                      <p className="text-sm font-medium">{currentUser.name}</p>
+                      <div className="flex items-center gap-2">
+                        {currentRole && (
+                          <Badge 
+                            variant="secondary" 
+                            className="text-xs"
+                            style={{ backgroundColor: currentRole.color + '20', color: currentRole.color }}
+                          >
+                            {currentRole.name}
+                          </Badge>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Selecciona un usuario</p>
+                  )}
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+                Cambiar usuario
+              </DropdownMenuLabel>
+              {users.filter(u => u.active).map(user => {
+                const role = roles.find(r => r.id === user.roleId);
+                return (
+                  <DropdownMenuItem 
+                    key={user.id}
+                    onClick={() => setCurrentUserId(user.id)}
+                    className={cn(
+                      'cursor-pointer',
+                      currentUser?.id === user.id && 'bg-accent'
+                    )}
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      <div 
+                        className="h-6 w-6 rounded-full flex items-center justify-center text-white text-xs"
+                        style={{ backgroundColor: role?.color || '#666' }}
+                      >
+                        {user.name.charAt(0)}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm">{user.name}</p>
+                        <p className="text-xs text-muted-foreground">{role?.name}</p>
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                );
+              })}
+              {currentUser && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => setCurrentUserId(null)}
+                    className="cursor-pointer text-muted-foreground"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Cerrar sesión
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>
