@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
+import { useSearchParams } from 'react-router-dom';
 import { 
   appointments as mockAppointments, 
   clients, 
@@ -78,6 +79,7 @@ const statusColors = {
 
 export default function Citas() {
   const { currentBranch } = useApp();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -95,6 +97,7 @@ export default function Citas() {
   const [time, setTime] = useState('09:00');
   const [notes, setNotes] = useState('');
   const [generalDiscount, setGeneralDiscount] = useState(0);
+  const [preselectedDuration, setPreselectedDuration] = useState<number | null>(null);
   
   // Odoo-style lines
   const [serviceLines, setServiceLines] = useState<LineItem[]>([]);
@@ -102,6 +105,27 @@ export default function Citas() {
   const [payments, setPayments] = useState<Payment[]>([
     { id: 'pay-1', method: 'cash', amount: 0 }
   ]);
+
+  // Handle URL params from Agenda
+  useEffect(() => {
+    const paramDate = searchParams.get('date');
+    const paramTime = searchParams.get('time');
+    const paramStylist = searchParams.get('stylist');
+    const paramDuration = searchParams.get('duration');
+    
+    if (paramDate || paramTime || paramStylist) {
+      // Open dialog with preselected values
+      if (paramDate) setDate(paramDate);
+      if (paramTime) setTime(paramTime);
+      if (paramStylist) setStylistId(paramStylist);
+      if (paramDuration) setPreselectedDuration(parseInt(paramDuration));
+      
+      setIsDialogOpen(true);
+      
+      // Clear URL params
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams]);
 
   const filteredAppointments = appointments.filter(a => {
     const matchesBranch = a.branchId === currentBranch.id;
@@ -123,6 +147,7 @@ export default function Citas() {
     setTime('09:00');
     setNotes('');
     setGeneralDiscount(0);
+    setPreselectedDuration(null);
     setServiceLines([]);
     setProductLines([]);
     setPayments([{ id: 'pay-1', method: 'cash', amount: 0 }]);

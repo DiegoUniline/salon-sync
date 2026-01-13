@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
-import { appointments, stylists, type Appointment } from '@/lib/mockData';
+import { useState, useMemo, useRef } from 'react';
+import { useApp } from '@/contexts/AppContext';
+import { appointments, stylists, branches, type Appointment } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,6 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   ChevronLeft,
   ChevronRight,
@@ -17,7 +24,8 @@ import {
   List,
   Plus,
   Filter,
-  Calendar,
+  Building2,
+  Users,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -44,9 +52,22 @@ const statusLabels = {
 
 export default function Agenda() {
   const navigate = useNavigate();
+  const { currentBranch } = useApp();
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedStylist, setSelectedStylist] = useState<string>('all');
+  
+  // Multi-filters
+  const [selectedBranches, setSelectedBranches] = useState<string[]>([currentBranch.id]);
+  const [selectedStylists, setSelectedStylists] = useState<string[]>([]);
+
+  // Drag selection state
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<{ time: string; stylistId: string; date: Date } | null>(null);
+  const [dragEnd, setDragEnd] = useState<{ time: string } | null>(null);
+  const dragRef = useRef<boolean>(false);
+
+  // Get stylists filtered by selected branches
+  const filteredStylists = stylists.filter(s => s.role !== 'receptionist');
 
   // Get week dates
   const getWeekDates = (date: Date) => {
@@ -100,8 +121,9 @@ export default function Agenda() {
     const str = date.toISOString().split('T')[0];
     return appointments.filter(a => {
       const dateMatch = a.date === str;
-      const stylistMatch = selectedStylist === 'all' || a.stylistId === selectedStylist;
-      return dateMatch && stylistMatch;
+      const branchMatch = selectedBranches.length === 0 || selectedBranches.includes(a.branchId);
+      const stylistMatch = selectedStylists.length === 0 || selectedStylists.includes(a.stylistId);
+      return dateMatch && branchMatch && stylistMatch;
     });
   };
 
@@ -136,13 +158,96 @@ export default function Agenda() {
     return date.getMonth() === selectedDate.getMonth();
   };
 
+  // Toggle branch filter
+  const toggleBranch = (branchId: string) => {
+    setSelectedBranches(prev => 
+      prev.includes(branchId) 
+        ? prev.filter(id => id !== branchId)
+        : [...prev, branchId]
+    );
+  };
+
+  // Toggle stylist filter
+  const toggleStylist = (stylistId: string) => {
+    setSelectedStylists(prev => 
+      prev.includes(stylistId) 
+        ? prev.filter(id => id !== stylistId)
+        : [...prev, stylistId]
+    );
+  };
+
+  // Handle slot click - navigate to new appointment with preselected data
+  const handleSlotClick = (time: string, stylistId: string, date: Date) => {
+    if (dragRef.current) return; // Don't trigger on drag end
+    const dateStr = date.toISOString().split('T')[0];
+    navigate(`/citas?date=${dateStr}&time=${time}&stylist=${stylistId}`);
+  };
+
+  // Drag handlers for time range selection
+  const handleMouseDown = (time: string, stylistId: string, date: Date) => {
+    dragRef.current = false;
+    setIsDragging(true);
+    setDragStart({ time, stylistId, date });
+    setDragEnd({ time });
+  };
+
+  const handleMouseEnter = (time: string) => {
+    if (isDragging && dragStart) {
+      dragRef.current = true;
+      setDragEnd({ time });
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (isDragging && dragStart && dragEnd) {
+      const startIndex = timeSlots.indexOf(dragStart.time);
+      const endIndex = timeSlots.indexOf(dragEnd.time);
+      const startTime = timeSlots[Math.min(startIndex, endIndex)];
+      const endTime = timeSlots[Math.max(startIndex, endIndex)];
+      
+      // Calculate duration in minutes
+      const startHour = parseInt(startTime.split(':')[0]);
+      const endHour = parseInt(endTime.split(':')[0]) + 1; // Add 1 because we include the end slot
+      const duration = (endHour - startHour) * 60;
+
+      const dateStr = dragStart.date.toISOString().split('T')[0];
+      
+      // Navigate with time range
+      navigate(`/citas?date=${dateStr}&time=${startTime}&duration=${duration}&stylist=${dragStart.stylistId}`);
+    }
+    setIsDragging(false);
+    setDragStart(null);
+    setDragEnd(null);
+    setTimeout(() => { dragRef.current = false; }, 100);
+  };
+
+  // Check if a slot is in the drag selection range
+  const isSlotInDragRange = (time: string, stylistId: string) => {
+    if (!isDragging || !dragStart || !dragEnd) return false;
+    if (stylistId !== dragStart.stylistId) return false;
+    
+    const startIndex = timeSlots.indexOf(dragStart.time);
+    const endIndex = timeSlots.indexOf(dragEnd.time);
+    const timeIndex = timeSlots.indexOf(time);
+    
+    const minIndex = Math.min(startIndex, endIndex);
+    const maxIndex = Math.max(startIndex, endIndex);
+    
+    return timeIndex >= minIndex && timeIndex <= maxIndex;
+  };
+
+  // Display stylists based on filter
+  const displayStylists = selectedStylists.length > 0
+    ? filteredStylists.filter(s => selectedStylists.includes(s.id))
+    : filteredStylists;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Agenda</h1>
-          <p className="text-muted-foreground">Gestiona tus citas</p>
+          <p className="text-muted-foreground">Gestiona tus citas - Click o arrastra para crear</p>
         </div>
         <Button className="gradient-bg border-0" onClick={() => navigate('/citas')}>
           <Plus className="h-4 w-4 mr-2" />
@@ -152,7 +257,7 @@ export default function Agenda() {
 
       {/* Controls */}
       <div className="glass-card rounded-xl p-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           {/* Date Navigation */}
           <div className="flex items-center gap-3">
             <Button variant="outline" size="icon" onClick={() => navigateDate('prev')}>
@@ -170,21 +275,88 @@ export default function Agenda() {
           </div>
 
           {/* Filters & View Mode */}
-          <div className="flex items-center gap-3">
-            <Select value={selectedStylist} onValueChange={setSelectedStylist}>
-              <SelectTrigger className="w-[180px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Estilista" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {stylists.filter(s => s.role !== 'receptionist').map(stylist => (
-                  <SelectItem key={stylist.id} value={stylist.id}>
-                    {stylist.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Branch Filter */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Sucursales
+                  {selectedBranches.length > 0 && (
+                    <span className="bg-primary text-primary-foreground text-xs rounded-full px-2">
+                      {selectedBranches.length}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-3">
+                <div className="space-y-2">
+                  <p className="font-medium text-sm mb-3">Filtrar por sucursal</p>
+                  {branches.map(branch => (
+                    <label key={branch.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded">
+                      <Checkbox 
+                        checked={selectedBranches.includes(branch.id)}
+                        onCheckedChange={() => toggleBranch(branch.id)}
+                      />
+                      <span className="text-sm">{branch.name}</span>
+                    </label>
+                  ))}
+                  <div className="border-t pt-2 mt-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => setSelectedBranches([])}
+                    >
+                      Limpiar filtro
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* Stylist Filter */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Users className="h-4 w-4" />
+                  Estilistas
+                  {selectedStylists.length > 0 && (
+                    <span className="bg-primary text-primary-foreground text-xs rounded-full px-2">
+                      {selectedStylists.length}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-3">
+                <div className="space-y-2">
+                  <p className="font-medium text-sm mb-3">Filtrar por estilista</p>
+                  {filteredStylists.map(stylist => (
+                    <label key={stylist.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded">
+                      <Checkbox 
+                        checked={selectedStylists.includes(stylist.id)}
+                        onCheckedChange={() => toggleStylist(stylist.id)}
+                      />
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: stylist.color }}
+                      />
+                      <span className="text-sm">{stylist.name}</span>
+                    </label>
+                  ))}
+                  <div className="border-t pt-2 mt-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => setSelectedStylists([])}
+                    >
+                      Limpiar filtro
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
 
             <div className="flex items-center border border-border rounded-lg p-1">
               <Button
@@ -223,11 +395,7 @@ export default function Agenda() {
             {/* Stylist Headers */}
             <div className="flex border-b border-border pb-4 mb-4">
               <div className="w-20 flex-shrink-0" />
-              {stylists.filter(s => 
-                selectedStylist === 'all' 
-                  ? s.role !== 'receptionist'
-                  : s.id === selectedStylist
-              ).map(stylist => (
+              {displayStylists.map(stylist => (
                 <div key={stylist.id} className="flex-1 text-center px-2">
                   <div
                     className="h-10 w-10 rounded-full mx-auto flex items-center justify-center text-white font-medium mb-2"
@@ -241,24 +409,31 @@ export default function Agenda() {
             </div>
 
             {/* Time Grid */}
-            <div className="relative">
+            <div className="relative select-none">
               {timeSlots.map(time => (
                 <div key={time} className="flex items-start border-t border-border/50 min-h-[80px]">
                   <div className="w-20 flex-shrink-0 pr-4 py-2">
                     <span className="text-sm text-muted-foreground">{time}</span>
                   </div>
                   
-                  {stylists.filter(s => 
-                    selectedStylist === 'all' 
-                      ? s.role !== 'receptionist'
-                      : s.id === selectedStylist
-                  ).map(stylist => {
+                  {displayStylists.map(stylist => {
                     const appointment = filteredAppointments.find(
                       a => a.stylistId === stylist.id && a.time === time
                     );
+                    const isInDragRange = isSlotInDragRange(time, stylist.id);
 
                     return (
-                      <div key={stylist.id} className="flex-1 px-1 py-2">
+                      <div 
+                        key={stylist.id} 
+                        className={cn(
+                          'flex-1 px-1 py-2 cursor-pointer transition-colors min-h-[80px]',
+                          isInDragRange && 'bg-primary/20',
+                          !appointment && 'hover:bg-muted/30'
+                        )}
+                        onMouseDown={() => !appointment && handleMouseDown(time, stylist.id, selectedDate)}
+                        onMouseEnter={() => handleMouseEnter(time)}
+                        onClick={() => !appointment && !dragRef.current && handleSlotClick(time, stylist.id, selectedDate)}
+                      >
                         {appointment && (
                           <AppointmentBlock appointment={appointment} />
                         )}
@@ -299,7 +474,7 @@ export default function Agenda() {
             </div>
 
             {/* Time Grid */}
-            <div className="relative">
+            <div className="relative select-none">
               {timeSlots.map(time => (
                 <div key={time} className="grid grid-cols-8 border-t border-border/50 min-h-[60px]">
                   <div className="w-16 pr-2 py-2">
@@ -314,9 +489,16 @@ export default function Agenda() {
                       <div 
                         key={i} 
                         className={cn(
-                          'px-1 py-1 border-l border-border/30',
-                          isToday(date) && 'bg-primary/5'
+                          'px-1 py-1 border-l border-border/30 cursor-pointer transition-colors',
+                          isToday(date) && 'bg-primary/5',
+                          !appointment && 'hover:bg-muted/30'
                         )}
+                        onClick={() => {
+                          if (!appointment) {
+                            const stylistId = displayStylists[0]?.id || '';
+                            handleSlotClick(time, stylistId, date);
+                          }
+                        }}
                       >
                         {appointment && (
                           <div
