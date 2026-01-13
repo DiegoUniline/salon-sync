@@ -33,7 +33,7 @@ import {
 
 export function Header() {
   const { currentBranch, setCurrentBranchId, theme, toggleTheme, sidebarCollapsed } = useApp();
-  const { currentUser, currentRole, users, roles, setCurrentUserId } = usePermissions();
+  const { currentUser, currentRole, users, roles, setCurrentUserId, logout } = usePermissions();
 
   return (
     <header
@@ -172,7 +172,7 @@ export function Header() {
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
-                    onClick={() => setCurrentUserId(null)}
+                    onClick={logout}
                     className="cursor-pointer text-destructive focus:text-destructive"
                   >
                     <LogOut className="h-4 w-4 mr-2" />

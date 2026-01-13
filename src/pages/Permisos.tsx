@@ -84,6 +84,7 @@ export default function Permisos() {
   const [userForm, setUserForm] = useState({
     name: '',
     email: '',
+    password: '',
     roleId: '',
     branchId: '',
     active: true,
@@ -220,6 +221,7 @@ export default function Permisos() {
       setUserForm({
         name: user.name,
         email: user.email,
+        password: user.password,
         roleId: user.roleId,
         branchId: user.branchId || '',
         active: user.active,
@@ -229,6 +231,7 @@ export default function Permisos() {
       setUserForm({
         name: '',
         email: '',
+        password: '',
         roleId: '',
         branchId: '',
         active: true,
@@ -240,6 +243,11 @@ export default function Permisos() {
   const handleSaveUser = () => {
     if (!userForm.name.trim() || !userForm.email.trim() || !userForm.roleId) {
       toast.error('Nombre, email y rol son requeridos');
+      return;
+    }
+
+    if (!editingUser && !userForm.password.trim()) {
+      toast.error('La contraseña es requerida para nuevos usuarios');
       return;
     }
 
@@ -652,6 +660,17 @@ export default function Permisos() {
                 value={userForm.email}
                 onChange={(e) => setUserForm(prev => ({ ...prev, email: e.target.value }))}
                 placeholder="correo@ejemplo.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="userPassword">Contraseña *</Label>
+              <Input
+                id="userPassword"
+                type="password"
+                value={userForm.password}
+                onChange={(e) => setUserForm(prev => ({ ...prev, password: e.target.value }))}
+                placeholder="••••••••"
               />
             </div>
 
