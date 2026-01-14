@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import { AppProvider } from "@/contexts/AppContext";
 import { PermissionsProvider, usePermissions } from "@/hooks/usePermissions";
 import { Layout } from "@/components/layout/Layout";
@@ -48,20 +48,118 @@ function AppRoutes() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<ProtectedRoute moduleId="dashboard"><Index /></ProtectedRoute>} />
-        <Route path="/agenda" element={<ProtectedRoute moduleId="agenda"><Agenda /></ProtectedRoute>} />
-        <Route path="/citas" element={<ProtectedRoute moduleId="agenda"><Citas /></ProtectedRoute>} />
-        <Route path="/servicios" element={<ProtectedRoute moduleId="servicios"><Services /></ProtectedRoute>} />
-        <Route path="/productos" element={<ProtectedRoute moduleId="productos"><Products /></ProtectedRoute>} />
-        <Route path="/inventario" element={<ProtectedRoute moduleId="inventario"><Inventario /></ProtectedRoute>} />
-        <Route path="/compras" element={<ProtectedRoute moduleId="compras"><Compras /></ProtectedRoute>} />
-        <Route path="/gastos" element={<ProtectedRoute moduleId="gastos"><Gastos /></ProtectedRoute>} />
-        <Route path="/ventas" element={<ProtectedRoute moduleId="ventas"><Ventas /></ProtectedRoute>} />
-        <Route path="/turnos" element={<ProtectedRoute moduleId="turnos"><Turnos /></ProtectedRoute>} />
-        <Route path="/cortes" element={<ProtectedRoute moduleId="cortes"><Cortes /></ProtectedRoute>} />
-        <Route path="/horarios" element={<ProtectedRoute moduleId="horarios"><Horarios /></ProtectedRoute>} />
-        <Route path="/configuracion" element={<ProtectedRoute moduleId="configuracion"><Configuracion /></ProtectedRoute>} />
-        <Route path="/permisos" element={<ProtectedRoute moduleId="permisos"><Permisos /></ProtectedRoute>} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute moduleId="dashboard">
+              <Index />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/agenda"
+          element={
+            <ProtectedRoute moduleId="agenda">
+              <Agenda />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/citas"
+          element={
+            <ProtectedRoute moduleId="agenda">
+              <Citas />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/servicios"
+          element={
+            <ProtectedRoute moduleId="servicios">
+              <Services />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/productos"
+          element={
+            <ProtectedRoute moduleId="productos">
+              <Products />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inventario"
+          element={
+            <ProtectedRoute moduleId="inventario">
+              <Inventario />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/compras"
+          element={
+            <ProtectedRoute moduleId="compras">
+              <Compras />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/gastos"
+          element={
+            <ProtectedRoute moduleId="gastos">
+              <Gastos />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ventas"
+          element={
+            <ProtectedRoute moduleId="ventas">
+              <Ventas />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/turnos"
+          element={
+            <ProtectedRoute moduleId="turnos">
+              <Turnos />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cortes"
+          element={
+            <ProtectedRoute moduleId="cortes">
+              <Cortes />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/horarios"
+          element={
+            <ProtectedRoute moduleId="horarios">
+              <Horarios />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/configuracion"
+          element={
+            <ProtectedRoute moduleId="configuracion">
+              <Configuracion />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/permisos"
+          element={
+            <ProtectedRoute moduleId="permisos">
+              <Permisos />
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Layout>
@@ -75,9 +173,9 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter basename="/salon-sync">
+          <HashRouter>
             <AppRoutes />
-          </BrowserRouter>
+          </HashRouter>
         </TooltipProvider>
       </PermissionsProvider>
     </AppProvider>
