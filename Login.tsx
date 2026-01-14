@@ -1,15 +1,14 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Scissors, Lock, Mail, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
-import api from '@/lib/api';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function Login() {
-  const navigate = useNavigate();
+  const { login } = usePermissions();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -21,14 +20,13 @@ export default function Login() {
     setError('');
     setIsLoading(true);
 
-    try {
-      await api.auth.login(email, password);
-      navigate('/');
-    } catch (err: any) {
-      setError(err.message || 'Error al iniciar sesión');
-    } finally {
-      setIsLoading(false);
+    const result = await login(email, password);
+    
+    if (!result.success) {
+      setError(result.error || 'Error al iniciar sesión');
     }
+    
+    setIsLoading(false);
   };
 
   return (
