@@ -1,6 +1,6 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
-import { appointments as mockAppointments, stylists, branches, type Appointment } from '@/lib/mockData';
+import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -29,13 +29,52 @@ import {
   Phone,
   DollarSign,
   Scissors,
-  X,
+  Loader2,
 } from 'lucide-react';
 import { AppointmentFormDialog } from '@/components/AppointmentFormDialog';
 
 type ViewMode = 'day' | 'week' | 'month';
 
-// More time slots for better granularity, smaller height
+interface Stylist {
+  id: string;
+  name: string;
+  color: string;
+  role: string;
+}
+
+interface Branch {
+  id: string;
+  name: string;
+}
+
+interface Service {
+  id: string;
+  name: string;
+  price: number;
+  duration: number;
+}
+
+interface Client {
+  id: string;
+  name: string;
+  phone: string;
+}
+
+interface Appointment {
+  id: string;
+  date: string;
+  time: string;
+  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
+  client_id: string;
+  client?: Client;
+  stylist_id: string;
+  stylist?: Stylist;
+  branch_id: string;
+  services?: Service[];
+  total: number;
+  notes?: string;
+}
+
 const timeSlots = Array.from({ length: 14 }, (_, i) => {
   const hour = i + 8;
   return `${hour.toString().padStart(2, '0')}:00`;
@@ -59,9 +98,12 @@ export default function Agenda() {
   const { currentBranch } = useApp();
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [stylists, setStylists] = useState<Stylist[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loading, setLoading] = useState(true);
   
-  const [selectedBranches, setSelectedBranches] = useState<string[]>([currentBranch.id]);
+  const [selectedBranches, setSelectedBranches] = useState<string[]>([currentBranch?.id || '']);
   const [selectedStylists, setSelectedStylists] = useState<string[]>([]);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -70,13 +112,57 @@ export default function Agenda() {
   const [dialogInitialStylist, setDialogInitialStylist] = useState<string>('');
   const [dialogInitialDuration, setDialogInitialDuration] = useState<number | undefined>();
 
-  // Appointment detail popover
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ time: string; stylistId: string; date: Date } | null>(null);
   const [dragEnd, setDragEnd] = useState<{ time: string } | null>(null);
   const dragRef = useRef<boolean>(false);
+
+  // Load data
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const [branchesData, usersData] = await Promise.all([
+          api.branches.getAll(),
+          api.users.getAll(),
+        ]);
+        setBranches(branchesData);
+        setStylists(usersData.filter((u: any) => u.role !== 'receptionist'));
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  // Load appointments when date or filters change
+  useEffect(() => {
+    const loadAppointments = async () => {
+      try {
+        const startDate = viewMode === 'month' 
+          ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1).toISOString().split('T')[0]
+          : viewMode === 'week'
+          ? getWeekDates(selectedDate)[0].toISOString().split('T')[0]
+          : selectedDate.toISOString().split('T')[0];
+        
+        const endDate = viewMode === 'month'
+          ? new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).toISOString().split('T')[0]
+          : viewMode === 'week'
+          ? getWeekDates(selectedDate)[6].toISOString().split('T')[0]
+          : selectedDate.toISOString().split('T')[0];
+
+        const data = await api.appointments.getAll({ start_date: startDate, end_date: endDate });
+        setAppointments(data);
+      } catch (error) {
+        console.error('Error loading appointments:', error);
+      }
+    };
+    loadAppointments();
+  }, [selectedDate, viewMode]);
 
   const filteredStylists = stylists.filter(s => s.role !== 'receptionist');
 
@@ -125,8 +211,8 @@ export default function Agenda() {
     const str = date.toISOString().split('T')[0];
     return appointments.filter(a => {
       const dateMatch = a.date === str;
-      const branchMatch = selectedBranches.length === 0 || selectedBranches.includes(a.branchId);
-      const stylistMatch = selectedStylists.length === 0 || selectedStylists.includes(a.stylistId);
+      const branchMatch = selectedBranches.length === 0 || selectedBranches.includes(a.branch_id);
+      const stylistMatch = selectedStylists.length === 0 || selectedStylists.includes(a.stylist_id);
       return dateMatch && branchMatch && stylistMatch;
     });
   };
@@ -229,17 +315,21 @@ export default function Agenda() {
     ? filteredStylists.filter(s => selectedStylists.includes(s.id))
     : filteredStylists;
 
-  const handleSaveAppointment = (appointment: Appointment) => {
-    setAppointments(prev => {
-      const existing = prev.find(a => a.id === appointment.id);
-      if (existing) {
-        return prev.map(a => a.id === appointment.id ? appointment : a);
+  const handleSaveAppointment = async (appointment: any) => {
+    try {
+      if (appointment.id && !appointment.id.startsWith('temp')) {
+        await api.appointments.update(appointment.id, appointment);
+      } else {
+        await api.appointments.create(appointment);
       }
-      return [...prev, appointment];
-    });
+      // Reload appointments
+      const data = await api.appointments.getAll({ date: selectedDate.toISOString().split('T')[0] });
+      setAppointments(data);
+    } catch (error) {
+      console.error('Error saving appointment:', error);
+    }
   };
 
-  // Calculate end time for appointment
   const getEndTime = (startTime: string, durationMinutes: number) => {
     const [hours, minutes] = startTime.split(':').map(Number);
     const totalMinutes = hours * 60 + minutes + durationMinutes;
@@ -247,6 +337,24 @@ export default function Agenda() {
     const endMins = totalMinutes % 60;
     return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
   };
+
+  const getStylistColor = (stylistId: string) => {
+    const stylist = stylists.find(s => s.id === stylistId);
+    return stylist?.color || '#3B82F6';
+  };
+
+  const getStylistName = (stylistId: string) => {
+    const stylist = stylists.find(s => s.id === stylistId);
+    return stylist?.name || 'Sin asignar';
+  };
+
+  if (loading) {
+    return (
+      <div className="h-[calc(100vh-6rem)] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="h-[calc(100vh-6rem)] flex flex-col" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
@@ -268,7 +376,6 @@ export default function Agenda() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Compact Filters */}
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs">
@@ -306,9 +413,9 @@ export default function Agenda() {
 
           <div className="flex border rounded-md p-0.5 bg-muted/50">
             {[
-              { mode: 'day' as ViewMode, icon: CalendarDays, label: 'D' },
-              { mode: 'week' as ViewMode, icon: List, label: 'S' },
-              { mode: 'month' as ViewMode, icon: LayoutGrid, label: 'M' },
+              { mode: 'day' as ViewMode, label: 'D' },
+              { mode: 'week' as ViewMode, label: 'S' },
+              { mode: 'month' as ViewMode, label: 'M' },
             ].map(({ mode, label }) => (
               <button
                 key={mode}
@@ -329,10 +436,9 @@ export default function Agenda() {
         </div>
       </div>
 
-      {/* Day View - Optimized */}
+      {/* Day View */}
       {viewMode === 'day' && (
         <div className="flex-1 glass-card rounded-lg overflow-hidden flex flex-col min-h-0">
-          {/* Stylist Headers - Compact */}
           <div className="flex border-b bg-muted/30 flex-shrink-0">
             <div className="w-12 flex-shrink-0" />
             {displayStylists.map(stylist => (
@@ -347,7 +453,6 @@ export default function Agenda() {
             ))}
           </div>
 
-          {/* Time Grid - Scrollable */}
           <div className="flex-1 overflow-y-auto select-none">
             {timeSlots.map(time => (
               <div key={time} className="flex border-t border-border/30" style={{ minHeight: '44px' }}>
@@ -357,7 +462,7 @@ export default function Agenda() {
                 
                 {displayStylists.map(stylist => {
                   const appointment = filteredAppointments.find(
-                    a => a.stylistId === stylist.id && a.time === time
+                    a => a.stylist_id === stylist.id && a.time === time
                   );
                   const isInDragRange = isSlotInDragRange(time, stylist.id);
 
@@ -375,7 +480,8 @@ export default function Agenda() {
                     >
                       {appointment && (
                         <AppointmentChip 
-                          appointment={appointment} 
+                          appointment={appointment}
+                          stylistColor={getStylistColor(appointment.stylist_id)}
                           onClick={() => setSelectedAppointment(appointment)}
                         />
                       )}
@@ -388,7 +494,7 @@ export default function Agenda() {
         </div>
       )}
 
-      {/* Week View - Compact */}
+      {/* Week View */}
       {viewMode === 'week' && (
         <div className="flex-1 glass-card rounded-lg overflow-hidden flex flex-col min-h-0">
           <div className="grid grid-cols-8 border-b bg-muted/30 flex-shrink-0">
@@ -439,11 +545,11 @@ export default function Agenda() {
                         <div
                           className="rounded px-1 py-0.5 text-[10px] truncate"
                           style={{
-                            backgroundColor: `${appointment.stylist.color}25`,
-                            borderLeft: `2px solid ${appointment.stylist.color}`,
+                            backgroundColor: `${getStylistColor(appointment.stylist_id)}25`,
+                            borderLeft: `2px solid ${getStylistColor(appointment.stylist_id)}`,
                           }}
                         >
-                          {appointment.client.name.split(' ')[0]}
+                          {appointment.client?.name?.split(' ')[0] || 'Cliente'}
                         </div>
                       )}
                     </div>
@@ -455,7 +561,7 @@ export default function Agenda() {
         </div>
       )}
 
-      {/* Month View - Compact */}
+      {/* Month View */}
       {viewMode === 'month' && (
         <div className="flex-1 glass-card rounded-lg overflow-hidden flex flex-col min-h-0">
           <div className="grid grid-cols-7 bg-muted/30 flex-shrink-0">
@@ -467,7 +573,7 @@ export default function Agenda() {
           <div className="flex-1 grid grid-cols-7 auto-rows-fr overflow-hidden">
             {monthDates.map((date, i) => {
               const dayAppointments = date ? getAppointmentsForDate(date) : [];
-              const today = isToday(date!);
+              const today = date ? isToday(date) : false;
               const currentMonth = date ? isCurrentMonth(date) : false;
 
               return (
@@ -491,9 +597,9 @@ export default function Agenda() {
                       <div
                         key={apt.id}
                         className="text-[9px] px-1 rounded truncate"
-                        style={{ backgroundColor: `${apt.stylist.color}20`, borderLeft: `2px solid ${apt.stylist.color}` }}
+                        style={{ backgroundColor: `${getStylistColor(apt.stylist_id)}20`, borderLeft: `2px solid ${getStylistColor(apt.stylist_id)}` }}
                       >
-                        {apt.time} {apt.client.name.split(' ')[0]}
+                        {apt.time} {apt.client?.name?.split(' ')[0] || 'Cliente'}
                       </div>
                     ))}
                     {dayAppointments.length > 2 && (
@@ -516,9 +622,9 @@ export default function Agenda() {
                 <DialogTitle className="flex items-center gap-2">
                   <div 
                     className="w-3 h-3 rounded-full" 
-                    style={{ backgroundColor: selectedAppointment.stylist.color }}
+                    style={{ backgroundColor: getStylistColor(selectedAppointment.stylist_id) }}
                   />
-                  {selectedAppointment.client.name}
+                  {selectedAppointment.client?.name || 'Cliente'}
                 </DialogTitle>
               </DialogHeader>
               
@@ -530,43 +636,40 @@ export default function Agenda() {
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Clock className="h-4 w-4" />
-                    <span>
-                      {selectedAppointment.time} - {getEndTime(
-                        selectedAppointment.time,
-                        selectedAppointment.services.reduce((sum, s) => sum + s.duration, 0)
-                      )}
-                    </span>
+                    <span>{selectedAppointment.time}</span>
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Phone className="h-4 w-4" />
-                    <span>{selectedAppointment.client.phone}</span>
+                    <span>{selectedAppointment.client?.phone || '-'}</span>
                   </div>
                 </div>
 
-                <div className="border-t pt-3">
-                  <p className="text-xs text-muted-foreground mb-2">Servicios</p>
-                  <div className="space-y-1.5">
-                    {selectedAppointment.services.map(service => (
-                      <div key={service.id} className="flex justify-between text-sm">
-                        <span className="flex items-center gap-2">
-                          <Scissors className="h-3.5 w-3.5 text-muted-foreground" />
-                          {service.name}
-                        </span>
-                        <span className="font-medium">${service.price}</span>
-                      </div>
-                    ))}
+                {selectedAppointment.services && selectedAppointment.services.length > 0 && (
+                  <div className="border-t pt-3">
+                    <p className="text-xs text-muted-foreground mb-2">Servicios</p>
+                    <div className="space-y-1.5">
+                      {selectedAppointment.services.map(service => (
+                        <div key={service.id} className="flex justify-between text-sm">
+                          <span className="flex items-center gap-2">
+                            <Scissors className="h-3.5 w-3.5 text-muted-foreground" />
+                            {service.name}
+                          </span>
+                          <span className="font-medium">${service.price}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="flex items-center justify-between border-t pt-3">
                   <div className="flex items-center gap-2">
                     <div 
                       className="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-medium"
-                      style={{ backgroundColor: selectedAppointment.stylist.color }}
+                      style={{ backgroundColor: getStylistColor(selectedAppointment.stylist_id) }}
                     >
-                      {selectedAppointment.stylist.name.split(' ').map(n => n[0]).join('')}
+                      {getStylistName(selectedAppointment.stylist_id).split(' ').map(n => n[0]).join('')}
                     </div>
-                    <span className="text-sm font-medium">{selectedAppointment.stylist.name}</span>
+                    <span className="text-sm font-medium">{getStylistName(selectedAppointment.stylist_id)}</span>
                   </div>
                   <div className="flex items-center gap-1 text-lg font-bold">
                     <DollarSign className="h-5 w-5" />
@@ -592,8 +695,8 @@ export default function Agenda() {
   );
 }
 
-function AppointmentChip({ appointment, onClick }: { appointment: Appointment; onClick: () => void }) {
-  const duration = appointment.services.reduce((sum, s) => sum + s.duration, 0);
+function AppointmentChip({ appointment, stylistColor, onClick }: { appointment: Appointment; stylistColor: string; onClick: () => void }) {
+  const duration = appointment.services?.reduce((sum, s) => sum + s.duration, 0) || 60;
   const slots = Math.ceil(duration / 60);
   const height = Math.max(slots * 44 - 4, 40);
 
@@ -605,12 +708,12 @@ function AppointmentChip({ appointment, onClick }: { appointment: Appointment; o
       )}
       style={{
         height: `${height}px`,
-        backgroundColor: `${appointment.stylist.color}20`,
-        borderLeft: `3px solid ${appointment.stylist.color}`,
+        backgroundColor: `${stylistColor}20`,
+        borderLeft: `3px solid ${stylistColor}`,
       }}
     >
-      <p className="font-medium text-xs truncate">{appointment.client.name}</p>
-      <p className="text-[10px] text-muted-foreground truncate">{appointment.services[0]?.name}</p>
+      <p className="font-medium text-xs truncate">{appointment.client?.name || 'Cliente'}</p>
+      <p className="text-[10px] text-muted-foreground truncate">{appointment.services?.[0]?.name || 'Servicio'}</p>
       {slots > 1 && <p className="text-[10px] font-medium mt-0.5">${appointment.total}</p>}
     </div>
   );
