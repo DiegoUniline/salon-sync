@@ -433,11 +433,23 @@ export default function Citas() {
       branch_id: currentBranch?.id,
       date,
       time,
-      services: validServices.map(l => l.serviceId),
-      products: productLines.filter(l => l.productId).map(l => ({ product_id: l.productId, quantity: l.quantity })),
-      notes,
-      payment_method: payments.length > 1 ? 'mixed' : payments[0].method,
+      duration: totalDuration,
+      services: validServices.map(l => ({ 
+        service_id: l.serviceId, 
+        price: l.price, 
+        discount: l.discount || 0 
+      })),
+      products: productLines.filter(l => l.productId).map(l => ({ 
+        product_id: l.productId, 
+        quantity: l.quantity,
+        price: l.price,
+        discount: l.discount || 0
+      })),
+      payments: payments.map(p => ({ method: p.method, amount: p.amount })),
+      subtotal,
+      discount: generalDiscountAmount,
       total,
+      notes,
     };
 
     try {
