@@ -1,15 +1,44 @@
 import { useState, useEffect, createContext, useContext, createElement } from 'react';
 import type { ReactNode } from 'react';
-import { 
-  getRoles, 
-  getUsersWithRoles, 
-  type Role, 
-  type UserWithRole, 
-  type ModuleId, 
-  type ActionId 
-} from '@/lib/permissions';
+import api from '@/lib/api';
 
 const CURRENT_USER_KEY = 'salon_current_user';
+const TOKEN_KEY = 'salon_token';
+
+export type ModuleId = 
+  | 'dashboard' | 'agenda' | 'ventas' | 'gastos' | 'compras' 
+  | 'inventario' | 'servicios' | 'productos' | 'turnos' 
+  | 'cortes' | 'horarios' | 'configuracion' | 'permisos';
+
+export type ActionId = 'view' | 'create' | 'edit' | 'delete';
+
+export interface ModulePermissions {
+  view: boolean;
+  create: boolean;
+  edit: boolean;
+  delete: boolean;
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  is_system: boolean;
+  permissions: Record<ModuleId, ModulePermissions>;
+}
+
+export interface UserWithRole {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  branch_id?: string;
+  color?: string;
+  avatar_url?: string;
+  active: boolean;
+  permissions?: Record<ModuleId, ModulePermissions>;
+}
 
 interface LoginResult {
   success: boolean;
@@ -22,86 +51,107 @@ interface PermissionsContextType {
   users: UserWithRole[];
   roles: Role[];
   isAuthenticated: boolean;
-  login: (email: string, password: string) => LoginResult;
-  logout: () => void;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<LoginResult>;
+  logout: () => Promise<void>;
   setCurrentUserId: (userId: string | null) => void;
   hasPermission: (moduleId: ModuleId, action: ActionId) => boolean;
   canView: (moduleId: ModuleId) => boolean;
   canCreate: (moduleId: ModuleId) => boolean;
   canEdit: (moduleId: ModuleId) => boolean;
   canDelete: (moduleId: ModuleId) => boolean;
-  refreshData: () => void;
+  refreshData: () => Promise<void>;
 }
 
 const PermissionsContext = createContext<PermissionsContextType | undefined>(undefined);
 
 export function PermissionsProvider({ children }: { children: ReactNode }) {
-  const [currentUserId, setCurrentUserIdState] = useState<string | null>(() => {
+  const [currentUser, setCurrentUser] = useState<UserWithRole | null>(() => {
     try {
-      return localStorage.getItem(CURRENT_USER_KEY);
+      const saved = localStorage.getItem(CURRENT_USER_KEY);
+      return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
     }
   });
   
-  const [users, setUsers] = useState<UserWithRole[]>(() => getUsersWithRoles());
-  const [roles, setRoles] = useState<Role[]>(() => getRoles());
-
-  const refreshData = () => {
-    setUsers(getUsersWithRoles());
-    setRoles(getRoles());
-  };
+  const [users, setUsers] = useState<UserWithRole[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const interval = setInterval(refreshData, 1000);
-    return () => clearInterval(interval);
+    const init = async () => {
+      const token = localStorage.getItem(TOKEN_KEY);
+      if (token && currentUser) {
+        try {
+          const userData = await api.auth.me();
+          setCurrentUser(userData);
+          localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userData));
+          await refreshData();
+        } catch {
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(CURRENT_USER_KEY);
+          setCurrentUser(null);
+        }
+      }
+      setIsLoading(false);
+    };
+    init();
   }, []);
 
+  const refreshData = async () => {
+    try {
+      const [usersData, rolesData] = await Promise.all([
+        api.users.getAll().catch(() => []),
+        api.roles.getAll().catch(() => []),
+      ]);
+      setUsers(usersData);
+      setRoles(rolesData);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    }
+  };
+
   const setCurrentUserId = (userId: string | null) => {
-    setCurrentUserIdState(userId);
-    if (userId) {
-      localStorage.setItem(CURRENT_USER_KEY, userId);
-    } else {
+    if (!userId) {
+      setCurrentUser(null);
       localStorage.removeItem(CURRENT_USER_KEY);
     }
   };
 
-  const login = (email: string, password: string): LoginResult => {
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    
-    if (!user) {
-      return { success: false, error: 'Usuario no encontrado' };
+  const login = async (email: string, password: string): Promise<LoginResult> => {
+    try {
+      const data = await api.auth.login(email, password);
+      setCurrentUser(data.user);
+      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data.user));
+      await refreshData();
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Error al iniciar sesión' };
     }
-    
-    if (!user.active) {
-      return { success: false, error: 'Usuario desactivado. Contacta al administrador.' };
-    }
-    
-    if (user.password !== password) {
-      return { success: false, error: 'Contraseña incorrecta' };
-    }
-    
-    setCurrentUserId(user.id);
-    return { success: true };
   };
 
-  const logout = () => {
-    setCurrentUserId(null);
+  const logout = async () => {
+    try {
+      await api.auth.logout();
+    } catch {}
+    setCurrentUser(null);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(CURRENT_USER_KEY);
   };
 
-  const currentUser = currentUserId 
-    ? users.find(u => u.id === currentUserId && u.active) || null 
-    : null;
-    
-  const currentRole = currentUser 
-    ? roles.find(r => r.id === currentUser.roleId) || null 
-    : null;
+  const currentRole = currentUser?.permissions 
+    ? { id: '', name: currentUser.role, description: '', color: '', is_system: false, permissions: currentUser.permissions } as Role
+    : roles.find(r => r.name.toLowerCase() === currentUser?.role?.toLowerCase()) || null;
 
   const isAuthenticated = !!currentUser;
 
   const hasPermission = (moduleId: ModuleId, action: ActionId): boolean => {
-    if (!currentUser || !currentRole) return false;
-    return currentRole.permissions[moduleId]?.[action] ?? false;
+    if (!currentUser) return false;
+    if (currentUser.permissions) return currentUser.permissions[moduleId]?.[action] ?? false;
+    if (currentRole) return currentRole.permissions[moduleId]?.[action] ?? false;
+    if (currentUser.role === 'admin') return true;
+    return false;
   };
 
   const canView = (moduleId: ModuleId) => hasPermission(moduleId, 'view');
@@ -115,6 +165,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     users,
     roles,
     isAuthenticated,
+    isLoading,
     login,
     logout,
     setCurrentUserId,
