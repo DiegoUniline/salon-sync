@@ -7,7 +7,6 @@ import { AppProvider } from "@/contexts/AppContext";
 import { PermissionsProvider, usePermissions } from "@/hooks/usePermissions";
 import { Layout } from "@/components/layout/Layout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-
 // Pages
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -29,7 +28,16 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function AppRoutes() {
-  const { isAuthenticated } = usePermissions();
+  const { isAuthenticated, isLoading } = usePermissions();
+
+  // Mostrar loading mientras verifica sesión
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   // If not authenticated, show login
   if (!isAuthenticated) {
@@ -67,7 +75,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <BrowserRouter basename="/salon-sync">
             <AppRoutes />
           </BrowserRouter>
         </TooltipProvider>
