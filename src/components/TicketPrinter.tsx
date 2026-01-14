@@ -1,10 +1,15 @@
-import { useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Printer, Download } from 'lucide-react';
-import { getBusinessConfig, type BusinessConfig } from '@/lib/businessConfig';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { useRef } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Printer, Download } from "lucide-react";
+import { getBusinessConfig, type BusinessConfig } from "@/lib/businessConfig";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 export interface TicketItem {
   name: string;
@@ -15,7 +20,7 @@ export interface TicketItem {
 
 export interface TicketData {
   folio: string;
-  date: Date;
+  date: Date | null;
   clientName?: string;
   clientPhone?: string;
   professionalName?: string;
@@ -34,12 +39,16 @@ interface TicketPrinterProps {
   data: TicketData;
 }
 
-export function TicketPrinter({ open, onOpenChange, data }: TicketPrinterProps) {
+export function TicketPrinter({
+  open,
+  onOpenChange,
+  data,
+}: TicketPrinterProps) {
   const ticketRef = useRef<HTMLDivElement>(null);
   const config = getBusinessConfig();
 
   const isFieldEnabled = (fieldId: string) => {
-    const field = config.ticketFields.find(f => f.id === fieldId);
+    const field = config.ticketFields.find((f) => f.id === fieldId);
     return field?.enabled ?? true;
   };
 
@@ -47,7 +56,7 @@ export function TicketPrinter({ open, onOpenChange, data }: TicketPrinterProps) 
     const printContent = ticketRef.current;
     if (!printContent) return;
 
-    const printWindow = window.open('', '_blank');
+    const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
     printWindow.document.write(`
@@ -93,7 +102,10 @@ export function TicketPrinter({ open, onOpenChange, data }: TicketPrinterProps) 
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount);
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+    }).format(amount);
   };
 
   return (
@@ -110,19 +122,25 @@ export function TicketPrinter({ open, onOpenChange, data }: TicketPrinterProps) 
           <div ref={ticketRef}>
             {/* Header */}
             <div className="ticket-header text-center mb-4">
-              {isFieldEnabled('logo') && config.logo && (
-                <img src={config.logo} alt="Logo" className="ticket-logo mx-auto h-12 mb-2" />
+              {isFieldEnabled("logo") && config.logo && (
+                <img
+                  src={config.logo}
+                  alt="Logo"
+                  className="ticket-logo mx-auto h-12 mb-2"
+                />
               )}
-              {isFieldEnabled('businessName') && (
-                <div className="ticket-title font-bold text-base">{config.name}</div>
+              {isFieldEnabled("businessName") && (
+                <div className="ticket-title font-bold text-base">
+                  {config.name}
+                </div>
               )}
-              {isFieldEnabled('address') && config.address && (
+              {isFieldEnabled("address") && config.address && (
                 <div className="text-xs">{config.address}</div>
               )}
-              {isFieldEnabled('phone') && config.phone && (
+              {isFieldEnabled("phone") && config.phone && (
                 <div className="text-xs">Tel: {config.phone}</div>
               )}
-              {isFieldEnabled('rfc') && config.rfc && (
+              {isFieldEnabled("rfc") && config.rfc && (
                 <div className="text-xs">RFC: {config.rfc}</div>
               )}
             </div>
@@ -131,31 +149,35 @@ export function TicketPrinter({ open, onOpenChange, data }: TicketPrinterProps) 
 
             {/* Folio & Date */}
             <div className="space-y-1">
-              {isFieldEnabled('folio') && (
+              {isFieldEnabled("folio") && (
                 <div className="ticket-row flex justify-between">
                   <span>Folio:</span>
                   <span className="font-bold">#{data.folio}</span>
                 </div>
               )}
-              {isFieldEnabled('date') && (
+              {isFieldEnabled("date") && (
                 <div className="ticket-row flex justify-between">
                   <span>Fecha:</span>
-                  <span>{format(data.date, "dd/MM/yyyy HH:mm", { locale: es })}</span>
+                  <span>
+                    {data.date instanceof Date && !isNaN(data.date.getTime())
+                      ? format(data.date, "dd/MM/yyyy HH:mm", { locale: es })
+                      : "-"}
+                  </span>
                 </div>
               )}
-              {isFieldEnabled('clientName') && data.clientName && (
+              {isFieldEnabled("clientName") && data.clientName && (
                 <div className="ticket-row flex justify-between">
                   <span>Cliente:</span>
                   <span>{data.clientName}</span>
                 </div>
               )}
-              {isFieldEnabled('clientPhone') && data.clientPhone && (
+              {isFieldEnabled("clientPhone") && data.clientPhone && (
                 <div className="ticket-row flex justify-between">
                   <span>Tel Cliente:</span>
                   <span>{data.clientPhone}</span>
                 </div>
               )}
-              {isFieldEnabled('professional') && data.professionalName && (
+              {isFieldEnabled("professional") && data.professionalName && (
                 <div className="ticket-row flex justify-between">
                   <span>Atendió:</span>
                   <span>{data.professionalName}</span>
@@ -166,13 +188,15 @@ export function TicketPrinter({ open, onOpenChange, data }: TicketPrinterProps) 
             <div className="ticket-divider border-t border-dashed border-gray-400 my-2" />
 
             {/* Services */}
-            {isFieldEnabled('services') && data.services.length > 0 && (
+            {isFieldEnabled("services") && data.services.length > 0 && (
               <div className="mb-2">
                 <div className="font-bold mb-1">SERVICIOS</div>
                 {data.services.map((item, idx) => (
                   <div key={idx} className="ticket-item">
                     <div className="flex justify-between">
-                      <span className="flex-1">{item.quantity}x {item.name}</span>
+                      <span className="flex-1">
+                        {item.quantity}x {item.name}
+                      </span>
                       <span>{formatCurrency(item.price * item.quantity)}</span>
                     </div>
                     {item.discount && item.discount > 0 && (
@@ -186,13 +210,15 @@ export function TicketPrinter({ open, onOpenChange, data }: TicketPrinterProps) 
             )}
 
             {/* Products */}
-            {isFieldEnabled('products') && data.products.length > 0 && (
+            {isFieldEnabled("products") && data.products.length > 0 && (
               <div className="mb-2">
                 <div className="font-bold mb-1">PRODUCTOS</div>
                 {data.products.map((item, idx) => (
                   <div key={idx} className="ticket-item">
                     <div className="flex justify-between">
-                      <span className="flex-1">{item.quantity}x {item.name}</span>
+                      <span className="flex-1">
+                        {item.quantity}x {item.name}
+                      </span>
                       <span>{formatCurrency(item.price * item.quantity)}</span>
                     </div>
                     {item.discount && item.discount > 0 && (
@@ -209,19 +235,19 @@ export function TicketPrinter({ open, onOpenChange, data }: TicketPrinterProps) 
 
             {/* Totals */}
             <div className="space-y-1">
-              {isFieldEnabled('subtotal') && (
+              {isFieldEnabled("subtotal") && (
                 <div className="ticket-row flex justify-between">
                   <span>Subtotal:</span>
                   <span>{formatCurrency(data.subtotal)}</span>
                 </div>
               )}
-              {isFieldEnabled('discount') && data.discount > 0 && (
+              {isFieldEnabled("discount") && data.discount > 0 && (
                 <div className="ticket-row flex justify-between text-green-700">
                   <span>Descuento:</span>
                   <span>-{formatCurrency(data.discount)}</span>
                 </div>
               )}
-              {isFieldEnabled('total') && (
+              {isFieldEnabled("total") && (
                 <div className="ticket-total flex justify-between font-bold text-base pt-1 border-t">
                   <span>TOTAL:</span>
                   <span>{formatCurrency(data.total)}</span>
@@ -230,7 +256,7 @@ export function TicketPrinter({ open, onOpenChange, data }: TicketPrinterProps) 
             </div>
 
             {/* Payment */}
-            {isFieldEnabled('paymentMethod') && (
+            {isFieldEnabled("paymentMethod") && (
               <div className="mt-2">
                 <div className="ticket-divider border-t border-dashed border-gray-400 my-2" />
                 {data.payments && data.payments.length > 1 ? (
@@ -253,7 +279,7 @@ export function TicketPrinter({ open, onOpenChange, data }: TicketPrinterProps) 
             )}
 
             {/* Footer */}
-            {isFieldEnabled('footer') && config.ticketFooter && (
+            {isFieldEnabled("footer") && config.ticketFooter && (
               <>
                 <div className="ticket-divider border-t border-dashed border-gray-400 my-3" />
                 <div className="ticket-footer text-center text-xs">

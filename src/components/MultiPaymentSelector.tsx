@@ -1,22 +1,28 @@
-import { useState } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { 
+import { useEffect, useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Plus, Trash2, Banknote, CreditCard, ArrowRightLeft } from 'lucide-react';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/select";
+import {
+  Plus,
+  Trash2,
+  Banknote,
+  CreditCard,
+  ArrowRightLeft,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface Payment {
   id: string;
-  method: 'cash' | 'card' | 'transfer';
-  amount: number;
+  method: "cash" | "card" | "transfer";
+  amount: number | string;
   reference?: string;
 }
 
@@ -27,50 +33,76 @@ interface MultiPaymentSelectorProps {
 }
 
 const paymentMethods = [
-  { value: 'cash', label: 'Efectivo', icon: Banknote },
-  { value: 'card', label: 'Tarjeta', icon: CreditCard },
-  { value: 'transfer', label: 'Transferencia', icon: ArrowRightLeft },
+  { value: "cash", label: "Efectivo", icon: Banknote },
+  { value: "card", label: "Tarjeta", icon: CreditCard },
+  { value: "transfer", label: "Transferencia", icon: ArrowRightLeft },
 ];
 
-export function MultiPaymentSelector({ payments, onChange, total }: MultiPaymentSelectorProps) {
+export function MultiPaymentSelector({
+  payments,
+  onChange,
+  total,
+}: MultiPaymentSelectorProps) {
   const addPayment = () => {
-    const remaining = total - payments.reduce((sum, p) => sum + p.amount, 0);
+    const round = (n: number) => Math.round(n * 100) / 100;
+
+    const remaining = round(
+      total - payments.reduce((sum, p) => sum + normalize(p.amount), 0)
+    );
+
     onChange([
       ...payments,
-      { 
-        id: `pay-${Date.now()}`, 
-        method: 'cash', 
+      {
+        id: `pay-${Date.now()}`,
+        method: "cash",
         amount: Math.max(0, remaining),
-      }
+      },
     ]);
   };
 
   const updatePayment = (id: string, field: keyof Payment, value: any) => {
-    onChange(
-      payments.map(p => p.id === id ? { ...p, [field]: value } : p)
-    );
+    onChange(payments.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
   };
 
   const removePayment = (id: string) => {
     if (payments.length > 1) {
-      onChange(payments.filter(p => p.id !== id));
+      onChange(payments.filter((p) => p.id !== id));
     }
   };
 
-  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
-  const remaining = total - totalPaid;
-  const change = totalPaid > total ? totalPaid - total : 0;
+  const normalize = (v: number | string) => Number(parseFloat(String(v)) || 0);
+
+  const totalPaid = payments.reduce((sum, p) => sum + normalize(p.amount), 0);
+
+  const round = (n: number) => Math.round(n * 100) / 100;
+
+  const diff = round(total - totalPaid);
+
+  const remaining = diff > 0 ? diff : 0;
+  const change = diff < 0 ? Math.abs(diff) : 0;
+
+  const money = (n: number) =>
+    n.toLocaleString("es-MX", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+  useEffect(() => {
+    if (payments.length === 1) {
+      onChange([
+        {
+          ...payments[0],
+          amount: Number(total.toFixed(2)),
+        },
+      ]);
+    }
+  }, [total]);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <Label className="text-base font-semibold">Métodos de Pago</Label>
-        <Button 
-          type="button" 
-          variant="outline" 
-          size="sm"
-          onClick={addPayment}
-        >
+        <Button type="button" variant="outline" size="sm" onClick={addPayment}>
           <Plus className="h-4 w-4 mr-1" />
           Agregar
         </Button>
@@ -78,17 +110,21 @@ export function MultiPaymentSelector({ payments, onChange, total }: MultiPayment
 
       <div className="space-y-3">
         {payments.map((payment, index) => {
-          const PaymentIcon = paymentMethods.find(m => m.value === payment.method)?.icon || Banknote;
-          
+          const PaymentIcon =
+            paymentMethods.find((m) => m.value === payment.method)?.icon ||
+            Banknote;
+
           return (
-            <div 
+            <div
               key={payment.id}
               className="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg"
             >
               <div className="flex items-center gap-2 min-w-[140px]">
                 <Select
                   value={payment.method}
-                  onValueChange={(v: 'cash' | 'card' | 'transfer') => updatePayment(payment.id, 'method', v)}
+                  onValueChange={(v: "cash" | "card" | "transfer") =>
+                    updatePayment(payment.id, "method", v)
+                  }
                 >
                   <SelectTrigger className="w-full">
                     <div className="flex items-center gap-2">
@@ -97,7 +133,7 @@ export function MultiPaymentSelector({ payments, onChange, total }: MultiPayment
                     </div>
                   </SelectTrigger>
                   <SelectContent>
-                    {paymentMethods.map(m => (
+                    {paymentMethods.map((m) => (
                       <SelectItem key={m.value} value={m.value}>
                         <div className="flex items-center gap-2">
                           <m.icon className="h-4 w-4" />
@@ -111,20 +147,26 @@ export function MultiPaymentSelector({ payments, onChange, total }: MultiPayment
 
               <div className="flex-1">
                 <Input
-                  type="number"
-                  min={0}
-                  step={0.01}
+                  type="text"
+                  inputMode="decimal"
                   value={payment.amount}
-                  onChange={(e) => updatePayment(payment.id, 'amount', parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(",", ".");
+                    const value = Number(raw);
+                    if (!isNaN(value)) {
+                      updatePayment(payment.id, "amount", value);
+                    }
+                  }}
                   className="text-right font-medium"
-                  placeholder="Monto"
                 />
               </div>
 
-              {payment.method !== 'cash' && (
+              {payment.method !== "cash" && (
                 <Input
-                  value={payment.reference || ''}
-                  onChange={(e) => updatePayment(payment.id, 'reference', e.target.value)}
+                  value={payment.reference || ""}
+                  onChange={(e) =>
+                    updatePayment(payment.id, "reference", e.target.value)
+                  }
                   className="w-32"
                   placeholder="Referencia"
                 />
@@ -137,8 +179,8 @@ export function MultiPaymentSelector({ payments, onChange, total }: MultiPayment
                 onClick={() => removePayment(payment.id)}
                 disabled={payments.length === 1}
                 className={cn(
-                  'text-destructive hover:text-destructive',
-                  payments.length === 1 && 'opacity-30'
+                  "text-destructive hover:text-destructive",
+                  payments.length === 1 && "opacity-30"
                 )}
               >
                 <Trash2 className="h-4 w-4" />
@@ -148,26 +190,25 @@ export function MultiPaymentSelector({ payments, onChange, total }: MultiPayment
         })}
       </div>
 
-      {/* Summary */}
       <div className="space-y-2 pt-3 border-t border-border">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Total a pagar:</span>
-          <span className="font-medium">${total.toLocaleString()}</span>
+          <span className="font-medium">${money(total)}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Total pagado:</span>
-          <span className="font-medium">${totalPaid.toLocaleString()}</span>
+          <span className="font-medium">${money(totalPaid)}</span>
         </div>
         {remaining > 0 && (
           <div className="flex justify-between text-sm text-warning">
             <span>Falta por pagar:</span>
-            <span className="font-medium">${remaining.toLocaleString()}</span>
+            <span className="font-medium">${money(remaining)}</span>
           </div>
         )}
         {change > 0 && (
           <div className="flex justify-between text-sm text-success">
             <span>Cambio:</span>
-            <span className="font-medium">${change.toLocaleString()}</span>
+            <span className="font-medium">${money(change)}</span>
           </div>
         )}
       </div>

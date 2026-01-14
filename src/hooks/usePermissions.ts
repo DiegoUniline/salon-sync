@@ -1,16 +1,32 @@
-import { useState, useEffect, createContext, useContext, createElement } from 'react';
-import type { ReactNode } from 'react';
-import api from '@/lib/api';
+import {
+  useState,
+  useEffect,
+  createContext,
+  useContext,
+  createElement,
+} from "react";
+import type { ReactNode } from "react";
+import api from "@/lib/api";
 
-const CURRENT_USER_KEY = 'salon_current_user';
-const TOKEN_KEY = 'salon_token';
+const CURRENT_USER_KEY = "salon_current_user";
+const TOKEN_KEY = "salon_token";
 
-export type ModuleId = 
-  | 'dashboard' | 'agenda' | 'ventas' | 'gastos' | 'compras' 
-  | 'inventario' | 'servicios' | 'productos' | 'turnos' 
-  | 'cortes' | 'horarios' | 'configuracion' | 'permisos';
+export type ModuleId =
+  | "dashboard"
+  | "agenda"
+  | "ventas"
+  | "gastos"
+  | "compras"
+  | "inventario"
+  | "servicios"
+  | "productos"
+  | "turnos"
+  | "cortes"
+  | "horarios"
+  | "configuracion"
+  | "permisos";
 
-export type ActionId = 'view' | 'create' | 'edit' | 'delete';
+export type ActionId = "view" | "create" | "edit" | "delete";
 
 export interface ModulePermissions {
   view: boolean;
@@ -63,7 +79,9 @@ interface PermissionsContextType {
   refreshData: () => Promise<void>;
 }
 
-const PermissionsContext = createContext<PermissionsContextType | undefined>(undefined);
+const PermissionsContext = createContext<PermissionsContextType | undefined>(
+  undefined
+);
 
 export function PermissionsProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<UserWithRole | null>(() => {
@@ -74,7 +92,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       return null;
     }
   });
-  
+
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -85,8 +103,17 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       if (token && currentUser) {
         try {
           const userData = await api.auth.me();
+
+          if (
+            userData.permissions &&
+            typeof userData.permissions === "string"
+          ) {
+            userData.permissions = JSON.parse(userData.permissions);
+          }
+
           setCurrentUser(userData);
           localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userData));
+
           await refreshData();
         } catch {
           localStorage.removeItem(TOKEN_KEY);
@@ -108,7 +135,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       setUsers(usersData);
       setRoles(rolesData);
     } catch (error) {
-      console.error('Error refreshing data:', error);
+      console.error("Error refreshing data:", error);
     }
   };
 
@@ -119,11 +146,13 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     }
   };
 
-const login = async (email: string, password: string): Promise<LoginResult> => {
+  const login = async (
+    email: string,
+    password: string
+  ): Promise<LoginResult> => {
     try {
       const data = await api.auth.login(email, password);
-      // Parsear permissions si viene como string
-      if (data.user.permissions && typeof data.user.permissions === 'string') {
+      if (data.user.permissions && typeof data.user.permissions === "string") {
         data.user.permissions = JSON.parse(data.user.permissions);
       }
       setCurrentUser(data.user);
@@ -131,7 +160,10 @@ const login = async (email: string, password: string): Promise<LoginResult> => {
       await refreshData();
       return { success: true };
     } catch (err: any) {
-      return { success: false, error: err.message || 'Error al iniciar sesión' };
+      return {
+        success: false,
+        error: err.message || "Error al iniciar sesión",
+      };
     }
   };
 
@@ -144,24 +176,46 @@ const login = async (email: string, password: string): Promise<LoginResult> => {
     localStorage.removeItem(CURRENT_USER_KEY);
   };
 
-  const currentRole = currentUser?.permissions 
-    ? { id: '', name: currentUser.role, description: '', color: '', is_system: false, permissions: currentUser.permissions } as Role
-    : roles.find(r => r.name.toLowerCase() === currentUser?.role?.toLowerCase()) || null;
+  const currentRole = currentUser?.permissions
+    ? ({
+        id: "",
+        name: currentUser.role,
+        description: "",
+        color: "",
+        is_system: false,
+        permissions: currentUser.permissions,
+      } as Role)
+    : roles.find(
+        (r) => r.name.toLowerCase() === currentUser?.role?.toLowerCase()
+      ) || null;
 
-  const isAuthenticated = !!currentUser;
+  const isAuthenticated = !!currentUser && !isLoading;
 
   const hasPermission = (moduleId: ModuleId, action: ActionId): boolean => {
+    if (isLoading) return true;
     if (!currentUser) return false;
-    if (currentUser.permissions) return currentUser.permissions[moduleId]?.[action] ?? false;
-    if (currentRole) return currentRole.permissions[moduleId]?.[action] ?? false;
-    if (currentUser.role === 'admin') return true;
+
+    if (currentUser.role === "admin") return true;
+
+    if (currentUser.permissions) {
+      if (typeof currentUser.permissions === "string") {
+        return false;
+      }
+
+      return currentUser.permissions[moduleId]?.[action] === true;
+    }
+
+    if (currentRole) {
+      return currentRole.permissions[moduleId]?.[action] ?? false;
+    }
+
     return false;
   };
 
-  const canView = (moduleId: ModuleId) => hasPermission(moduleId, 'view');
-  const canCreate = (moduleId: ModuleId) => hasPermission(moduleId, 'create');
-  const canEdit = (moduleId: ModuleId) => hasPermission(moduleId, 'edit');
-  const canDelete = (moduleId: ModuleId) => hasPermission(moduleId, 'delete');
+  const canView = (moduleId: ModuleId) => hasPermission(moduleId, "view");
+  const canCreate = (moduleId: ModuleId) => hasPermission(moduleId, "create");
+  const canEdit = (moduleId: ModuleId) => hasPermission(moduleId, "edit");
+  const canDelete = (moduleId: ModuleId) => hasPermission(moduleId, "delete");
 
   const value: PermissionsContextType = {
     currentUser,
@@ -187,7 +241,7 @@ const login = async (email: string, password: string): Promise<LoginResult> => {
 export function usePermissions() {
   const context = useContext(PermissionsContext);
   if (!context) {
-    throw new Error('usePermissions must be used within a PermissionsProvider');
+    throw new Error("usePermissions must be used within a PermissionsProvider");
   }
   return context;
 }
