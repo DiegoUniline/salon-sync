@@ -2,18 +2,10 @@ import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useSearchParams } from 'react-router-dom';
 import { usePermissions } from '@/hooks/usePermissions';
-import { 
-  appointments as mockAppointments, 
-  clients, 
-  services, 
-  stylists, 
-  products,
-  type Appointment, 
-} from '@/lib/mockData';
+import api from '@/lib/api';
 import { TicketPrinter, type TicketData } from '@/components/TicketPrinter';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { AnimatedContainer, AnimatedCard, AnimatedList, AnimatedListItem, PageTransition } from '@/components/ui/animated-container';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -65,9 +57,9 @@ import {
   Package,
   Percent,
   Receipt,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { motion } from 'framer-motion';
 
 const statusLabels = {
   'scheduled': 'Agendada',
@@ -83,12 +75,66 @@ const statusColors = {
   'cancelled': 'bg-destructive/20 text-destructive border-destructive/30',
 };
 
+interface Service {
+  id: string;
+  name: string;
+  price: number;
+  duration: number;
+  active: boolean;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  active: boolean;
+}
+
+interface Client {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+}
+
+interface Stylist {
+  id: string;
+  name: string;
+  color: string;
+  role: string;
+}
+
+interface Appointment {
+  id: string;
+  date: string;
+  time: string;
+  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
+  client_id: string;
+  client?: Client;
+  stylist_id: string;
+  stylist?: Stylist;
+  branch_id: string;
+  services?: Service[];
+  products?: { product: Product; quantity: number }[];
+  total: number;
+  notes?: string;
+  payment_method?: string;
+}
+
 export default function Citas() {
   const { currentBranch } = useApp();
   const { canCreate, canEdit, canDelete } = usePermissions();
   const isMobile = useIsMobile();
   const [searchParams] = useSearchParams();
-  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
+  
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [stylists, setStylists] = useState<Stylist[]>([]);
+  const [loading, setLoading] = useState(true);
+  
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
@@ -104,19 +150,12 @@ export default function Citas() {
   const [time, setTime] = useState('09:00');
   const [notes, setNotes] = useState('');
   const [generalDiscount, setGeneralDiscount] = useState(0);
-  const [preselectedDuration, setPreselectedDuration] = useState<number | null>(null);
   
-  // Dialog state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  
-  // Odoo-style lines
   const [serviceLines, setServiceLines] = useState<LineItem[]>([]);
   const [productLines, setProductLines] = useState<LineItem[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([
-    { id: 'pay-1', method: 'cash', amount: 0 }
-  ]);
+  const [payments, setPayments] = useState<Payment[]>([{ id: 'pay-1', method: 'cash', amount: 0 }]);
   
-  // Ticket state
   const [showTicket, setShowTicket] = useState(false);
   const [ticketData, setTicketData] = useState<TicketData | null>(null);
 
@@ -127,33 +166,53 @@ export default function Citas() {
     mixed: 'Mixto',
   };
 
-  // Handle URL params from Agenda - runs on every searchParams change
+  // Load initial data
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const [appointmentsData, clientsData, servicesData, productsData, usersData] = await Promise.all([
+          api.appointments.getAll({ branch_id: currentBranch?.id }),
+          api.clients.getAll(),
+          api.services.getAll({ active: true }),
+          api.products.getAll({ active: true }),
+          api.users.getAll(),
+        ]);
+        setAppointments(appointmentsData);
+        setClients(clientsData);
+        setServices(servicesData);
+        setProducts(productsData);
+        setStylists(usersData.filter((u: any) => u.role !== 'receptionist'));
+      } catch (error) {
+        console.error('Error loading data:', error);
+        toast.error('Error al cargar datos');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [currentBranch?.id]);
+
+  // Handle URL params from Agenda
   useEffect(() => {
     const urlParamDate = searchParams.get('date');
     const urlParamTime = searchParams.get('time');
     const urlParamStylist = searchParams.get('stylist');
-    const urlParamDuration = searchParams.get('duration');
     
     if (urlParamDate || urlParamTime || urlParamStylist) {
-      // Set form values from URL params
       if (urlParamDate) setDate(urlParamDate);
       if (urlParamTime) setTime(urlParamTime);
       if (urlParamStylist) setStylistId(urlParamStylist);
-      if (urlParamDuration) setPreselectedDuration(parseInt(urlParamDuration));
-      
-      // Open dialog
       setIsDialogOpen(true);
-      
-      // Clear URL params
       window.history.replaceState({}, '', '/citas');
     }
   }, [searchParams]);
 
   const filteredAppointments = appointments.filter(a => {
-    const matchesBranch = a.branchId === currentBranch.id;
+    const matchesBranch = a.branch_id === currentBranch?.id;
     const matchesSearch = 
-      a.client.name.toLowerCase().includes(search.toLowerCase()) ||
-      a.client.phone.includes(search);
+      a.client?.name?.toLowerCase().includes(search.toLowerCase()) ||
+      a.client?.phone?.includes(search);
     const matchesStatus = statusFilter === 'all' || a.status === statusFilter;
     return matchesBranch && matchesSearch && matchesStatus;
   });
@@ -169,7 +228,6 @@ export default function Citas() {
     setTime('09:00');
     setNotes('');
     setGeneralDiscount(0);
-    setPreselectedDuration(null);
     setServiceLines([]);
     setProductLines([]);
     setPayments([{ id: 'pay-1', method: 'cash', amount: 0 }]);
@@ -179,15 +237,14 @@ export default function Citas() {
   const openEditDialog = (appointment: Appointment) => {
     setEditingAppointment(appointment);
     setClientTab('existing');
-    setClientId(appointment.clientId);
-    setStylistId(appointment.stylistId);
+    setClientId(appointment.client_id);
+    setStylistId(appointment.stylist_id);
     setDate(appointment.date);
     setTime(appointment.time);
     setNotes(appointment.notes || '');
     setGeneralDiscount(0);
     
-    // Convert services to lines with discount
-    setServiceLines(appointment.services.map(s => ({
+    setServiceLines(appointment.services?.map(s => ({
       id: `sl-${s.id}-${Date.now()}`,
       serviceId: s.id,
       serviceName: s.name,
@@ -195,9 +252,8 @@ export default function Citas() {
       price: s.price,
       discount: 0,
       subtotal: s.price,
-    })));
+    })) || []);
     
-    // Convert products to lines with discount
     setProductLines(appointment.products?.map(p => ({
       id: `pl-${p.product.id}-${Date.now()}`,
       productId: p.product.id,
@@ -212,7 +268,7 @@ export default function Citas() {
     setIsDialogOpen(true);
   };
 
-  // Calculate totals with discounts
+  // Calculate totals
   const servicesSubtotal = serviceLines.reduce((sum, line) => sum + (line.price || 0), 0);
   const servicesDiscount = serviceLines.reduce((sum, line) => {
     const price = line.price || 0;
@@ -234,7 +290,6 @@ export default function Citas() {
   const total = subtotal - generalDiscountAmount;
   const totalDuration = serviceLines.reduce((sum, line) => sum + (line.duration || 0), 0);
 
-  // Column configs with discount
   const serviceColumns: ColumnConfig[] = [
     {
       key: 'serviceName',
@@ -263,39 +318,10 @@ export default function Citas() {
         ));
       },
     },
-    {
-      key: 'duration',
-      label: 'Duración',
-      type: 'number',
-      width: 'w-20',
-      readOnly: true,
-      format: (v) => `${v || 0} min`,
-    },
-    {
-      key: 'price',
-      label: 'Precio',
-      type: 'number',
-      width: 'w-24',
-      readOnly: true,
-      format: (v) => `$${(v || 0).toLocaleString()}`,
-    },
-    {
-      key: 'discount',
-      label: 'Desc. %',
-      type: 'number',
-      width: 'w-20',
-      min: 0,
-      max: 100,
-      placeholder: '0',
-    },
-    {
-      key: 'subtotal',
-      label: 'Subtotal',
-      type: 'number',
-      width: 'w-24',
-      readOnly: true,
-      format: (v) => `$${(v || 0).toLocaleString()}`,
-    },
+    { key: 'duration', label: 'Duración', type: 'number', width: 'w-20', readOnly: true, format: (v) => `${v || 0} min` },
+    { key: 'price', label: 'Precio', type: 'number', width: 'w-24', readOnly: true, format: (v) => `$${(v || 0).toLocaleString()}` },
+    { key: 'discount', label: 'Desc. %', type: 'number', width: 'w-20', min: 0, max: 100, placeholder: '0' },
+    { key: 'subtotal', label: 'Subtotal', type: 'number', width: 'w-24', readOnly: true, format: (v) => `$${(v || 0).toLocaleString()}` },
   ];
 
   const productColumns: ColumnConfig[] = [
@@ -314,64 +340,25 @@ export default function Citas() {
       onSelect: (item, lineId) => {
         setProductLines(prev => prev.map(line =>
           line.id === lineId 
-            ? { 
-                ...line, 
-                productId: item.id, 
-                productName: item.label, 
-                price: item.data.price, 
-                quantity: 1, 
-                subtotal: item.data.price 
-              }
+            ? { ...line, productId: item.id, productName: item.label, price: item.data.price, quantity: 1, subtotal: item.data.price }
             : line
         ));
       },
     },
-    {
-      key: 'quantity',
-      label: 'Cant.',
-      type: 'number',
-      width: 'w-16',
-      min: 1,
-    },
-    {
-      key: 'price',
-      label: 'Precio',
-      type: 'number',
-      width: 'w-24',
-      readOnly: true,
-      format: (v) => `$${(v || 0).toLocaleString()}`,
-    },
-    {
-      key: 'discount',
-      label: 'Desc. %',
-      type: 'number',
-      width: 'w-20',
-      min: 0,
-      max: 100,
-      placeholder: '0',
-    },
-    {
-      key: 'subtotal',
-      label: 'Subtotal',
-      type: 'number',
-      width: 'w-24',
-      readOnly: true,
-      format: (v) => `$${(v || 0).toLocaleString()}`,
-    },
+    { key: 'quantity', label: 'Cant.', type: 'number', width: 'w-16', min: 1 },
+    { key: 'price', label: 'Precio', type: 'number', width: 'w-24', readOnly: true, format: (v) => `$${(v || 0).toLocaleString()}` },
+    { key: 'discount', label: 'Desc. %', type: 'number', width: 'w-20', min: 0, max: 100, placeholder: '0' },
+    { key: 'subtotal', label: 'Subtotal', type: 'number', width: 'w-24', readOnly: true, format: (v) => `$${(v || 0).toLocaleString()}` },
   ];
 
   const addServiceLine = () => {
-    setServiceLines(prev => [
-      ...prev,
-      { id: `sl-${Date.now()}`, serviceId: '', serviceName: '', duration: 0, price: 0, discount: 0, subtotal: 0 }
-    ]);
+    setServiceLines(prev => [...prev, { id: `sl-${Date.now()}`, serviceId: '', serviceName: '', duration: 0, price: 0, discount: 0, subtotal: 0 }]);
   };
 
   const updateServiceLine = (lineId: string, key: string, value: any) => {
     setServiceLines(prev => prev.map(line => {
       if (line.id !== lineId) return line;
       const updated = { ...line, [key]: value };
-      // Recalculate subtotal when discount changes
       if (key === 'discount') {
         updated.subtotal = (updated.price || 0) * (1 - (updated.discount || 0) / 100);
       }
@@ -384,17 +371,13 @@ export default function Citas() {
   };
 
   const addProductLine = () => {
-    setProductLines(prev => [
-      ...prev,
-      { id: `pl-${Date.now()}`, productId: '', productName: '', quantity: 1, price: 0, discount: 0, subtotal: 0 }
-    ]);
+    setProductLines(prev => [...prev, { id: `pl-${Date.now()}`, productId: '', productName: '', quantity: 1, price: 0, discount: 0, subtotal: 0 }]);
   };
 
   const updateProductLine = (lineId: string, key: string, value: any) => {
     setProductLines(prev => prev.map(line => {
       if (line.id !== lineId) return line;
       const updated = { ...line, [key]: value };
-      // Recalculate subtotal when quantity or discount changes
       const baseSubtotal = (updated.quantity || 0) * (updated.price || 0);
       updated.subtotal = baseSubtotal * (1 - (updated.discount || 0) / 100);
       return updated;
@@ -405,12 +388,30 @@ export default function Citas() {
     setProductLines(prev => prev.filter(line => line.id !== lineId));
   };
 
-  const handleSubmit = () => {
-    const client = clientTab === 'existing' && clientId
-      ? clients.find(c => c.id === clientId)!
-      : { id: `c${Date.now()}`, name: newClientName, phone: newClientPhone, email: newClientEmail };
+  const handleSubmit = async () => {
+    let finalClientId = clientId;
     
-    if (!client.name) {
+    // Create new client if needed
+    if (clientTab === 'new') {
+      if (!newClientName) {
+        toast.error('Ingresa el nombre del cliente');
+        return;
+      }
+      try {
+        const newClient = await api.clients.create({
+          name: newClientName,
+          phone: newClientPhone,
+          email: newClientEmail,
+        });
+        finalClientId = newClient.id;
+        setClients(prev => [...prev, newClient]);
+      } catch (error) {
+        toast.error('Error al crear cliente');
+        return;
+      }
+    }
+
+    if (!finalClientId) {
       toast.error('Selecciona o ingresa un cliente');
       return;
     }
@@ -426,106 +427,91 @@ export default function Citas() {
       return;
     }
 
-    const stylist = stylists.find(s => s.id === stylistId)!;
-    const selectedServices = validServices.map(line => services.find(s => s.id === line.serviceId)!);
-    const selectedProducts = productLines.filter(l => l.productId).map(line => ({
-      product: products.find(p => p.id === line.productId)!,
-      quantity: line.quantity,
-    }));
+    const appointmentData = {
+      client_id: finalClientId,
+      stylist_id: stylistId,
+      branch_id: currentBranch?.id,
+      date,
+      time,
+      services: validServices.map(l => l.serviceId),
+      products: productLines.filter(l => l.productId).map(l => ({ product_id: l.productId, quantity: l.quantity })),
+      notes,
+      payment_method: payments.length > 1 ? 'mixed' : payments[0].method,
+      total,
+    };
 
-    if (editingAppointment) {
-      setAppointments(prev => prev.map(a => 
-        a.id === editingAppointment.id
-          ? {
-              ...a,
-              client,
-              clientId: client.id,
-              stylist,
-              stylistId: stylist.id,
-              date,
-              time,
-              services: selectedServices,
-              products: selectedProducts,
-              notes,
-              paymentMethod: payments.length > 1 ? 'mixed' : payments[0].method,
-              total,
-            }
-          : a
-      ));
-      toast.success('Cita actualizada correctamente');
-    } else {
-      const newAppointment: Appointment = {
-        id: `a${Date.now()}`,
-        clientId: client.id,
-        client,
-        stylistId: stylist.id,
-        stylist,
-        branchId: currentBranch.id,
-        date,
-        time,
-        services: selectedServices,
-        products: selectedProducts,
-        status: 'scheduled',
-        paymentMethod: payments.length > 1 ? 'mixed' : payments[0].method,
-        total,
-        notes,
-      };
-      setAppointments(prev => [...prev, newAppointment]);
-      toast.success('Cita creada correctamente');
+    try {
+      if (editingAppointment) {
+        await api.appointments.update(editingAppointment.id, appointmentData);
+        toast.success('Cita actualizada correctamente');
+      } else {
+        await api.appointments.create(appointmentData);
+        toast.success('Cita creada correctamente');
+      }
+      
+      // Reload appointments
+      const data = await api.appointments.getAll({ branch_id: currentBranch?.id });
+      setAppointments(data);
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      toast.error('Error al guardar la cita');
     }
-
-    setIsDialogOpen(false);
-    resetForm();
   };
 
-  const updateStatus = (id: string, status: Appointment['status']) => {
-    const appointment = appointments.find(a => a.id === id);
-    setAppointments(prev => prev.map(a => 
-      a.id === id ? { ...a, status } : a
-    ));
-    toast.success(`Cita marcada como ${statusLabels[status].toLowerCase()}`);
-    
-    // Show ticket when completing appointment
-    if (status === 'completed' && appointment) {
-      showAppointmentTicket(appointment);
+  const updateStatus = async (id: string, status: Appointment['status']) => {
+    try {
+      await api.appointments.updateStatus(id, status);
+      setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
+      toast.success(`Cita marcada como ${statusLabels[status].toLowerCase()}`);
+      
+      if (status === 'completed') {
+        const appointment = appointments.find(a => a.id === id);
+        if (appointment) showAppointmentTicket(appointment);
+      }
+    } catch (error) {
+      toast.error('Error al actualizar estado');
     }
   };
 
   const showAppointmentTicket = (appointment: Appointment) => {
-    const folio = `C${appointment.id.replace('a', '')}`;
-    const serviceItems = appointment.services.map(s => ({
-      name: s.name,
-      quantity: 1,
-      price: s.price,
-    }));
-    const productItems = (appointment.products || []).map(p => ({
-      name: p.product.name,
-      quantity: p.quantity,
-      price: p.product.price,
-    }));
-    
-    const paymentMethod = appointment.paymentMethod || 'cash';
-    
+    const folio = `C${appointment.id.slice(-6)}`;
     setTicketData({
       folio,
       date: new Date(`${appointment.date}T${appointment.time}`),
-      clientName: appointment.client.name,
-      clientPhone: appointment.client.phone,
-      professionalName: appointment.stylist.name,
-      services: serviceItems,
-      products: productItems,
+      clientName: appointment.client?.name || 'Cliente',
+      clientPhone: appointment.client?.phone || '',
+      professionalName: stylists.find(s => s.id === appointment.stylist_id)?.name || '',
+      services: appointment.services?.map(s => ({ name: s.name, quantity: 1, price: s.price })) || [],
+      products: appointment.products?.map(p => ({ name: p.product.name, quantity: p.quantity, price: p.product.price })) || [],
       subtotal: appointment.total,
       discount: 0,
       total: appointment.total,
-      paymentMethod: paymentLabels[paymentMethod] || paymentMethod,
+      paymentMethod: paymentLabels[appointment.payment_method || 'cash'] || 'Efectivo',
     });
     setShowTicket(true);
   };
 
-  const deleteAppointment = (id: string) => {
-    setAppointments(prev => prev.filter(a => a.id !== id));
-    toast.success('Cita eliminada');
+  const deleteAppointment = async (id: string) => {
+    try {
+      await api.appointments.delete(id);
+      setAppointments(prev => prev.filter(a => a.id !== id));
+      toast.success('Cita eliminada');
+    } catch (error) {
+      toast.error('Error al eliminar cita');
+    }
   };
+
+  const getStylistColor = (stylistId: string) => stylists.find(s => s.id === stylistId)?.color || '#3B82F6';
+  const getStylistName = (stylistId: string) => stylists.find(s => s.id === stylistId)?.name || 'Sin asignar';
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -576,32 +562,16 @@ export default function Citas() {
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="newName">Nombre</Label>
-                      <Input 
-                        id="newName"
-                        value={newClientName}
-                        onChange={(e) => setNewClientName(e.target.value)}
-                        placeholder="Nombre completo"
-                      />
+                      <Input id="newName" value={newClientName} onChange={(e) => setNewClientName(e.target.value)} placeholder="Nombre completo" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="newPhone">Teléfono</Label>
-                      <Input 
-                        id="newPhone"
-                        value={newClientPhone}
-                        onChange={(e) => setNewClientPhone(e.target.value)}
-                        placeholder="555-0000"
-                      />
+                      <Input id="newPhone" value={newClientPhone} onChange={(e) => setNewClientPhone(e.target.value)} placeholder="555-0000" />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="newEmail">Email (opcional)</Label>
-                    <Input 
-                      id="newEmail"
-                      type="email"
-                      value={newClientEmail}
-                      onChange={(e) => setNewClientEmail(e.target.value)}
-                      placeholder="cliente@email.com"
-                    />
+                    <Input id="newEmail" type="email" value={newClientEmail} onChange={(e) => setNewClientEmail(e.target.value)} placeholder="cliente@email.com" />
                   </div>
                 </TabsContent>
               </Tabs>
@@ -615,7 +585,7 @@ export default function Citas() {
                       <SelectValue placeholder="Seleccionar" />
                     </SelectTrigger>
                     <SelectContent>
-                      {stylists.filter(s => s.role !== 'receptionist').map(stylist => (
+                      {stylists.map(stylist => (
                         <SelectItem key={stylist.id} value={stylist.id}>
                           <div className="flex items-center gap-2">
                             <div className="h-3 w-3 rounded-full" style={{ backgroundColor: stylist.color }} />
@@ -628,18 +598,12 @@ export default function Citas() {
                 </div>
                 <div className="space-y-2">
                   <Label>Fecha</Label>
-                  <Input 
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                  />
+                  <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>Hora</Label>
                   <Select value={time} onValueChange={setTime}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {Array.from({ length: 26 }, (_, i) => {
                         const hour = Math.floor(i / 2) + 8;
@@ -653,7 +617,7 @@ export default function Citas() {
                 </div>
               </div>
 
-              {/* Services - Odoo style with discount */}
+              {/* Services */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-base font-semibold flex items-center gap-2">
@@ -662,22 +626,10 @@ export default function Citas() {
                   </Label>
                   <div className="flex items-center gap-2">
                     {totalDuration > 0 && (
-                      <Badge variant="secondary">
-                        <Clock className="h-3 w-3 mr-1" />
-                        {totalDuration} min
-                      </Badge>
-                    )}
-                    {servicesDiscount > 0 && (
-                      <Badge variant="outline" className="text-success">
-                        <Percent className="h-3 w-3 mr-1" />
-                        -${servicesDiscount.toLocaleString()}
-                      </Badge>
+                      <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />{totalDuration} min</Badge>
                     )}
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Tab para moverte entre campos editables. Al final, Tab agrega nueva línea.
-                </p>
                 <OdooLineEditor
                   lines={serviceLines}
                   columns={serviceColumns}
@@ -691,20 +643,12 @@ export default function Citas() {
                 />
               </div>
 
-              {/* Products - Odoo style with discount */}
+              {/* Products */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-semibold flex items-center gap-2">
-                    <Package className="h-4 w-4" />
-                    Productos (opcional)
-                  </Label>
-                  {productsDiscount > 0 && (
-                    <Badge variant="outline" className="text-success">
-                      <Percent className="h-3 w-3 mr-1" />
-                      -${productsDiscount.toLocaleString()}
-                    </Badge>
-                  )}
-                </div>
+                <Label className="text-base font-semibold flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Productos (opcional)
+                </Label>
                 <OdooLineEditor
                   lines={productLines}
                   columns={productColumns}
@@ -733,69 +677,32 @@ export default function Citas() {
                       value={generalDiscount}
                       onChange={(e) => setGeneralDiscount(parseFloat(e.target.value) || 0)}
                       className="w-20 text-right"
-                      placeholder="0"
                     />
                     <span className="text-muted-foreground">%</span>
                   </div>
                 </div>
-                {generalDiscount > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Descuento aplicado:</span>
-                    <span className="text-success font-medium">-${generalDiscountAmount.toLocaleString()}</span>
-                  </div>
-                )}
               </div>
 
               {/* Payments */}
-              <MultiPaymentSelector
-                payments={payments}
-                onChange={setPayments}
-                total={total}
-              />
+              <MultiPaymentSelector payments={payments} onChange={setPayments} total={total} />
 
               {/* Notes */}
               <div className="space-y-2">
                 <Label>Notas (opcional)</Label>
-                <Textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Notas adicionales..."
-                  rows={2}
-                />
+                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notas adicionales..." rows={2} />
               </div>
 
               {/* Grand Total */}
               <div className="p-4 bg-gradient-to-r from-primary/20 to-primary/10 rounded-lg border border-primary/30">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal servicios:</span>
-                    <span>${servicesTotal.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal productos:</span>
-                    <span>${productsTotal.toLocaleString()}</span>
-                  </div>
-                  {generalDiscount > 0 && (
-                    <div className="flex justify-between text-sm text-success">
-                      <span>Descuento general ({generalDiscount}%):</span>
-                      <span>-${generalDiscountAmount.toLocaleString()}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between pt-2 border-t border-primary/30">
-                    <span className="text-lg font-semibold">Total de la Cita</span>
-                    <span className="text-3xl font-bold">${total.toLocaleString()}</span>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-semibold">Total de la Cita</span>
+                  <span className="text-3xl font-bold">${total.toLocaleString()}</span>
                 </div>
               </div>
 
               <div className="flex justify-end gap-3">
-                <Button variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>
-                  Cancelar
-                </Button>
-                <Button 
-                  className="gradient-bg border-0"
-                  onClick={handleSubmit}
-                >
+                <Button variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>Cancelar</Button>
+                <Button className="gradient-bg border-0" onClick={handleSubmit}>
                   {editingAppointment ? 'Actualizar Cita' : 'Crear Cita'}
                 </Button>
               </div>
@@ -809,12 +716,7 @@ export default function Citas() {
         <div className="flex flex-col gap-4 sm:flex-row">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por cliente o teléfono..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-            />
+            <Input placeholder="Buscar por cliente o teléfono..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-[180px]">
@@ -832,138 +734,8 @@ export default function Citas() {
         </div>
       </div>
 
-      {/* Mobile Card View */}
-      <div className="md:hidden space-y-3">
-        {filteredAppointments.length === 0 ? (
-          <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
-            No hay citas registradas
-          </div>
-        ) : (
-          filteredAppointments
-            .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`))
-            .map((appointment) => (
-              <div 
-                key={appointment.id}
-                className="glass-card rounded-xl p-4 space-y-3"
-              >
-                {/* Header row */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-sm font-medium text-white"
-                      style={{ backgroundColor: appointment.stylist.color }}
-                    >
-                      {appointment.stylist.name.charAt(0)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium truncate">{appointment.client.name}</p>
-                      <p className="text-sm text-muted-foreground">{appointment.client.phone}</p>
-                    </div>
-                  </div>
-                  <Badge className={cn('shrink-0 border', statusColors[appointment.status])}>
-                    {statusLabels[appointment.status]}
-                  </Badge>
-                </div>
-
-                {/* Info row */}
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <Calendar className="h-3.5 w-3.5" />
-                    <span>{new Date(appointment.date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <Clock className="h-3.5 w-3.5" />
-                    <span>{appointment.time}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <User className="h-3.5 w-3.5" />
-                    <span>{appointment.stylist.name}</span>
-                  </div>
-                </div>
-
-                {/* Services */}
-                <div className="flex flex-wrap gap-1">
-                  {appointment.services.slice(0, 3).map(s => (
-                    <Badge key={s.id} variant="secondary" className="text-xs">
-                      {s.name}
-                    </Badge>
-                  ))}
-                  {appointment.services.length > 3 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{appointment.services.length - 3}
-                    </Badge>
-                  )}
-                </div>
-
-                {/* Footer with total and actions */}
-                <div className="flex items-center justify-between pt-2 border-t">
-                  <span className="text-lg font-bold">${appointment.total.toLocaleString()}</span>
-                  <div className="flex items-center gap-1">
-                    {appointment.status === 'scheduled' && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 px-2 text-warning"
-                        onClick={() => updateStatus(appointment.id, 'in-progress')}
-                      >
-                        <PlayCircle className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {appointment.status === 'in-progress' && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 px-2 text-success"
-                        onClick={() => updateStatus(appointment.id, 'completed')}
-                      >
-                        <CheckCircle className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {appointment.status === 'completed' && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 px-2 text-primary"
-                        onClick={() => showAppointmentTicket(appointment)}
-                      >
-                        <Receipt className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {(appointment.status === 'scheduled' || appointment.status === 'in-progress') && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 px-2 text-destructive"
-                        onClick={() => updateStatus(appointment.id, 'cancelled')}
-                      >
-                        <XCircle className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 px-2"
-                      onClick={() => openEditDialog(appointment)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 px-2 text-destructive"
-                      onClick={() => deleteAppointment(appointment.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))
-        )}
-      </div>
-
-      {/* Desktop Table View */}
-      <div className="glass-card rounded-xl overflow-hidden hidden md:block">
+      {/* Table */}
+      <div className="glass-card rounded-xl overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
@@ -999,32 +771,25 @@ export default function Citas() {
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{appointment.client.name}</p>
-                        <p className="text-sm text-muted-foreground">{appointment.client.phone}</p>
+                        <p className="font-medium">{appointment.client?.name || 'Cliente'}</p>
+                        <p className="text-sm text-muted-foreground">{appointment.client?.phone || '-'}</p>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <div
-                          className="h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium text-white"
-                          style={{ backgroundColor: appointment.stylist.color }}
-                        >
-                          {appointment.stylist.name.charAt(0)}
+                        <div className="h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium text-white" style={{ backgroundColor: getStylistColor(appointment.stylist_id) }}>
+                          {getStylistName(appointment.stylist_id).charAt(0)}
                         </div>
-                        <span>{appointment.stylist.name}</span>
+                        <span>{getStylistName(appointment.stylist_id)}</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {appointment.services.slice(0, 2).map(s => (
-                          <Badge key={s.id} variant="secondary" className="text-xs">
-                            {s.name}
-                          </Badge>
+                        {appointment.services?.slice(0, 2).map(s => (
+                          <Badge key={s.id} variant="secondary" className="text-xs">{s.name}</Badge>
                         ))}
-                        {appointment.services.length > 2 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{appointment.services.length - 2}
-                          </Badge>
+                        {(appointment.services?.length || 0) > 2 && (
+                          <Badge variant="outline" className="text-xs">+{(appointment.services?.length || 0) - 2}</Badge>
                         )}
                       </div>
                     </TableCell>
@@ -1033,69 +798,33 @@ export default function Citas() {
                         {statusLabels[appointment.status]}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-semibold">
-                      ${appointment.total.toLocaleString()}
-                    </TableCell>
+                    <TableCell className="text-right font-semibold">${appointment.total?.toLocaleString()}</TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
                         {appointment.status === 'scheduled' && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-warning"
-                            onClick={() => updateStatus(appointment.id, 'in-progress')}
-                            title="Iniciar"
-                          >
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-warning" onClick={() => updateStatus(appointment.id, 'in-progress')}>
                             <PlayCircle className="h-4 w-4" />
                           </Button>
                         )}
                         {appointment.status === 'in-progress' && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-success"
-                            onClick={() => updateStatus(appointment.id, 'completed')}
-                            title="Completar y cobrar"
-                          >
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-success" onClick={() => updateStatus(appointment.id, 'completed')}>
                             <CheckCircle className="h-4 w-4" />
                           </Button>
                         )}
                         {appointment.status === 'completed' && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-primary"
-                            onClick={() => showAppointmentTicket(appointment)}
-                            title="Imprimir ticket"
-                          >
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={() => showAppointmentTicket(appointment)}>
                             <Receipt className="h-4 w-4" />
                           </Button>
                         )}
                         {(appointment.status === 'scheduled' || appointment.status === 'in-progress') && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => updateStatus(appointment.id, 'cancelled')}
-                            title="Cancelar"
-                          >
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => updateStatus(appointment.id, 'cancelled')}>
                             <XCircle className="h-4 w-4" />
                           </Button>
                         )}
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8"
-                          onClick={() => openEditDialog(appointment)}
-                        >
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEditDialog(appointment)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => deleteAppointment(appointment.id)}
-                        >
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => deleteAppointment(appointment.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -1107,14 +836,7 @@ export default function Citas() {
         </Table>
       </div>
 
-      {/* Ticket Printer */}
-      {ticketData && (
-        <TicketPrinter
-          open={showTicket}
-          onOpenChange={setShowTicket}
-          data={ticketData}
-        />
-      )}
+      {ticketData && <TicketPrinter open={showTicket} onOpenChange={setShowTicket} data={ticketData} />}
     </div>
   );
 }
