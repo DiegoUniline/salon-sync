@@ -119,9 +119,13 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (email: string, password: string): Promise<LoginResult> => {
+const login = async (email: string, password: string): Promise<LoginResult> => {
     try {
       const data = await api.auth.login(email, password);
+      // Parsear permissions si viene como string
+      if (data.user.permissions && typeof data.user.permissions === 'string') {
+        data.user.permissions = JSON.parse(data.user.permissions);
+      }
       setCurrentUser(data.user);
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data.user));
       await refreshData();
