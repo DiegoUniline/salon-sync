@@ -1178,9 +1178,7 @@ export default function Citas() {
                           <Calendar className="h-4 w-4 text-muted-foreground" />
                           <div>
                             <p className="font-medium">
-                              {new Date(appointment.date).toLocaleDateString(
-                                "es-MX"
-                              )}
+                              {appointment.date.split("-").reverse().join("/")}
                             </p>
                             <p className="text-sm text-muted-foreground">
                               {appointment.time}
