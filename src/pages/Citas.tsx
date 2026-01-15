@@ -1178,8 +1178,13 @@ export default function Citas() {
                           <Calendar className="h-4 w-4 text-muted-foreground" />
                           <div>
                             <p className="font-medium">
-                              {appointment.date.split("-").reverse().join("/")}
+                              {appointment.date
+                                .split("T")[0]
+                                .split("-")
+                                .reverse()
+                                .join("/")}
                             </p>
+
                             <p className="text-sm text-muted-foreground">
                               {appointment.time}
                             </p>
