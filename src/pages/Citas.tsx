@@ -224,15 +224,9 @@ export default function Citas() {
   };
 
   const normalizeAppointment = (a: AppointmentApi): Appointment => {
-    const d = new Date(a.date);
-    // Aquí usamos los métodos locales
-    const localDate = `${d.getFullYear()}-${(d.getMonth() + 1)
-      .toString()
-      .padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
-
     return {
       id: a.id,
-      date: localDate, // ✅ ahora sí local
+      date: a.date,
       time: a.time,
       status: a.status,
 
