@@ -1184,7 +1184,6 @@ export default function Citas() {
                                 .reverse()
                                 .join("/")}
                             </p>
-
                             <p className="text-sm text-muted-foreground">
                               {appointment.time}
                             </p>
