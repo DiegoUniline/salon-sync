@@ -223,42 +223,50 @@ export default function Citas() {
     mixed: "Mixto",
   };
 
-  const normalizeAppointment = (a: AppointmentApi): Appointment => ({
-    id: a.id,
-    date: a.date,
-    time: a.time,
-    status: a.status,
+  const normalizeAppointment = (a: AppointmentApi): Appointment => {
+    const d = new Date(a.date);
+    // Aquí usamos los métodos locales
+    const localDate = `${d.getFullYear()}-${(d.getMonth() + 1)
+      .toString()
+      .padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
 
-    client_id: a.client_id,
-    client_name: a.client_name,
-    client_phone: a.client_phone,
+    return {
+      id: a.id,
+      date: localDate, // ✅ ahora sí local
+      time: a.time,
+      status: a.status,
 
-    stylist_id: a.stylist_id,
-    branch_id: a.branch_id,
+      client_id: a.client_id,
+      client_name: a.client_name,
+      client_phone: a.client_phone,
 
-    notes: a.notes,
+      stylist_id: a.stylist_id,
+      branch_id: a.branch_id,
 
-    subtotal: Number(a.subtotal ?? 0),
-    discount: Number(a.discount ?? 0),
-    discount_percent: Number(a.discount_percent ?? 0),
-    total: Number(a.total ?? 0),
+      notes: a.notes,
 
-    services:
-      a.services?.map((s) => ({
-        ...s,
-        price: Number(s.price),
-        discount: Number(s.discount ?? 0),
-      })) ?? [],
+      subtotal: Number(a.subtotal ?? 0),
+      discount: Number(a.discount ?? 0),
+      discount_percent: Number(a.discount_percent ?? 0),
+      total: Number(a.total ?? 0),
 
-    products:
-      a.products?.map((p) => ({
-        ...p,
-        price: Number(p.price),
-        quantity: Number(p.quantity),
-      })) ?? [],
+      services:
+        a.services?.map((s) => ({
+          ...s,
+          price: Number(s.price),
+          discount: Number(s.discount ?? 0),
+        })) ?? [],
 
-    payments: a.payments ?? [],
-  });
+      products:
+        a.products?.map((p) => ({
+          ...p,
+          price: Number(p.price),
+          quantity: Number(p.quantity),
+        })) ?? [],
+
+      payments: a.payments ?? [],
+    };
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -309,16 +317,7 @@ export default function Citas() {
     }
   }, [searchParams]);
 
-  const normalizeDate = (d: Date) =>
-    new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
-  const filteredAppointments = appointments.filter((a: Appointment) => {
-    const appointmentDate = normalizeDate(new Date(a.date));
-
-    const selectedDay = normalizeDate(selected);
-
-    const matchesDate = appointmentDate.getTime() === selectedDay.getTime();
-
+  const filteredAppointments = appointments.filter((a) => {
     const clientName = (a.client_name || "").toLowerCase();
     const clientPhone = a.client_phone || "";
 
@@ -327,7 +326,7 @@ export default function Citas() {
 
     const matchesStatus = statusFilter === "all" || a.status === statusFilter;
 
-    return matchesDate && matchesSearch && matchesStatus;
+    return matchesSearch && matchesStatus;
   });
 
   const resetForm = () => {

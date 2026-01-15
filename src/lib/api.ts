@@ -1,6 +1,7 @@
 // src/lib/api.ts
-const API_URL = "https://tu-salon-api-7a74d0e1632a.herokuapp.com/api";
-// const API_URL = "http://localhost:3000/api";
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://tu-salon-api-7a74d0e1632a.herokuapp.com/api";
 
 let authToken: string | null = localStorage.getItem("salon_token");
 
