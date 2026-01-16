@@ -274,11 +274,18 @@ export default function Citas() {
   const getBalance = (appointment: Appointment) =>
     appointment.total - getTotalPaid(appointment);
 
-  // Date filter logic
+  // Date filter logic - compare dates only (no time)
   const filterByDate = (appointment: Appointment) => {
     if (dateFilter === "all") return true;
-    const appointmentDate = new Date(appointment.date);
+    
+    // Extract only the date part (YYYY-MM-DD) to avoid timezone issues
+    const dateStr = appointment.date.split("T")[0];
+    const [year, month, day] = dateStr.split("-").map(Number);
+    // Create date at noon to avoid timezone edge cases
+    const appointmentDate = new Date(year, month - 1, day, 12, 0, 0);
+    
     const today = new Date();
+    today.setHours(12, 0, 0, 0); // Set to noon for consistent comparison
 
     switch (dateFilter) {
       case "today":
