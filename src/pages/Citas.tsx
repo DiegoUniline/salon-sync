@@ -5,10 +5,12 @@ import { usePermissions } from "@/hooks/usePermissions";
 import api from "@/lib/api";
 import { TicketPrinter, type TicketData } from "@/components/TicketPrinter";
 import { AppointmentDetailView } from "@/components/AppointmentDetailView";
+import { EditableCell } from "@/components/EditableCell";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -25,6 +27,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import {
   Plus,
   Search,
   Filter,
@@ -35,9 +43,23 @@ import {
   Receipt,
   Loader2,
   Trash2,
+  Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence } from "framer-motion";
+import {
+  startOfDay,
+  endOfDay,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  startOfYear,
+  endOfYear,
+  isWithinInterval,
+  format,
+} from "date-fns";
+import { es } from "date-fns/locale";
 
 const statusLabels = {
   scheduled: "Agendada",
@@ -124,6 +146,8 @@ interface AppointmentApi {
   notes?: string;
 }
 
+type DateFilterType = "all" | "today" | "week" | "month" | "year" | "custom";
+
 export default function Citas() {
   const { currentBranch } = useApp();
   const { canCreate, canDelete } = usePermissions();
@@ -135,6 +159,11 @@ export default function Citas() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<"all" | "pending">("all");
+  const [dateFilter, setDateFilter] = useState<DateFilterType>("all");
+  const [customDateFrom, setCustomDateFrom] = useState<Date | undefined>();
+  const [customDateTo, setCustomDateTo] = useState<Date | undefined>();
+  const [groupByStatus, setGroupByStatus] = useState(false);
 
   // Detail view state
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -237,13 +266,46 @@ export default function Citas() {
     }
   }, [searchParams, appointments]);
 
+  // Calculate paid and balance for an appointment
+  const getTotalPaid = (appointment: Appointment) =>
+    appointment.payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+  const getBalance = (appointment: Appointment) =>
+    appointment.total - getTotalPaid(appointment);
+
+  // Date filter logic
+  const filterByDate = (appointment: Appointment) => {
+    if (dateFilter === "all") return true;
+    const appointmentDate = new Date(appointment.date);
+    const today = new Date();
+
+    switch (dateFilter) {
+      case "today":
+        return isWithinInterval(appointmentDate, { start: startOfDay(today), end: endOfDay(today) });
+      case "week":
+        return isWithinInterval(appointmentDate, { start: startOfWeek(today, { locale: es }), end: endOfWeek(today, { locale: es }) });
+      case "month":
+        return isWithinInterval(appointmentDate, { start: startOfMonth(today), end: endOfMonth(today) });
+      case "year":
+        return isWithinInterval(appointmentDate, { start: startOfYear(today), end: endOfYear(today) });
+      case "custom":
+        if (!customDateFrom || !customDateTo) return true;
+        return isWithinInterval(appointmentDate, { start: startOfDay(customDateFrom), end: endOfDay(customDateTo) });
+      default:
+        return true;
+    }
+  };
+
   const filteredAppointments = appointments.filter((a) => {
     const clientName = (a.client_name || "").toLowerCase();
     const clientPhone = a.client_phone || "";
     const matchesSearch = clientName.includes(search.toLowerCase()) || clientPhone.includes(search);
     const matchesStatus = statusFilter === "all" || a.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesDate = filterByDate(a);
+    const matchesTab = activeTab === "all" || (activeTab === "pending" && getBalance(a) > 0 && a.status !== "cancelled");
+    return matchesSearch && matchesStatus && matchesDate && matchesTab;
   });
+
+  const pendingCount = appointments.filter(a => getBalance(a) > 0 && a.status !== "cancelled").length;
 
   const openAppointmentDetail = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
@@ -273,6 +335,18 @@ export default function Citas() {
       toast.success(`Cita marcada como ${statusLabels[status].toLowerCase()}`);
     } catch (error) {
       toast.error("Error al actualizar estado");
+    }
+  };
+
+  const updateAppointmentField = async (id: string, field: string, value: string) => {
+    try {
+      await api.appointments.update(id, { [field]: value });
+      setAppointments((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, [field]: value } : a))
+      );
+      toast.success("Cita actualizada");
+    } catch (error) {
+      toast.error("Error al actualizar cita");
     }
   };
 
@@ -326,6 +400,224 @@ export default function Citas() {
   const getStylistName = (stylistId: string) =>
     stylists.find((s) => s.id === stylistId)?.name || "Sin asignar";
 
+  const stylistOptions = stylists.map((s) => ({ value: s.id, label: s.name }));
+  const statusOptions = [
+    { value: "scheduled", label: "Agendada" },
+    { value: "in-progress", label: "En proceso" },
+    { value: "completed", label: "Completada" },
+    { value: "cancelled", label: "Cancelada" },
+  ];
+
+  const renderAppointmentRow = (appointment: Appointment) => {
+    const totalPaid = getTotalPaid(appointment);
+    const balance = getBalance(appointment);
+
+    return (
+      <TableRow
+        key={appointment.id}
+        className="cursor-pointer hover:bg-muted/50 transition-colors"
+        onClick={() => openAppointmentDetail(appointment)}
+      >
+        <TableCell onClick={(e) => e.stopPropagation()}>
+          <EditableCell
+            value={appointment.date.split("T")[0]}
+            type="text"
+            onSave={(value) => updateAppointmentField(appointment.id, "date", String(value))}
+            displayValue={
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="font-medium">
+                    {appointment.date.split("T")[0].split("-").reverse().join("/")}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{appointment.time}</p>
+                </div>
+              </div>
+            }
+          />
+        </TableCell>
+        <TableCell onClick={(e) => e.stopPropagation()}>
+          <EditableCell
+            value={appointment.client_name || "Cliente"}
+            type="text"
+            onSave={(value) => updateAppointmentField(appointment.id, "client_name", String(value))}
+            displayValue={
+              <div>
+                <p className="font-medium">{appointment.client_name || "Cliente"}</p>
+                <p className="text-sm text-muted-foreground">{appointment.client_phone || "-"}</p>
+              </div>
+            }
+          />
+        </TableCell>
+        <TableCell onClick={(e) => e.stopPropagation()}>
+          <EditableCell
+            value={appointment.stylist_id}
+            type="select"
+            options={stylistOptions}
+            onSave={(value) => updateAppointmentField(appointment.id, "stylist_id", String(value))}
+            displayValue={
+              <div className="flex items-center gap-2">
+                <div
+                  className="h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium text-white"
+                  style={{ backgroundColor: getStylistColor(appointment.stylist_id) }}
+                >
+                  {getStylistName(appointment.stylist_id).charAt(0)}
+                </div>
+                <span>{getStylistName(appointment.stylist_id)}</span>
+              </div>
+            }
+          />
+        </TableCell>
+        <TableCell>
+          <div className="flex flex-wrap gap-1">
+            {appointment.services?.slice(0, 2).map((s) => (
+              <Badge key={s.id} variant="secondary" className="text-xs">
+                {s.name}
+              </Badge>
+            ))}
+            {(appointment.services?.length || 0) > 2 && (
+              <Badge variant="outline" className="text-xs">
+                +{(appointment.services?.length || 0) - 2}
+              </Badge>
+            )}
+          </div>
+        </TableCell>
+        <TableCell onClick={(e) => e.stopPropagation()}>
+          <EditableCell
+            value={appointment.status}
+            type="select"
+            options={statusOptions}
+            onSave={(value) => updateStatus(appointment.id, value as Appointment["status"])}
+            displayValue={
+              <Badge className={cn("border", statusColors[appointment.status])}>
+                {statusLabels[appointment.status]}
+              </Badge>
+            }
+          />
+        </TableCell>
+        <TableCell className="text-right font-semibold">
+          ${appointment.total?.toLocaleString()}
+        </TableCell>
+        <TableCell className="text-right text-success font-medium">
+          ${totalPaid.toLocaleString()}
+        </TableCell>
+        <TableCell className="text-right">
+          {balance > 0 ? (
+            <span className="text-destructive font-semibold">${balance.toLocaleString()}</span>
+          ) : (
+            <span className="text-muted-foreground">$0</span>
+          )}
+        </TableCell>
+        <TableCell onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-end gap-1">
+            {appointment.status === "scheduled" && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-warning"
+                onClick={() => updateStatus(appointment.id, "in-progress")}
+              >
+                <PlayCircle className="h-4 w-4" />
+              </Button>
+            )}
+            {appointment.status === "in-progress" && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-success"
+                onClick={() => updateStatus(appointment.id, "completed")}
+              >
+                <CheckCircle className="h-4 w-4" />
+              </Button>
+            )}
+            {appointment.status === "completed" && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-primary"
+                onClick={() => showAppointmentTicket(appointment)}
+              >
+                <Receipt className="h-4 w-4" />
+              </Button>
+            )}
+            {(appointment.status === "scheduled" || appointment.status === "in-progress") && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-destructive"
+                onClick={() => updateStatus(appointment.id, "cancelled")}
+              >
+                <XCircle className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 text-destructive"
+              onClick={() => deleteAppointment(appointment.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  };
+
+  const renderTable = (appointmentsToRender: Appointment[]) => (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Fecha/Hora</TableHead>
+          <TableHead>Cliente</TableHead>
+          <TableHead>Estilista</TableHead>
+          <TableHead>Servicios</TableHead>
+          <TableHead>Estado</TableHead>
+          <TableHead className="text-right">Total</TableHead>
+          <TableHead className="text-right">Pagado</TableHead>
+          <TableHead className="text-right">Saldo</TableHead>
+          <TableHead className="text-right">Acciones</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {appointmentsToRender.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+              No hay citas registradas
+            </TableCell>
+          </TableRow>
+        ) : (
+          appointmentsToRender
+            .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`))
+            .map(renderAppointmentRow)
+        )}
+      </TableBody>
+    </Table>
+  );
+
+  const renderGroupedTable = (appointmentsToRender: Appointment[]) => {
+    const statuses: Appointment["status"][] = ["scheduled", "in-progress", "completed", "cancelled"];
+    return (
+      <div className="space-y-6">
+        {statuses.map((status) => {
+          const statusAppointments = appointmentsToRender.filter((a) => a.status === status);
+          if (statusAppointments.length === 0) return null;
+          return (
+            <div key={status} className="space-y-3">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Badge className={cn("border", statusColors[status])}>{statusLabels[status]}</Badge>
+                <span className="text-muted-foreground">({statusAppointments.length})</span>
+              </h3>
+              <div className="glass-card rounded-xl overflow-hidden">
+                {renderTable(statusAppointments)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -353,172 +645,206 @@ export default function Citas() {
           </Button>
         </div>
 
-        {/* Filters */}
-        <div className="glass-card rounded-xl p-4">
-          <div className="flex flex-col gap-4 sm:flex-row">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por cliente o teléfono..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="scheduled">Agendadas</SelectItem>
-                <SelectItem value="in-progress">En proceso</SelectItem>
-                <SelectItem value="completed">Completadas</SelectItem>
-                <SelectItem value="cancelled">Canceladas</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="glass-card rounded-xl overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha/Hora</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Estilista</TableHead>
-                <TableHead>Servicios</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAppointments.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No hay citas registradas
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredAppointments
-                  .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`))
-                  .map((appointment) => (
-                    <TableRow
-                      key={appointment.id}
-                      className="cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => openAppointmentDetail(appointment)}
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <p className="font-medium">
-                              {appointment.date.split("T")[0].split("-").reverse().join("/")}
-                            </p>
-                            <p className="text-sm text-muted-foreground">{appointment.time}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{appointment.client_name || "Cliente"}</p>
-                          <p className="text-sm text-muted-foreground">{appointment.client_phone || "-"}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium text-white"
-                            style={{ backgroundColor: getStylistColor(appointment.stylist_id) }}
-                          >
-                            {getStylistName(appointment.stylist_id).charAt(0)}
-                          </div>
-                          <span>{getStylistName(appointment.stylist_id)}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {appointment.services?.slice(0, 2).map((s) => (
-                            <Badge key={s.id} variant="secondary" className="text-xs">
-                              {s.name}
-                            </Badge>
-                          ))}
-                          {(appointment.services?.length || 0) > 2 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{(appointment.services?.length || 0) - 2}
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={cn("border", statusColors[appointment.status])}>
-                          {statusLabels[appointment.status]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-semibold">
-                        ${appointment.total?.toLocaleString()}
-                      </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1">
-                          {appointment.status === "scheduled" && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8 text-warning"
-                              onClick={() => updateStatus(appointment.id, "in-progress")}
-                            >
-                              <PlayCircle className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {appointment.status === "in-progress" && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8 text-success"
-                              onClick={() => updateStatus(appointment.id, "completed")}
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {appointment.status === "completed" && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8 text-primary"
-                              onClick={() => showAppointmentTicket(appointment)}
-                            >
-                              <Receipt className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {(appointment.status === "scheduled" || appointment.status === "in-progress") && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8 text-destructive"
-                              onClick={() => updateStatus(appointment.id, "cancelled")}
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => deleteAppointment(appointment.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "all" | "pending")} className="w-full">
+          <TabsList>
+            <TabsTrigger value="all">Todas</TabsTrigger>
+            <TabsTrigger value="pending" className="flex items-center gap-2">
+              Por Cobrar
+              {pendingCount > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">
+                  {pendingCount}
+                </Badge>
               )}
-            </TableBody>
-          </Table>
-        </div>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="all" className="mt-4 space-y-4">
+            {/* Filters */}
+            <div className="glass-card rounded-xl p-4 space-y-4">
+              {/* Search and Status Filter */}
+              <div className="flex flex-col gap-4 sm:flex-row">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por cliente o teléfono..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-[180px]">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los estados</SelectItem>
+                    <SelectItem value="scheduled">Agendadas</SelectItem>
+                    <SelectItem value="in-progress">En proceso</SelectItem>
+                    <SelectItem value="completed">Completadas</SelectItem>
+                    <SelectItem value="cancelled">Canceladas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Date Filters */}
+              <div className="flex flex-wrap gap-2 items-center">
+                <Button
+                  variant={dateFilter === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDateFilter("all")}
+                >
+                  Todas
+                </Button>
+                <Button
+                  variant={dateFilter === "today" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDateFilter("today")}
+                >
+                  Hoy
+                </Button>
+                <Button
+                  variant={dateFilter === "week" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDateFilter("week")}
+                >
+                  Esta Semana
+                </Button>
+                <Button
+                  variant={dateFilter === "month" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDateFilter("month")}
+                >
+                  Este Mes
+                </Button>
+                <Button
+                  variant={dateFilter === "year" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDateFilter("year")}
+                >
+                  Este Año
+                </Button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant={dateFilter === "custom" ? "default" : "outline"} size="sm">
+                      <Calendar className="h-4 w-4 mr-1" />
+                      {dateFilter === "custom" && customDateFrom && customDateTo
+                        ? `${format(customDateFrom, "dd/MM")} - ${format(customDateTo, "dd/MM")}`
+                        : "Personalizado"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-4" align="start">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Desde</p>
+                        <CalendarComponent
+                          mode="single"
+                          selected={customDateFrom}
+                          onSelect={(date) => {
+                            setCustomDateFrom(date);
+                            if (date && customDateTo) setDateFilter("custom");
+                          }}
+                          className="rounded-md border pointer-events-auto"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Hasta</p>
+                        <CalendarComponent
+                          mode="single"
+                          selected={customDateTo}
+                          onSelect={(date) => {
+                            setCustomDateTo(date);
+                            if (customDateFrom && date) setDateFilter("custom");
+                          }}
+                          className="rounded-md border pointer-events-auto"
+                        />
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <div className="flex-1" />
+                <Button
+                  variant={groupByStatus ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setGroupByStatus(!groupByStatus)}
+                >
+                  <Layers className="h-4 w-4 mr-1" />
+                  Agrupar
+                </Button>
+              </div>
+            </div>
+
+            {/* Table */}
+            {groupByStatus ? (
+              renderGroupedTable(filteredAppointments)
+            ) : (
+              <div className="glass-card rounded-xl overflow-hidden">
+                {renderTable(filteredAppointments)}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="pending" className="mt-4 space-y-4">
+            {/* Filters for pending tab */}
+            <div className="glass-card rounded-xl p-4 space-y-4">
+              <div className="flex flex-col gap-4 sm:flex-row">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por cliente o teléfono..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              {/* Date Filters */}
+              <div className="flex flex-wrap gap-2 items-center">
+                <Button
+                  variant={dateFilter === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDateFilter("all")}
+                >
+                  Todas
+                </Button>
+                <Button
+                  variant={dateFilter === "today" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDateFilter("today")}
+                >
+                  Hoy
+                </Button>
+                <Button
+                  variant={dateFilter === "week" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDateFilter("week")}
+                >
+                  Esta Semana
+                </Button>
+                <Button
+                  variant={dateFilter === "month" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDateFilter("month")}
+                >
+                  Este Mes
+                </Button>
+                <Button
+                  variant={dateFilter === "year" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDateFilter("year")}
+                >
+                  Este Año
+                </Button>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="glass-card rounded-xl overflow-hidden">
+              {renderTable(filteredAppointments)}
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {ticketData && (
           <TicketPrinter open={showTicket} onOpenChange={setShowTicket} data={ticketData} />

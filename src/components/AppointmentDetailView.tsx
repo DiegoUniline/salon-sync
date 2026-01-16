@@ -432,10 +432,7 @@ export function AppointmentDetailView({
     const normalizeAmount = (v: number | string) => Number(parseFloat(String(v)) || 0);
     const round = (n: number) => Math.round(n * 100) / 100;
 
-    if (round(totalPaid) < round(total)) {
-      toast.error("Los pagos no cubren el total de la cita");
-      return;
-    }
+    // Allow saving with pending balance - no validation required for full payment
 
     const paymentsToSend: { method: string; amount: number; reference: string | null }[] = [];
     let remainingTotal = round(total);
@@ -892,6 +889,16 @@ export function AppointmentDetailView({
                 <span>Total</span>
                 <span>${total.toLocaleString()}</span>
               </div>
+              <div className="flex justify-between text-sm font-medium text-success">
+                <span>Total Pagado</span>
+                <span>${totalPaid.toLocaleString()}</span>
+              </div>
+              {(total - totalPaid) > 0 && (
+                <div className="flex justify-between text-sm font-medium text-destructive">
+                  <span>Saldo Pendiente</span>
+                  <span>${(total - totalPaid).toLocaleString()}</span>
+                </div>
+              )}
               {change > 0 && (
                 <div className="flex justify-between text-sm text-success font-medium">
                   <span>Cambio</span>
