@@ -16,7 +16,8 @@ import {
   ChevronDown,
   ChevronRight,
   UserCog,
-  Copy
+  Copy,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,21 +33,40 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
-import { branches } from '@/lib/mockData';
+import { api } from '@/lib/api';
 import {
   modules,
   actions,
-  type Role,
-  type UserWithRole,
   type ModuleId,
   type ModulePermissions,
-  getRoles,
-  saveRoles,
-  getUsersWithRoles,
-  saveUsersWithRoles,
   createEmptyPermissions,
-  defaultRoles,
 } from '@/lib/permissions';
+
+// Types from API
+interface Role {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  isSystem?: boolean;
+  permissions: Record<ModuleId, ModulePermissions>;
+}
+
+interface UserWithRole {
+  id: string;
+  name: string;
+  email: string;
+  roleId: string;
+  role?: Role;
+  branchId?: string;
+  branch?: { id: string; name: string };
+  active: boolean;
+}
+
+interface Branch {
+  id: string;
+  name: string;
+}
 
 const actionIcons = {
   view: Eye,
@@ -61,8 +81,11 @@ const colorOptions = [
 ];
 
 export default function Permisos() {
-  const [roles, setRoles] = useState<Role[]>(getRoles);
-  const [users, setUsers] = useState<UserWithRole[]>(getUsersWithRoles);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [users, setUsers] = useState<UserWithRole[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   
   // Dialogs
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
@@ -90,14 +113,52 @@ export default function Permisos() {
     active: true,
   });
 
-  // Persist changes
+  // Load data from API
   useEffect(() => {
-    saveRoles(roles);
-  }, [roles]);
+    loadData();
+  }, []);
 
-  useEffect(() => {
-    saveUsersWithRoles(users);
-  }, [users]);
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [rolesData, usersData, branchesData] = await Promise.all([
+        api.roles.getAll(),
+        api.roles.getUsersList(),
+        api.branches.getAll(),
+      ]);
+      
+      // Normalize roles data
+      const normalizedRoles = (rolesData.roles || rolesData || []).map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        description: r.description || '',
+        color: r.color || '#3B82F6',
+        isSystem: r.isSystem || r.is_system || false,
+        permissions: r.permissions || createEmptyPermissions(),
+      }));
+      
+      // Normalize users data
+      const normalizedUsers = (usersData.users || usersData || []).map((u: any) => ({
+        id: u.id,
+        name: u.name || u.full_name,
+        email: u.email,
+        roleId: u.role_id || u.roleId || '',
+        role: u.role,
+        branchId: u.branch_id || u.branchId,
+        branch: u.branch,
+        active: u.active !== false,
+      }));
+      
+      setRoles(normalizedRoles);
+      setUsers(normalizedUsers);
+      setBranches(branchesData.branches || branchesData || []);
+    } catch (error) {
+      console.error('Error loading permissions data:', error);
+      toast.error('Error al cargar los datos');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Role handlers
   const openRoleDialog = (role?: Role) => {
@@ -121,35 +182,40 @@ export default function Permisos() {
     setRoleDialogOpen(true);
   };
 
-  const handleSaveRole = () => {
+  const handleSaveRole = async () => {
     if (!roleForm.name.trim()) {
       toast.error('El nombre del rol es requerido');
       return;
     }
 
-    if (editingRole) {
-      setRoles(prev => prev.map(r => 
-        r.id === editingRole.id 
-          ? { ...r, name: roleForm.name, description: roleForm.description, color: roleForm.color, permissions: roleForm.permissions }
-          : r
-      ));
-      toast.success('Rol actualizado');
-    } else {
-      const newRole: Role = {
-        id: `role_${Date.now()}`,
+    try {
+      setSaving(true);
+      
+      const roleData = {
         name: roleForm.name,
         description: roleForm.description,
         color: roleForm.color,
-        isSystem: false,
         permissions: roleForm.permissions,
       };
-      setRoles(prev => [...prev, newRole]);
-      toast.success('Rol creado');
+
+      if (editingRole) {
+        await api.roles.update(editingRole.id, roleData);
+        toast.success('Rol actualizado');
+      } else {
+        await api.roles.create(roleData);
+        toast.success('Rol creado');
+      }
+      
+      setRoleDialogOpen(false);
+      loadData();
+    } catch (error: any) {
+      toast.error(error.message || 'Error al guardar el rol');
+    } finally {
+      setSaving(false);
     }
-    setRoleDialogOpen(false);
   };
 
-  const deleteRole = (roleId: string) => {
+  const deleteRole = async (roleId: string) => {
     const role = roles.find(r => r.id === roleId);
     if (role?.isSystem) {
       toast.error('No se pueden eliminar roles del sistema');
@@ -162,20 +228,23 @@ export default function Permisos() {
       return;
     }
     
-    setRoles(prev => prev.filter(r => r.id !== roleId));
-    toast.success('Rol eliminado');
+    try {
+      await api.roles.delete(roleId);
+      toast.success('Rol eliminado');
+      loadData();
+    } catch (error: any) {
+      toast.error(error.message || 'Error al eliminar el rol');
+    }
   };
 
-  const duplicateRole = (role: Role) => {
-    const newRole: Role = {
-      ...role,
-      id: `role_${Date.now()}`,
-      name: `${role.name} (copia)`,
-      isSystem: false,
-      permissions: JSON.parse(JSON.stringify(role.permissions)),
-    };
-    setRoles(prev => [...prev, newRole]);
-    toast.success('Rol duplicado');
+  const duplicateRole = async (role: Role) => {
+    try {
+      await api.roles.duplicate(role.id);
+      toast.success('Rol duplicado');
+      loadData();
+    } catch (error: any) {
+      toast.error(error.message || 'Error al duplicar el rol');
+    }
   };
 
   const togglePermission = (moduleId: ModuleId, action: keyof ModulePermissions) => {
@@ -221,7 +290,7 @@ export default function Permisos() {
       setUserForm({
         name: user.name,
         email: user.email,
-        password: user.password,
+        password: '',
         roleId: user.roleId,
         branchId: user.branchId || '',
         active: user.active,
@@ -240,44 +309,43 @@ export default function Permisos() {
     setUserDialogOpen(true);
   };
 
-  const handleSaveUser = () => {
-    if (!userForm.name.trim() || !userForm.email.trim() || !userForm.roleId) {
-      toast.error('Nombre, email y rol son requeridos');
+  const handleSaveUser = async () => {
+    if (!userForm.roleId) {
+      toast.error('El rol es requerido');
       return;
     }
 
-    if (!editingUser && !userForm.password.trim()) {
-      toast.error('La contraseña es requerida para nuevos usuarios');
-      return;
+    try {
+      setSaving(true);
+      
+      if (editingUser) {
+        // Update user role assignment
+        await api.roles.assignRole({
+          user_id: editingUser.id,
+          role_id: userForm.roleId,
+        });
+        toast.success('Rol de usuario actualizado');
+      } else {
+        toast.error('Para crear usuarios, usa el módulo de usuarios');
+      }
+      
+      setUserDialogOpen(false);
+      loadData();
+    } catch (error: any) {
+      toast.error(error.message || 'Error al guardar');
+    } finally {
+      setSaving(false);
     }
-
-    if (editingUser) {
-      setUsers(prev => prev.map(u => 
-        u.id === editingUser.id 
-          ? { ...u, ...userForm }
-          : u
-      ));
-      toast.success('Usuario actualizado');
-    } else {
-      const newUser: UserWithRole = {
-        id: `user_${Date.now()}`,
-        ...userForm,
-      };
-      setUsers(prev => [...prev, newUser]);
-      toast.success('Usuario creado');
-    }
-    setUserDialogOpen(false);
   };
 
-  const deleteUser = (userId: string) => {
-    setUsers(prev => prev.filter(u => u.id !== userId));
-    toast.success('Usuario eliminado');
-  };
-
-  const toggleUserActive = (userId: string) => {
-    setUsers(prev => prev.map(u => 
-      u.id === userId ? { ...u, active: !u.active } : u
-    ));
+  const deleteUserRole = async (userId: string) => {
+    try {
+      await api.roles.removeRole(userId);
+      toast.success('Rol removido del usuario');
+      loadData();
+    } catch (error: any) {
+      toast.error(error.message || 'Error al remover rol');
+    }
   };
 
   const getRoleById = (roleId: string) => roles.find(r => r.id === roleId);
@@ -293,6 +361,14 @@ export default function Permisos() {
   };
 
   const totalPermissions = modules.length * actions.length;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -407,13 +483,6 @@ export default function Permisos() {
 
         {/* Users Tab */}
         <TabsContent value="users" className="space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={() => openUserDialog()} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Nuevo Usuario
-            </Button>
-          </div>
-
           <Card>
             <Table>
               <TableHeader>
@@ -428,8 +497,7 @@ export default function Permisos() {
               </TableHeader>
               <TableBody>
                 {users.map(user => {
-                  const role = getRoleById(user.roleId);
-                  const branch = branches.find(b => b.id === user.branchId);
+                  const role = user.role || getRoleById(user.roleId);
                   return (
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">
@@ -448,12 +516,11 @@ export default function Permisos() {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell>{branch?.name || 'Todas'}</TableCell>
+                      <TableCell>{user.branch?.name || 'Todas'}</TableCell>
                       <TableCell>
-                        <Switch
-                          checked={user.active}
-                          onCheckedChange={() => toggleUserActive(user.id)}
-                        />
+                        <Badge variant={user.active ? "default" : "secondary"}>
+                          {user.active ? 'Activo' : 'Inactivo'}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
@@ -467,7 +534,7 @@ export default function Permisos() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => deleteUser(user.id)}
+                            onClick={() => deleteUserRole(user.id)}
                             className="text-destructive hover:text-destructive"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -501,8 +568,7 @@ export default function Permisos() {
                   id="roleName"
                   value={roleForm.name}
                   onChange={(e) => setRoleForm(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Ej: Supervisor"
-                  disabled={editingRole?.isSystem}
+                  placeholder="Ej: Administrador"
                 />
               </div>
               <div className="space-y-2">
@@ -512,9 +578,7 @@ export default function Permisos() {
                     <button
                       key={color}
                       type="button"
-                      className={`h-8 w-8 rounded-full transition-transform ${
-                        roleForm.color === color ? 'ring-2 ring-offset-2 ring-primary scale-110' : ''
-                      }`}
+                      className={`h-8 w-8 rounded-full border-2 transition-transform ${roleForm.color === color ? 'border-foreground scale-110' : 'border-transparent'}`}
                       style={{ backgroundColor: color }}
                       onClick={() => setRoleForm(prev => ({ ...prev, color }))}
                     />
@@ -522,36 +586,40 @@ export default function Permisos() {
                 </div>
               </div>
             </div>
-
+            
             <div className="space-y-2">
               <Label htmlFor="roleDescription">Descripción</Label>
               <Textarea
                 id="roleDescription"
                 value={roleForm.description}
                 onChange={(e) => setRoleForm(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Describe las responsabilidades de este rol..."
+                placeholder="Describe las responsabilidades de este rol"
                 rows={2}
               />
             </div>
 
             {/* Permissions */}
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-base font-semibold">Permisos por Módulo</Label>
                 <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={() => toggleAllPermissions(true)}
                   >
-                    Marcar todos
+                    <Check className="h-3 w-3 mr-1" />
+                    Todos
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={() => toggleAllPermissions(false)}
                   >
-                    Desmarcar todos
+                    <X className="h-3 w-3 mr-1" />
+                    Ninguno
                   </Button>
                 </div>
               </div>
@@ -572,45 +640,63 @@ export default function Permisos() {
                         );
                       }}
                     >
-                      <CollapsibleTrigger className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                      <CollapsibleTrigger className="flex items-center justify-between w-full p-3 hover:bg-muted/50 transition-colors">
                         <div className="flex items-center gap-3">
                           {isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
                           ) : (
-                            <ChevronRight className="h-4 w-4" />
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           )}
                           <span className="text-lg">{module.icon}</span>
                           <span className="font-medium">{module.name}</span>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <Badge variant={activeCount > 0 ? 'default' : 'secondary'}>
-                            {activeCount} / 4
-                          </Badge>
-                          <Switch
-                            checked={activeCount === 4}
-                            onCheckedChange={(checked) => toggleAllModulePermissions(module.id, checked)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
+                        <Badge variant={activeCount > 0 ? "default" : "secondary"}>
+                          {activeCount} / {actions.length}
+                        </Badge>
                       </CollapsibleTrigger>
                       <CollapsibleContent>
-                        <div className="px-4 py-3 bg-muted/30 grid grid-cols-2 sm:grid-cols-4 gap-4">
-                          {actions.map(action => {
-                            const Icon = actionIcons[action.id];
-                            return (
-                              <label
-                                key={action.id}
-                                className="flex items-center gap-2 cursor-pointer"
-                              >
-                                <Checkbox
-                                  checked={modulePerms[action.id]}
-                                  onCheckedChange={() => togglePermission(module.id, action.id)}
-                                />
-                                <Icon className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm">{action.name}</span>
-                              </label>
-                            );
-                          })}
+                        <div className="px-10 pb-3 pt-1">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleAllModulePermissions(module.id, true)}
+                              className="text-xs h-7"
+                            >
+                              Activar todos
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleAllModulePermissions(module.id, false)}
+                              className="text-xs h-7"
+                            >
+                              Desactivar todos
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {actions.map(action => {
+                              const ActionIcon = actionIcons[action.id];
+                              return (
+                                <div
+                                  key={action.id}
+                                  className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                                    modulePerms[action.id] ? 'bg-primary/10 border-primary' : 'hover:bg-muted'
+                                  }`}
+                                  onClick={() => togglePermission(module.id, action.id)}
+                                >
+                                  <Checkbox
+                                    checked={modulePerms[action.id]}
+                                    onCheckedChange={() => togglePermission(module.id, action.id)}
+                                  />
+                                  <ActionIcon className="h-4 w-4 text-muted-foreground" />
+                                  <span className="text-sm">{action.name}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       </CollapsibleContent>
                     </Collapsible>
@@ -624,58 +710,36 @@ export default function Permisos() {
             <Button variant="outline" onClick={() => setRoleDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSaveRole} className="gap-2">
-              <Save className="h-4 w-4" />
+            <Button onClick={handleSaveRole} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {editingRole ? 'Guardar Cambios' : 'Crear Rol'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* User Dialog */}
+      {/* User Role Dialog */}
       <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}
+              {editingUser ? 'Cambiar Rol de Usuario' : 'Asignar Rol'}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            {editingUser && (
+              <div className="space-y-2">
+                <Label>Usuario</Label>
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="font-medium">{editingUser.name}</p>
+                  <p className="text-sm text-muted-foreground">{editingUser.email}</p>
+                </div>
+              </div>
+            )}
+            
             <div className="space-y-2">
-              <Label htmlFor="userName">Nombre *</Label>
-              <Input
-                id="userName"
-                value={userForm.name}
-                onChange={(e) => setUserForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Nombre completo"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="userEmail">Email *</Label>
-              <Input
-                id="userEmail"
-                type="email"
-                value={userForm.email}
-                onChange={(e) => setUserForm(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="correo@ejemplo.com"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="userPassword">Contraseña *</Label>
-              <Input
-                id="userPassword"
-                type="password"
-                value={userForm.password}
-                onChange={(e) => setUserForm(prev => ({ ...prev, password: e.target.value }))}
-                placeholder="••••••••"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Rol *</Label>
+              <Label htmlFor="userRole">Rol *</Label>
               <Select
                 value={userForm.roleId}
                 onValueChange={(value) => setUserForm(prev => ({ ...prev, roleId: value }))}
@@ -698,44 +762,15 @@ export default function Permisos() {
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-2">
-              <Label>Sucursal</Label>
-              <Select
-                value={userForm.branchId}
-                onValueChange={(value) => setUserForm(prev => ({ ...prev, branchId: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todas las sucursales" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Todas las sucursales</SelectItem>
-                  {branches.map(branch => (
-                    <SelectItem key={branch.id} value={branch.id}>
-                      {branch.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Label htmlFor="userActive">Usuario activo</Label>
-              <Switch
-                id="userActive"
-                checked={userForm.active}
-                onCheckedChange={(checked) => setUserForm(prev => ({ ...prev, active: checked }))}
-              />
-            </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setUserDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSaveUser} className="gap-2">
-              <Save className="h-4 w-4" />
-              {editingUser ? 'Guardar Cambios' : 'Crear Usuario'}
+            <Button onClick={handleSaveUser} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Guardar
             </Button>
           </DialogFooter>
         </DialogContent>

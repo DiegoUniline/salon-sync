@@ -1,22 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format, parseISO, eachDayOfInterval, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import {
-  branches,
-  stylists,
-  branchSchedules as mockBranchSchedules,
-  stylistSchedules as mockStylistSchedules,
-  blockedDays as mockBlockedDays,
-  dayNames,
-  defaultSchedule,
-  type BranchSchedule,
-  type StylistSchedule,
-  type BlockedDay,
-  type WeekSchedule,
-  type DaySchedule,
-} from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -73,17 +60,72 @@ import {
   CalendarX,
   Copy,
   Check,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DateRange } from 'react-day-picker';
 
+// Types
+interface DaySchedule {
+  isOpen: boolean;
+  startTime: string;
+  endTime: string;
+}
+
+interface WeekSchedule {
+  [key: number]: DaySchedule;
+}
+
+interface Branch {
+  id: string;
+  name: string;
+}
+
+interface Stylist {
+  id: string;
+  name: string;
+  full_name?: string;
+  color?: string;
+  role?: string;
+}
+
+interface BlockedDay {
+  id: string;
+  type: 'all' | 'branch' | 'stylist';
+  target_id?: string;
+  targetId?: string;
+  start_date: string;
+  startDate?: string;
+  end_date: string;
+  endDate?: string;
+  reason: string;
+}
+
+const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+const defaultSchedule: WeekSchedule = {
+  0: { isOpen: true, startTime: '09:00', endTime: '20:00' },
+  1: { isOpen: true, startTime: '09:00', endTime: '20:00' },
+  2: { isOpen: true, startTime: '09:00', endTime: '20:00' },
+  3: { isOpen: true, startTime: '09:00', endTime: '20:00' },
+  4: { isOpen: true, startTime: '09:00', endTime: '20:00' },
+  5: { isOpen: true, startTime: '09:00', endTime: '18:00' },
+  6: { isOpen: false, startTime: '09:00', endTime: '14:00' },
+};
+
 export default function Horarios() {
   const isMobile = useIsMobile();
-  const [branchSchedules, setBranchSchedules] = useState<BranchSchedule[]>(mockBranchSchedules);
-  const [stylistSchedules, setStylistSchedules] = useState<StylistSchedule[]>(mockStylistSchedules);
-  const [blockedDays, setBlockedDays] = useState<BlockedDay[]>(mockBlockedDays);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  
+  // Data from API
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [stylists, setStylists] = useState<Stylist[]>([]);
+  const [branchSchedule, setBranchSchedule] = useState<WeekSchedule>(defaultSchedule);
+  const [stylistSchedule, setStylistSchedule] = useState<WeekSchedule>(defaultSchedule);
+  const [blockedDays, setBlockedDays] = useState<BlockedDay[]>([]);
 
-  const [selectedBranch, setSelectedBranch] = useState(branches[0].id);
+  const [selectedBranch, setSelectedBranch] = useState<string>('');
   const [selectedStylist, setSelectedStylist] = useState<string | null>(null);
 
   const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
@@ -94,94 +136,167 @@ export default function Horarios() {
     reason: '',
   });
 
-  // Get schedule for branch
-  const getBranchSchedule = (branchId: string): WeekSchedule => {
-    const found = branchSchedules.find(bs => bs.branchId === branchId);
-    return found?.schedule || { ...defaultSchedule };
+  // Load initial data
+  useEffect(() => {
+    loadInitialData();
+  }, []);
+
+  // Load branch schedule when branch changes
+  useEffect(() => {
+    if (selectedBranch) {
+      loadBranchSchedule(selectedBranch);
+    }
+  }, [selectedBranch]);
+
+  // Load stylist schedule when stylist changes
+  useEffect(() => {
+    if (selectedStylist && selectedBranch) {
+      loadStylistSchedule(selectedStylist, selectedBranch);
+    }
+  }, [selectedStylist, selectedBranch]);
+
+  const loadInitialData = async () => {
+    try {
+      setLoading(true);
+      const [branchesData, usersData, blockedData] = await Promise.all([
+        api.branches.getAll(),
+        api.users.getAll({ role: 'stylist' }),
+        api.schedules.getBlocked(),
+      ]);
+      
+      const branchesList = branchesData.branches || branchesData || [];
+      setBranches(branchesList);
+      
+      if (branchesList.length > 0) {
+        setSelectedBranch(branchesList[0].id);
+      }
+      
+      const usersList = usersData.users || usersData || [];
+      setStylists(usersList.map((u: any) => ({
+        id: u.id,
+        name: u.name || u.full_name,
+        full_name: u.full_name,
+        color: u.color || '#3B82F6',
+        role: u.role,
+      })));
+      
+      const blocked = blockedData.blocked || blockedData || [];
+      setBlockedDays(blocked.map((b: any) => ({
+        id: b.id,
+        type: b.type,
+        target_id: b.target_id,
+        targetId: b.target_id,
+        start_date: b.start_date,
+        startDate: b.start_date,
+        end_date: b.end_date,
+        endDate: b.end_date,
+        reason: b.reason,
+      })));
+    } catch (error) {
+      console.error('Error loading schedule data:', error);
+      toast.error('Error al cargar los datos');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Get schedule for stylist
-  const getStylistSchedule = (stylistId: string, branchId: string): WeekSchedule => {
-    const found = stylistSchedules.find(ss => ss.stylistId === stylistId && ss.branchId === branchId);
-    return found?.schedule || { ...defaultSchedule };
+  const loadBranchSchedule = async (branchId: string) => {
+    try {
+      const data = await api.schedules.getBranch(branchId);
+      if (data.schedule) {
+        setBranchSchedule(normalizeSchedule(data.schedule));
+      } else {
+        setBranchSchedule({ ...defaultSchedule });
+      }
+    } catch (error) {
+      console.error('Error loading branch schedule:', error);
+      setBranchSchedule({ ...defaultSchedule });
+    }
+  };
+
+  const loadStylistSchedule = async (stylistId: string, branchId: string) => {
+    try {
+      const data = await api.schedules.getStylist(stylistId, branchId);
+      if (data.schedule) {
+        setStylistSchedule(normalizeSchedule(data.schedule));
+      } else {
+        setStylistSchedule({ ...defaultSchedule });
+      }
+    } catch (error) {
+      console.error('Error loading stylist schedule:', error);
+      setStylistSchedule({ ...defaultSchedule });
+    }
+  };
+
+  const normalizeSchedule = (schedule: any): WeekSchedule => {
+    const normalized: WeekSchedule = {};
+    for (let i = 0; i < 7; i++) {
+      const day = schedule[i] || schedule[i.toString()] || defaultSchedule[i];
+      normalized[i] = {
+        isOpen: day.isOpen ?? day.is_open ?? true,
+        startTime: day.startTime || day.start_time || '09:00',
+        endTime: day.endTime || day.end_time || '20:00',
+      };
+    }
+    return normalized;
   };
 
   // Update branch schedule
-  const updateBranchSchedule = (branchId: string, dayIndex: number, field: keyof DaySchedule, value: any) => {
-    setBranchSchedules(prev => {
-      const existing = prev.find(bs => bs.branchId === branchId);
-      if (existing) {
-        return prev.map(bs => bs.branchId === branchId
-          ? {
-            ...bs,
-            schedule: {
-              ...bs.schedule,
-              [dayIndex]: { ...bs.schedule[dayIndex], [field]: value }
-            }
-          }
-          : bs
-        );
-      } else {
-        return [...prev, {
-          branchId,
-          schedule: {
-            ...defaultSchedule,
-            [dayIndex]: { ...defaultSchedule[dayIndex], [field]: value }
-          }
-        }];
-      }
-    });
-    toast.success('Horario actualizado');
+  const updateBranchSchedule = async (dayIndex: number, field: keyof DaySchedule, value: any) => {
+    const newSchedule = {
+      ...branchSchedule,
+      [dayIndex]: { ...branchSchedule[dayIndex], [field]: value }
+    };
+    setBranchSchedule(newSchedule);
+    
+    try {
+      await api.schedules.updateBranch(selectedBranch, newSchedule);
+      toast.success('Horario actualizado');
+    } catch (error: any) {
+      toast.error(error.message || 'Error al guardar');
+    }
   };
 
   // Update stylist schedule
-  const updateStylistSchedule = (stylistId: string, branchId: string, dayIndex: number, field: keyof DaySchedule, value: any) => {
-    setStylistSchedules(prev => {
-      const existing = prev.find(ss => ss.stylistId === stylistId && ss.branchId === branchId);
-      if (existing) {
-        return prev.map(ss => (ss.stylistId === stylistId && ss.branchId === branchId)
-          ? {
-            ...ss,
-            schedule: {
-              ...ss.schedule,
-              [dayIndex]: { ...ss.schedule[dayIndex], [field]: value }
-            }
-          }
-          : ss
-        );
-      } else {
-        return [...prev, {
-          stylistId,
-          branchId,
-          schedule: {
-            ...defaultSchedule,
-            [dayIndex]: { ...defaultSchedule[dayIndex], [field]: value }
-          }
-        }];
-      }
-    });
-    toast.success('Horario actualizado');
+  const updateStylistSchedule = async (dayIndex: number, field: keyof DaySchedule, value: any) => {
+    if (!selectedStylist) return;
+    
+    const newSchedule = {
+      ...stylistSchedule,
+      [dayIndex]: { ...stylistSchedule[dayIndex], [field]: value }
+    };
+    setStylistSchedule(newSchedule);
+    
+    try {
+      await api.schedules.updateStylist(selectedStylist, {
+        branch_id: selectedBranch,
+        schedule: newSchedule,
+      });
+      toast.success('Horario actualizado');
+    } catch (error: any) {
+      toast.error(error.message || 'Error al guardar');
+    }
   };
 
   // Copy branch schedule to stylist
-  const copyBranchToStylist = (stylistId: string, branchId: string) => {
-    const branchSchedule = getBranchSchedule(branchId);
-    setStylistSchedules(prev => {
-      const existing = prev.find(ss => ss.stylistId === stylistId && ss.branchId === branchId);
-      if (existing) {
-        return prev.map(ss => (ss.stylistId === stylistId && ss.branchId === branchId)
-          ? { ...ss, schedule: { ...branchSchedule } }
-          : ss
-        );
-      } else {
-        return [...prev, { stylistId, branchId, schedule: { ...branchSchedule } }];
-      }
-    });
-    toast.success('Horario copiado de la sucursal');
+  const copyBranchToStylist = async () => {
+    if (!selectedStylist) return;
+    
+    setStylistSchedule({ ...branchSchedule });
+    
+    try {
+      await api.schedules.updateStylist(selectedStylist, {
+        branch_id: selectedBranch,
+        schedule: branchSchedule,
+      });
+      toast.success('Horario copiado de la sucursal');
+    } catch (error: any) {
+      toast.error(error.message || 'Error al copiar horario');
+    }
   };
 
   // Add blocked days
-  const addBlockedDays = () => {
+  const addBlockedDays = async () => {
     if (!blockForm.dateRange?.from) {
       toast.error('Selecciona las fechas');
       return;
@@ -191,36 +306,47 @@ export default function Horarios() {
       return;
     }
 
-    const newBlock: BlockedDay = {
-      id: `bd${Date.now()}`,
-      type: blockForm.type,
-      targetId: blockForm.type !== 'all' ? blockForm.targetId : undefined,
-      startDate: format(blockForm.dateRange.from, 'yyyy-MM-dd'),
-      endDate: format(blockForm.dateRange.to || blockForm.dateRange.from, 'yyyy-MM-dd'),
-      reason: blockForm.reason,
-    };
-
-    setBlockedDays(prev => [...prev, newBlock]);
-    toast.success('Días bloqueados agregados');
-    setIsBlockDialogOpen(false);
-    setBlockForm({ type: 'all', targetId: '', dateRange: undefined, reason: '' });
+    try {
+      setSaving(true);
+      await api.schedules.createBlocked({
+        type: blockForm.type,
+        target_id: blockForm.type !== 'all' ? blockForm.targetId : null,
+        start_date: format(blockForm.dateRange.from, 'yyyy-MM-dd'),
+        end_date: format(blockForm.dateRange.to || blockForm.dateRange.from, 'yyyy-MM-dd'),
+        reason: blockForm.reason,
+      });
+      
+      toast.success('Días bloqueados agregados');
+      setIsBlockDialogOpen(false);
+      setBlockForm({ type: 'all', targetId: '', dateRange: undefined, reason: '' });
+      loadInitialData();
+    } catch (error: any) {
+      toast.error(error.message || 'Error al bloquear días');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Delete blocked day
-  const deleteBlockedDay = (id: string) => {
-    setBlockedDays(prev => prev.filter(bd => bd.id !== id));
-    toast.success('Bloqueo eliminado');
+  const deleteBlockedDay = async (id: string) => {
+    try {
+      await api.schedules.deleteBlocked(id);
+      toast.success('Bloqueo eliminado');
+      setBlockedDays(prev => prev.filter(bd => bd.id !== id));
+    } catch (error: any) {
+      toast.error(error.message || 'Error al eliminar bloqueo');
+    }
   };
 
   // Get target name for blocked day
   const getTargetName = (block: BlockedDay) => {
     if (block.type === 'all') return 'Todos';
     if (block.type === 'branch') {
-      const branch = branches.find(b => b.id === block.targetId);
+      const branch = branches.find(b => b.id === (block.target_id || block.targetId));
       return branch?.name || 'Sucursal';
     }
     if (block.type === 'stylist') {
-      const stylist = stylists.find(s => s.id === block.targetId);
+      const stylist = stylists.find(s => s.id === (block.target_id || block.targetId));
       return stylist?.name || 'Profesional';
     }
     return '';
@@ -238,13 +364,11 @@ export default function Horarios() {
 
   // Get blocked days count
   const getBlockedDaysCount = (block: BlockedDay) => {
-    const start = parseISO(block.startDate);
-    const end = parseISO(block.endDate);
+    const start = parseISO(block.start_date || block.startDate || '');
+    const end = parseISO(block.end_date || block.endDate || '');
     const days = eachDayOfInterval({ start, end });
     return days.length;
   };
-
-  const currentBranchSchedule = getBranchSchedule(selectedBranch);
 
   // Schedule editor component
   const ScheduleEditor = ({ 
@@ -318,6 +442,14 @@ export default function Horarios() {
     </div>
   );
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -364,7 +496,7 @@ export default function Horarios() {
                 </span>
                 <Select value={selectedBranch} onValueChange={setSelectedBranch}>
                   <SelectTrigger className="w-[200px]">
-                    <SelectValue />
+                    <SelectValue placeholder="Seleccionar sucursal" />
                   </SelectTrigger>
                   <SelectContent>
                     {branches.map(branch => (
@@ -379,8 +511,8 @@ export default function Horarios() {
             </CardHeader>
             <CardContent>
               <ScheduleEditor
-                schedule={currentBranchSchedule}
-                onUpdate={(dayIndex, field, value) => updateBranchSchedule(selectedBranch, dayIndex, field, value)}
+                schedule={branchSchedule}
+                onUpdate={(dayIndex, field, value) => updateBranchSchedule(dayIndex, field, value)}
               />
             </CardContent>
           </Card>
@@ -411,12 +543,12 @@ export default function Horarios() {
                       <SelectValue placeholder="Profesional" />
                     </SelectTrigger>
                     <SelectContent>
-                      {stylists.filter(s => s.role === 'stylist' || s.role === 'admin').map(stylist => (
+                      {stylists.map(stylist => (
                         <SelectItem key={stylist.id} value={stylist.id}>
                           <div className="flex items-center gap-2">
                             <div 
                               className="h-3 w-3 rounded-full" 
-                              style={{ backgroundColor: stylist.color }}
+                              style={{ backgroundColor: stylist.color || '#3B82F6' }}
                             />
                             {stylist.name}
                           </div>
@@ -433,10 +565,10 @@ export default function Horarios() {
             <CardContent>
               {selectedStylist ? (
                 <ScheduleEditor
-                  schedule={getStylistSchedule(selectedStylist, selectedBranch)}
-                  onUpdate={(dayIndex, field, value) => updateStylistSchedule(selectedStylist, selectedBranch, dayIndex, field, value)}
+                  schedule={stylistSchedule}
+                  onUpdate={(dayIndex, field, value) => updateStylistSchedule(dayIndex, field, value)}
                   showCopyButton
-                  onCopy={() => copyBranchToStylist(selectedStylist, selectedBranch)}
+                  onCopy={copyBranchToStylist}
                 />
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
@@ -468,7 +600,12 @@ export default function Horarios() {
                       <div key={block.id} className="p-4 border rounded-lg space-y-3">
                         <div className="flex items-start justify-between">
                           <div>
-                            <p className="font-medium">{formatDateRange(block.startDate, block.endDate)}</p>
+                            <p className="font-medium">
+                              {formatDateRange(
+                                block.start_date || block.startDate || '',
+                                block.end_date || block.endDate || ''
+                              )}
+                            </p>
                             <Badge variant="secondary" className="mt-1">
                               {getBlockedDaysCount(block)} día{getBlockedDaysCount(block) > 1 ? 's' : ''}
                             </Badge>
@@ -485,19 +622,16 @@ export default function Horarios() {
                         
                         <div className="flex items-center gap-2">
                           <Badge 
-                            variant={block.type === 'all' ? 'destructive' : 'outline'}
-                            className={cn(
-                              block.type === 'all' && 'bg-destructive/10 text-destructive border-destructive/30'
-                            )}
+                            variant={block.type === 'all' ? 'default' : 'outline'}
                           >
-                            {block.type === 'all' && <Ban className="h-3 w-3 mr-1" />}
-                            {block.type === 'branch' && <Building2 className="h-3 w-3 mr-1" />}
-                            {block.type === 'stylist' && <Users className="h-3 w-3 mr-1" />}
-                            {getTargetName(block)}
+                            {block.type === 'all' ? 'General' : block.type === 'branch' ? 'Sucursal' : 'Profesional'}
                           </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {getTargetName(block)}
+                          </span>
                         </div>
                         
-                        <p className="text-sm text-muted-foreground">{block.reason}</p>
+                        <p className="text-sm">{block.reason}</p>
                       </div>
                     ))}
                   </div>
@@ -509,14 +643,17 @@ export default function Horarios() {
                         <TableHead>Días</TableHead>
                         <TableHead>Aplica a</TableHead>
                         <TableHead>Motivo</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {blockedDays.map(block => (
                         <TableRow key={block.id}>
                           <TableCell className="font-medium">
-                            {formatDateRange(block.startDate, block.endDate)}
+                            {formatDateRange(
+                              block.start_date || block.startDate || '',
+                              block.end_date || block.endDate || ''
+                            )}
                           </TableCell>
                           <TableCell>
                             <Badge variant="secondary">
@@ -524,20 +661,19 @@ export default function Horarios() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge 
-                              variant={block.type === 'all' ? 'destructive' : 'outline'}
-                              className={cn(
-                                block.type === 'all' && 'bg-destructive/10 text-destructive border-destructive/30'
-                              )}
-                            >
-                              {block.type === 'all' && <Ban className="h-3 w-3 mr-1" />}
-                              {block.type === 'branch' && <Building2 className="h-3 w-3 mr-1" />}
-                              {block.type === 'stylist' && <Users className="h-3 w-3 mr-1" />}
-                              {getTargetName(block)}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant={block.type === 'all' ? 'default' : 'outline'}
+                              >
+                                {block.type === 'all' ? 'General' : block.type === 'branch' ? 'Sucursal' : 'Profesional'}
+                              </Badge>
+                              <span className="text-sm text-muted-foreground">
+                                {getTargetName(block)}
+                              </span>
+                            </div>
                           </TableCell>
-                          <TableCell className="text-muted-foreground">{block.reason}</TableCell>
-                          <TableCell className="text-right">
+                          <TableCell>{block.reason}</TableCell>
+                          <TableCell>
                             <Button 
                               variant="ghost" 
                               size="icon" 
@@ -554,8 +690,16 @@ export default function Horarios() {
                 )
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  <Check className="h-12 w-12 mx-auto mb-3 text-success opacity-50" />
-                  <p>No hay días bloqueados programados</p>
+                  <CalendarX className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>No hay días bloqueados</p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-4"
+                    onClick={() => setIsBlockDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Agregar bloqueo
+                  </Button>
                 </div>
               )}
             </CardContent>
@@ -565,16 +709,17 @@ export default function Horarios() {
 
       {/* Block Days Dialog */}
       <Dialog open={isBlockDialogOpen} onOpenChange={setIsBlockDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CalendarX className="h-5 w-5 text-primary" />
+              <CalendarX className="h-5 w-5" />
               Bloquear Días
             </DialogTitle>
           </DialogHeader>
+
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Aplicar bloqueo a</Label>
+              <Label>Aplica a</Label>
               <Select 
                 value={blockForm.type} 
                 onValueChange={(v: 'all' | 'branch' | 'stylist') => setBlockForm(prev => ({ ...prev, type: v, targetId: '' }))}
@@ -583,24 +728,9 @@ export default function Horarios() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">
-                    <span className="flex items-center gap-2">
-                      <Ban className="h-4 w-4" />
-                      Todos (feriado)
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="branch">
-                    <span className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4" />
-                      Sucursal específica
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="stylist">
-                    <span className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      Profesional específico
-                    </span>
-                  </SelectItem>
+                  <SelectItem value="all">Todos (general)</SelectItem>
+                  <SelectItem value="branch">Sucursal específica</SelectItem>
+                  <SelectItem value="stylist">Profesional específico</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -610,7 +740,7 @@ export default function Horarios() {
                 <Label>Sucursal</Label>
                 <Select value={blockForm.targetId} onValueChange={(v) => setBlockForm(prev => ({ ...prev, targetId: v }))}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecciona sucursal" />
+                    <SelectValue placeholder="Seleccionar sucursal" />
                   </SelectTrigger>
                   <SelectContent>
                     {branches.map(branch => (
@@ -626,10 +756,10 @@ export default function Horarios() {
                 <Label>Profesional</Label>
                 <Select value={blockForm.targetId} onValueChange={(v) => setBlockForm(prev => ({ ...prev, targetId: v }))}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecciona profesional" />
+                    <SelectValue placeholder="Seleccionar profesional" />
                   </SelectTrigger>
                   <SelectContent>
-                    {stylists.filter(s => s.role === 'stylist' || s.role === 'admin').map(stylist => (
+                    {stylists.map(stylist => (
                       <SelectItem key={stylist.id} value={stylist.id}>{stylist.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -641,7 +771,13 @@ export default function Horarios() {
               <Label>Fechas</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !blockForm.dateRange && "text-muted-foreground"
+                    )}
+                  >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {blockForm.dateRange?.from ? (
                       blockForm.dateRange.to ? (
@@ -653,17 +789,18 @@ export default function Horarios() {
                         format(blockForm.dateRange.from, "d 'de' MMMM, yyyy", { locale: es })
                       )
                     ) : (
-                      <span className="text-muted-foreground">Selecciona fechas</span>
+                      "Seleccionar fechas"
                     )}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="range"
+                    defaultMonth={blockForm.dateRange?.from}
                     selected={blockForm.dateRange}
                     onSelect={(range) => setBlockForm(prev => ({ ...prev, dateRange: range }))}
-                    numberOfMonths={2}
-                    className="pointer-events-auto"
+                    numberOfMonths={1}
+                    locale={es}
                   />
                 </PopoverContent>
               </Popover>
@@ -672,21 +809,21 @@ export default function Horarios() {
             <div className="space-y-2">
               <Label>Motivo</Label>
               <Input
+                placeholder="Ej: Vacaciones, Día festivo, Mantenimiento..."
                 value={blockForm.reason}
                 onChange={(e) => setBlockForm(prev => ({ ...prev, reason: e.target.value }))}
-                placeholder="Ej: Vacaciones, Feriado, Mantenimiento..."
               />
             </div>
+          </div>
 
-            <div className="flex justify-end gap-3 pt-4">
-              <Button variant="outline" onClick={() => setIsBlockDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button className="gradient-bg border-0" onClick={addBlockedDays}>
-                <CalendarX className="h-4 w-4 mr-2" />
-                Bloquear
-              </Button>
-            </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsBlockDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={addBlockedDays} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Bloquear
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
