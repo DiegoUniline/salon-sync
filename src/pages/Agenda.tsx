@@ -17,7 +17,8 @@ import {
   Users,
   Loader2,
 } from 'lucide-react';
-import { AppointmentEditorDialog } from '@/components/AppointmentEditorDialog';
+import { AppointmentDetailView } from '@/components/AppointmentDetailView';
+import { AnimatePresence } from 'framer-motion';
 
 type ViewMode = 'day' | 'week' | 'month';
 
@@ -653,25 +654,27 @@ export default function Agenda() {
         </div>
       )}
 
-      {/* Appointment Editor Dialog - for both viewing and editing */}
-      <AppointmentEditorDialog
-        open={isEditorOpen || !!selectedAppointment}
-        onOpenChange={(open) => {
-          if (!open) {
-            setIsEditorOpen(false);
-            setSelectedAppointment(null);
-          }
-        }}
-        appointment={selectedAppointment}
-        initialDate={dialogInitialDate}
-        initialTime={dialogInitialTime}
-        initialStylistId={dialogInitialStylist}
-        onSave={() => {
-          reloadAppointments();
-          setSelectedAppointment(null);
-          setIsEditorOpen(false);
-        }}
-      />
+      {/* Full-screen Appointment Detail View */}
+      <AnimatePresence>
+        {(isEditorOpen || selectedAppointment) && (
+          <AppointmentDetailView
+            appointment={selectedAppointment}
+            initialDate={dialogInitialDate}
+            initialTime={dialogInitialTime}
+            initialStylistId={dialogInitialStylist}
+            initialDuration={dialogInitialDuration}
+            onClose={() => {
+              setIsEditorOpen(false);
+              setSelectedAppointment(null);
+            }}
+            onSave={() => {
+              reloadAppointments();
+              setSelectedAppointment(null);
+              setIsEditorOpen(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
