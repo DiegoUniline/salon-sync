@@ -210,7 +210,9 @@ export default function Agenda() {
   const getAppointmentsForDate = (date: Date) => {
     const str = date.toISOString().split('T')[0];
     return appointments.filter(a => {
-      const dateMatch = a.date === str;
+      // Handle date format "YYYY-MM-DDTHH:MM:SS" or "YYYY-MM-DD"
+      const appointmentDate = (a.date || '').split('T')[0];
+      const dateMatch = appointmentDate === str;
       const branchMatch = selectedBranches.length === 0 || selectedBranches.includes(a.branch_id);
       const stylistMatch = selectedStylists.length === 0 || selectedStylists.includes(a.stylist_id);
       return dateMatch && branchMatch && stylistMatch;
@@ -471,7 +473,9 @@ export default function Agenda() {
                   const slotHour = parseInt(time.split(':')[0]);
                   const appointment = filteredAppointments.find(a => {
                     if (a.stylist_id !== stylist.id) return false;
-                    const appointmentHour = parseInt((a.time || '').split(':')[0]);
+                    // Handle time format "HH:MM:SS" or "HH:MM"
+                    const timeStr = (a.time || '').slice(0, 5);
+                    const appointmentHour = parseInt(timeStr.split(':')[0]);
                     return appointmentHour === slotHour;
                   });
                   const isInDragRange = isSlotInDragRange(time, stylist.id);
