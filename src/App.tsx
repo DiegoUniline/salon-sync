@@ -12,6 +12,7 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Agenda from "./pages/Agenda";
 import Citas from "./pages/Citas";
+import Pagos from "./pages/Pagos";
 import Services from "./pages/Services";
 import Products from "./pages/Products";
 import Inventario from "./pages/Inventario";
@@ -69,6 +70,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute moduleId="agenda">
               <Citas />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/pagos"
+          element={
+            <ProtectedRoute moduleId="pagos">
+              <Pagos />
             </ProtectedRoute>
           }
         />
