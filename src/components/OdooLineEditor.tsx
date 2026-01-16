@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, KeyboardEvent, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Trash2, Plus } from 'lucide-react';
@@ -306,7 +307,8 @@ function SearchCell({
 }: SearchCellProps) {
   const [localQuery, setLocalQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const displayValue = line[col.key] || '';
   const isEditing = showDropdown || !displayValue;
@@ -315,6 +317,28 @@ function SearchCell({
     item.label.toLowerCase().includes(localQuery.toLowerCase()) ||
     (item.subLabel && item.subLabel.toLowerCase().includes(localQuery.toLowerCase()))
   );
+
+  // Update dropdown position when shown
+  const updateDropdownPosition = useCallback(() => {
+    if (inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showDropdown) {
+      updateDropdownPosition();
+      // Update position on scroll
+      const handleScroll = () => updateDropdownPosition();
+      window.addEventListener('scroll', handleScroll, true);
+      return () => window.removeEventListener('scroll', handleScroll, true);
+    }
+  }, [showDropdown, updateDropdownPosition]);
 
   // Find next editable column after search selection
   const getNextEditableColIndex = (currentColIndex: number): number => {
@@ -363,12 +387,18 @@ function SearchCell({
     }
   };
 
+  // Store ref for both inputRefs map and local ref
+  const setInputRef = (el: HTMLInputElement | null) => {
+    if (el) {
+      inputRefs.current.set(getCellKey(line.id, col.key), el);
+      (inputRef as React.MutableRefObject<HTMLInputElement | null>).current = el;
+    }
+  };
+
   return (
     <div className="relative">
       <Input
-        ref={(el) => {
-          if (el) inputRefs.current.set(getCellKey(line.id, col.key), el);
-        }}
+        ref={setInputRef}
         value={isEditing ? localQuery : displayValue}
         onChange={(e) => {
           setLocalQuery(e.target.value);
@@ -380,6 +410,7 @@ function SearchCell({
           if (!displayValue) {
             setShowDropdown(true);
           }
+          updateDropdownPosition();
         }}
         onBlur={() => {
           setTimeout(() => setShowDropdown(false), 150);
@@ -389,10 +420,15 @@ function SearchCell({
         className="border-0 rounded-none bg-transparent h-10 focus:ring-1 focus:ring-primary focus:bg-primary/5"
       />
       
-      {showDropdown && filteredItems.length > 0 && (
+      {showDropdown && filteredItems.length > 0 && createPortal(
         <div
-          ref={dropdownRef}
-          className="absolute top-full left-0 right-0 z-50 bg-popover border border-border rounded-md shadow-lg max-h-48 overflow-y-auto"
+          style={{
+            position: 'fixed',
+            top: dropdownPosition.top,
+            left: dropdownPosition.left,
+            width: dropdownPosition.width,
+          }}
+          className="z-[9999] bg-popover border border-border rounded-md shadow-lg max-h-64 overflow-y-auto"
         >
           {filteredItems.map((item, idx) => (
             <div
@@ -410,7 +446,8 @@ function SearchCell({
               )}
             </div>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
