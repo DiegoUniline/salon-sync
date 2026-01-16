@@ -44,6 +44,8 @@ import {
   Loader2,
   Trash2,
   Layers,
+  Eye,
+  DollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence } from "framer-motion";
@@ -415,8 +417,7 @@ export default function Citas() {
     return (
       <TableRow
         key={appointment.id}
-        className="cursor-pointer hover:bg-muted/50 transition-colors"
-        onClick={() => openAppointmentDetail(appointment)}
+        className="hover:bg-muted/50 transition-colors"
       >
         <TableCell>
           <EditableCell
@@ -508,14 +509,37 @@ export default function Citas() {
             <span className="text-muted-foreground">$0</span>
           )}
         </TableCell>
-        <TableCell onClick={(e) => e.stopPropagation()}>
+        <TableCell>
           <div className="flex items-center justify-end gap-1">
+            {/* View detail button */}
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 text-primary"
+              onClick={() => openAppointmentDetail(appointment)}
+              title="Ver detalle"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+            {/* Quick payment button when there's balance */}
+            {balance > 0 && appointment.status !== "cancelled" && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-success"
+                onClick={() => openAppointmentDetail(appointment)}
+                title="Agregar pago"
+              >
+                <DollarSign className="h-4 w-4" />
+              </Button>
+            )}
             {appointment.status === "scheduled" && (
               <Button
                 size="icon"
                 variant="ghost"
                 className="h-8 w-8 text-warning"
                 onClick={() => updateStatus(appointment.id, "in-progress")}
+                title="Iniciar"
               >
                 <PlayCircle className="h-4 w-4" />
               </Button>
@@ -526,6 +550,7 @@ export default function Citas() {
                 variant="ghost"
                 className="h-8 w-8 text-success"
                 onClick={() => updateStatus(appointment.id, "completed")}
+                title="Completar"
               >
                 <CheckCircle className="h-4 w-4" />
               </Button>
@@ -536,6 +561,7 @@ export default function Citas() {
                 variant="ghost"
                 className="h-8 w-8 text-primary"
                 onClick={() => showAppointmentTicket(appointment)}
+                title="Imprimir ticket"
               >
                 <Receipt className="h-4 w-4" />
               </Button>
@@ -546,6 +572,7 @@ export default function Citas() {
                 variant="ghost"
                 className="h-8 w-8 text-destructive"
                 onClick={() => updateStatus(appointment.id, "cancelled")}
+                title="Cancelar"
               >
                 <XCircle className="h-4 w-4" />
               </Button>
@@ -555,6 +582,7 @@ export default function Citas() {
               variant="ghost"
               className="h-8 w-8 text-destructive"
               onClick={() => deleteAppointment(appointment.id)}
+              title="Eliminar"
             >
               <Trash2 className="h-4 w-4" />
             </Button>
