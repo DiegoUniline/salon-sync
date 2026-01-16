@@ -842,7 +842,7 @@ export function AppointmentEditorDialog({
                     Pagos
                   </div>
                   <div className="space-y-1">
-                {payments.filter(p => Number(p.amount) > 0).map((payment) => (
+                {payments.filter(p => Number(p.amount || 0) > 0).map((payment) => (
                       <div key={payment.id} className="flex justify-between text-sm">
                         <span className="text-muted-foreground capitalize">
                           {payment.method === "cash" ? "Efectivo" : payment.method === "card" ? "Tarjeta" : "Transferencia"}
