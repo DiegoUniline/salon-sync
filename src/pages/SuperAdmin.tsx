@@ -148,13 +148,24 @@ export default function SuperAdmin() {
   const loadData = async () => {
     setIsLoading(true);
     try {
+      console.log('🔄 Cargando datos de SuperAdmin...');
+      
       const [plansData, accountsData] = await Promise.all([
-        api.plans.getAll().catch(() => []),
-        api.accounts.getAll().catch(() => []),
+        api.plans.getAll().catch((err) => {
+          console.error('❌ Error cargando planes:', err);
+          return [];
+        }),
+        api.accounts.getAll().catch((err) => {
+          console.error('❌ Error cargando cuentas:', err);
+          return [];
+        }),
       ]);
       
+      console.log('✅ Planes recibidos:', plansData);
+      console.log('✅ Cuentas recibidas:', accountsData);
+      
       // Normalize plans features
-      const normalizedPlans = plansData.map((p: any) => ({
+      const normalizedPlans = (plansData || []).map((p: any) => ({
         ...p,
         features: Array.isArray(p.features) 
           ? p.features 
@@ -163,10 +174,30 @@ export default function SuperAdmin() {
               .map(([k]) => k.replace(/_/g, ' ')),
       }));
       
+      // Si las cuentas no tienen suscripción embebida, cargarlas por separado
+      const accountsWithSubs = await Promise.all(
+        (accountsData || []).map(async (account: Account) => {
+          if (account.subscription) {
+            console.log(`✅ Cuenta ${account.name} ya tiene suscripción embebida`);
+            return account;
+          }
+          try {
+            const subscription = await api.accounts.getSubscription(account.id);
+            console.log(`✅ Suscripción cargada para ${account.name}:`, subscription);
+            return { ...account, subscription };
+          } catch (err) {
+            console.log(`ℹ️ Sin suscripción para ${account.name}`);
+            return account;
+          }
+        })
+      );
+      
+      console.log('✅ Cuentas con suscripciones:', accountsWithSubs);
+      
       setPlans(normalizedPlans);
-      setAccounts(accountsData);
+      setAccounts(accountsWithSubs);
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('❌ Error general cargando datos:', error);
       toast.error('Error al cargar datos');
     } finally {
       setIsLoading(false);
@@ -210,16 +241,21 @@ export default function SuperAdmin() {
   // Account CRUD
   const handleSaveAccount = async () => {
     try {
+      console.log('💾 Guardando cuenta:', accountForm);
+      
       if (editingAccount) {
-        await api.accounts.update(editingAccount.id, accountForm);
+        const result = await api.accounts.update(editingAccount.id, accountForm);
+        console.log('✅ Cuenta actualizada:', result);
         toast.success('Cuenta actualizada');
       } else {
-        await api.accounts.create(accountForm);
-        toast.success('Cuenta creada');
+        const result = await api.accounts.create(accountForm);
+        console.log('✅ Cuenta creada:', result);
+        toast.success('Cuenta creada exitosamente');
       }
       await loadData();
       resetAccountForm();
     } catch (error: any) {
+      console.error('❌ Error guardando cuenta:', error);
       toast.error(error.message || 'Error al guardar cuenta');
     }
   };
