@@ -103,22 +103,52 @@ export const subscriptions = {
   cancel: () => request("/subscriptions/cancel", { method: "POST" }),
 };
 
-// ============ ACCOUNTS (Super Admin) ============
+// ============ ACCOUNTS (Usuario actual) ============
 export const accounts = {
-  getAll: () => request("/accounts"),
-  getById: (id: string) => request(`/accounts/${id}`),
   getCurrent: () => request("/accounts/current"),
+  updateCurrent: (data: any) =>
+    request("/accounts/current", { method: "PUT", body: JSON.stringify(data) }),
   getStats: () => request("/accounts/stats"),
-  create: (data: any) => request("/accounts", { method: "POST", body: JSON.stringify(data) }),
-  update: (id: string, data: any) =>
-    request(`/accounts/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-  delete: (id: string) => request(`/accounts/${id}`, { method: "DELETE" }),
-  getSubscription: (accountId: string) => request(`/accounts/${accountId}/subscription`),
+};
+
+// ============ ADMIN (Super Admin) ============
+export const admin = {
+  // Cuentas
+  getAccounts: () => request("/admin/accounts"),
+  getAccountById: (id: string) => request(`/admin/accounts/${id}`),
+  createAccount: (data: any) =>
+    request("/admin/accounts", { method: "POST", body: JSON.stringify(data) }),
+  updateAccount: (id: string, data: any) =>
+    request(`/admin/accounts/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteAccount: (id: string) =>
+    request(`/admin/accounts/${id}`, { method: "DELETE" }),
+  
+  // Suscripciones
+  getSubscription: (accountId: string) =>
+    request(`/admin/accounts/${accountId}/subscription`),
   updateSubscription: (accountId: string, data: any) =>
-    request(`/accounts/${accountId}/subscription`, { method: "PUT", body: JSON.stringify(data) }),
-  getPayments: (accountId: string) => request(`/accounts/${accountId}/payments`),
+    request(`/admin/accounts/${accountId}/subscription`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  extendTrial: (accountId: string, data?: any) =>
+    request(`/admin/accounts/${accountId}/extend-trial`, {
+      method: "POST",
+      body: JSON.stringify(data || {}),
+    }),
+  
+  // Pagos
+  getAccountPayments: (accountId: string) =>
+    request(`/admin/accounts/${accountId}/payments`),
   addPayment: (accountId: string, data: any) =>
-    request(`/accounts/${accountId}/payments`, { method: "POST", body: JSON.stringify(data) }),
+    request(`/admin/accounts/${accountId}/payments`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getAllPayments: () => request("/admin/payments"),
+  
+  // Estadísticas
+  getStats: () => request("/admin/stats"),
 };
 
 // ============ BRANCHES ============
@@ -459,6 +489,7 @@ export const api = {
   plans,
   subscriptions,
   accounts,
+  admin,
   branches,
   users,
   clients,
