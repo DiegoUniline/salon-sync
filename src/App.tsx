@@ -76,7 +76,7 @@ function AppRoutes() {
         <Route
           path="/pagos"
           element={
-            <ProtectedRoute moduleId="pagos">
+            <ProtectedRoute moduleId="agenda">
               <Pagos />
             </ProtectedRoute>
           }
