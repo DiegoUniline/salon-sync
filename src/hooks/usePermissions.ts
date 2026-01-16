@@ -10,6 +10,7 @@ import api from "@/lib/api";
 
 const CURRENT_USER_KEY = "salon_current_user";
 const TOKEN_KEY = "salon_token";
+const SUBSCRIPTION_KEY = "salon_subscription";
 
 export type ModuleId =
   | "dashboard"
@@ -52,10 +53,25 @@ export interface UserWithRole {
   email: string;
   role: string;
   branch_id?: string;
+  account_id?: string;
   color?: string;
   avatar_url?: string;
   active: boolean;
   permissions?: Record<ModuleId, ModulePermissions>;
+}
+
+export interface Subscription {
+  plan: string;
+  plan_id: string;
+  status: 'trial' | 'active' | 'past_due' | 'cancelled' | 'expired';
+  billing_cycle?: 'monthly' | 'yearly';
+  trial_ends_at?: string;
+  ends_at?: string;
+  days_remaining?: number;
+  max_users?: number;
+  max_branches?: number;
+  current_users?: number;
+  current_branches?: number;
 }
 
 interface LoginResult {
@@ -66,10 +82,13 @@ interface LoginResult {
 interface PermissionsContextType {
   currentUser: UserWithRole | null;
   currentRole: Role | null;
+  subscription: Subscription | null;
   users: UserWithRole[];
   roles: Role[];
   isAuthenticated: boolean;
   isLoading: boolean;
+  isSubscriptionExpired: boolean;
+  daysRemaining: number | null;
   login: (email: string, password: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
   setCurrentUserId: (userId: string | null) => void;
@@ -80,6 +99,7 @@ interface PermissionsContextType {
   canDelete: (moduleId: ModuleId) => boolean;
   refreshData: () => Promise<void>;
   refreshCurrentUser: () => Promise<void>;
+  refreshSubscription: () => Promise<void>;
 }
 
 const PermissionsContext = createContext<PermissionsContextType | undefined>(
@@ -96,9 +116,24 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     }
   });
 
+  const [subscription, setSubscription] = useState<Subscription | null>(() => {
+    try {
+      const saved = localStorage.getItem(SUBSCRIPTION_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Calculate subscription status
+  const isSubscriptionExpired = subscription?.status === 'expired' || 
+    (subscription?.days_remaining !== undefined && subscription.days_remaining < 0);
+  
+  const daysRemaining = subscription?.days_remaining ?? null;
 
   useEffect(() => {
     const init = async () => {
@@ -117,11 +152,19 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
           setCurrentUser(userData);
           localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userData));
 
+          // Get subscription info
+          if (userData.subscription) {
+            setSubscription(userData.subscription);
+            localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(userData.subscription));
+          }
+
           await refreshData();
         } catch {
           localStorage.removeItem(TOKEN_KEY);
           localStorage.removeItem(CURRENT_USER_KEY);
+          localStorage.removeItem(SUBSCRIPTION_KEY);
           setCurrentUser(null);
+          setSubscription(null);
         }
       }
       setIsLoading(false);
@@ -150,8 +193,23 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       }
       setCurrentUser(userData);
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userData));
+      
+      if (userData.subscription) {
+        setSubscription(userData.subscription);
+        localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(userData.subscription));
+      }
     } catch (error) {
       console.error("Error refreshing current user:", error);
+    }
+  };
+
+  const refreshSubscription = async () => {
+    try {
+      const subData = await api.subscriptions.getCurrent();
+      setSubscription(subData);
+      localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(subData));
+    } catch (error) {
+      console.error("Error refreshing subscription:", error);
     }
   };
 
@@ -173,6 +231,12 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       }
       setCurrentUser(data.user);
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data.user));
+      
+      if (data.subscription) {
+        setSubscription(data.subscription);
+        localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(data.subscription));
+      }
+      
       await refreshData();
       return { success: true };
     } catch (err: any) {
@@ -188,8 +252,10 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       await api.auth.logout();
     } catch {}
     setCurrentUser(null);
+    setSubscription(null);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(CURRENT_USER_KEY);
+    localStorage.removeItem(SUBSCRIPTION_KEY);
   };
 
   const currentRole = currentUser?.permissions
@@ -240,10 +306,13 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const value: PermissionsContextType = {
     currentUser,
     currentRole,
+    subscription,
     users,
     roles,
     isAuthenticated,
     isLoading,
+    isSubscriptionExpired,
+    daysRemaining,
     login,
     logout,
     setCurrentUserId,
@@ -254,6 +323,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     canDelete,
     refreshData,
     refreshCurrentUser,
+    refreshSubscription,
   };
 
   return createElement(PermissionsContext.Provider, { value }, children);
