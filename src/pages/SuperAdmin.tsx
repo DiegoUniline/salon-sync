@@ -155,7 +155,7 @@ export default function SuperAdmin() {
           console.error('❌ Error cargando planes:', err);
           return [];
         }),
-        api.accounts.getAll().catch((err) => {
+        api.admin.getAccounts().catch((err) => {
           console.error('❌ Error cargando cuentas:', err);
           return [];
         }),
@@ -182,7 +182,7 @@ export default function SuperAdmin() {
             return account;
           }
           try {
-            const subscription = await api.accounts.getSubscription(account.id);
+            const subscription = await api.admin.getSubscription(account.id);
             console.log(`✅ Suscripción cargada para ${account.name}:`, subscription);
             return { ...account, subscription };
           } catch (err) {
@@ -244,11 +244,11 @@ export default function SuperAdmin() {
       console.log('💾 Guardando cuenta:', accountForm);
       
       if (editingAccount) {
-        const result = await api.accounts.update(editingAccount.id, accountForm);
+        const result = await api.admin.updateAccount(editingAccount.id, accountForm);
         console.log('✅ Cuenta actualizada:', result);
         toast.success('Cuenta actualizada');
       } else {
-        const result = await api.accounts.create(accountForm);
+        const result = await api.admin.createAccount(accountForm);
         console.log('✅ Cuenta creada:', result);
         toast.success('Cuenta creada exitosamente');
       }
@@ -263,7 +263,7 @@ export default function SuperAdmin() {
   const handleDeleteAccount = async (id: string) => {
     if (!confirm('¿Estás seguro de eliminar esta cuenta? Se eliminarán todos sus datos.')) return;
     try {
-      await api.accounts.delete(id);
+      await api.admin.deleteAccount(id);
       toast.success('Cuenta eliminada');
       await loadData();
     } catch (error: any) {
@@ -301,7 +301,7 @@ export default function SuperAdmin() {
         }
       }
 
-      await api.accounts.updateSubscription(editingSubscription.account.id, {
+      await api.admin.updateSubscription(editingSubscription.account.id, {
         plan_id: subscriptionForm.plan_id,
         status: subscriptionForm.status,
         billing_cycle: subscriptionForm.billing_cycle,
@@ -352,7 +352,7 @@ export default function SuperAdmin() {
     if (!selectedAccountForPayment) return;
     
     try {
-      await api.accounts.addPayment(selectedAccountForPayment.id, {
+      await api.admin.addPayment(selectedAccountForPayment.id, {
         amount: paymentForm.amount,
         payment_method: paymentForm.payment_method,
         reference: paymentForm.reference || undefined,
