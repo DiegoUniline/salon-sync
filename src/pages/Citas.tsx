@@ -301,15 +301,22 @@ export default function Citas() {
     const urlParamDate = searchParams.get("date");
     const urlParamTime = searchParams.get("time");
     const urlParamStylist = searchParams.get("stylist");
+    const urlParamEdit = searchParams.get("edit");
 
-    if (urlParamDate || urlParamTime || urlParamStylist) {
+    if (urlParamEdit && appointments.length > 0) {
+      const appointmentToEdit = appointments.find(a => a.id === urlParamEdit);
+      if (appointmentToEdit) {
+        openEditDialog(appointmentToEdit);
+        window.history.replaceState({}, "", "/citas");
+      }
+    } else if (urlParamDate || urlParamTime || urlParamStylist) {
       if (urlParamDate) setDate(urlParamDate);
       if (urlParamTime) setTime(urlParamTime);
       if (urlParamStylist) setStylistId(urlParamStylist);
       setIsDialogOpen(true);
       window.history.replaceState({}, "", "/citas");
     }
-  }, [searchParams]);
+  }, [searchParams, appointments]);
 
   const filteredAppointments = appointments.filter((a) => {
     const clientName = (a.client_name || "").toLowerCase();
