@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Scissors, Lock, Mail, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
-  const { login, users } = usePermissions();
+  const { login } = usePermissions();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -32,8 +32,6 @@ export default function Login() {
     setIsLoading(false);
   };
 
-  // Demo credentials hint
-  const demoUsers = users.filter(u => u.active).slice(0, 4);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 p-4">
@@ -110,34 +108,6 @@ export default function Login() {
           </CardContent>
         </Card>
 
-        {/* Demo credentials */}
-        <Card className="border-dashed bg-muted/30">
-          <CardHeader className="pb-2 pt-4">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Credenciales de prueba
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="grid gap-2 text-sm">
-              {demoUsers.map(user => (
-                <button
-                  key={user.id}
-                  type="button"
-                  onClick={() => {
-                    setEmail(user.email);
-                    setPassword('123456');
-                  }}
-                  className="flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors text-left"
-                >
-                  <span className="font-medium">{user.email}</span>
-                  <span className="text-muted-foreground text-xs">
-                    {user.role}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
