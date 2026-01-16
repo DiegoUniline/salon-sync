@@ -45,9 +45,16 @@ function AppRoutes() {
     );
   }
 
-  // If not authenticated, show login
+  // Public routes (no auth required)
   if (!isAuthenticated) {
-    return <Login />;
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
   }
 
   // Authenticated - show main app
