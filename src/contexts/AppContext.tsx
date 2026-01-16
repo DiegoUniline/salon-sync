@@ -27,6 +27,7 @@ interface AppContextType {
   businessConfig: BusinessConfig;
   updateBusinessConfig: (config: Partial<BusinessConfig>) => void;
   terms: (typeof terminology)[BusinessType];
+  isLoadingBranches: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -37,6 +38,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const loadBranches = async () => {
+      // Only load branches if user is authenticated
+      const token = localStorage.getItem("salon_token");
+      if (!token) {
+        setLoadingBranches(false);
+        return;
+      }
+
       try {
         const data = await getBranches();
         setBranches(data);
@@ -88,9 +96,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setBusinessConfig(newConfig);
   };
 
-  if (!currentBranch) {
-    return null;
-  }
+  // Don't block rendering if no branches (user might not be authenticated yet)
+  // Components should handle the case when currentBranch is undefined
 
   return (
     <AppContext.Provider
@@ -105,6 +112,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         businessConfig,
         updateBusinessConfig,
         terms,
+        isLoadingBranches: loadingBranches,
       }}
     >
       {children}
