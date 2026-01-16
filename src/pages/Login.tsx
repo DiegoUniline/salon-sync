@@ -27,9 +27,11 @@ export default function Login() {
     
     if (!result.success) {
       setError(result.error || 'Error al iniciar sesión');
+      setIsLoading(false);
+    } else {
+      // Force reload to ensure proper routing after auth
+      window.location.href = '/#/';
     }
-    
-    setIsLoading(false);
   };
 
 
