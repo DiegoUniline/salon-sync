@@ -1,13 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
-import { 
-  cashCuts as mockCashCuts,
-  sales,
-  expenses,
-  purchases,
-  appointments,
-  type CashCut,
-} from '@/lib/mockData';
+import api from '@/lib/api';
 import { useShift } from '@/hooks/useShift';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
@@ -47,7 +40,7 @@ import {
   CheckCircle,
   Eye,
   FileText,
-  Package,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -59,149 +52,180 @@ const paymentMethodConfig = {
 
 type PaymentMethod = keyof typeof paymentMethodConfig;
 
+interface CashCut {
+  id: string;
+  shift_id: string;
+  branch_id: string;
+  date: string;
+  user_id: string;
+  user: {
+    id: string;
+    name: string;
+    color: string;
+  };
+  initial_cash: number;
+  final_cash: number;
+  expected_cash: number;
+  difference: number;
+  sales_by_method: Record<PaymentMethod, number>;
+  total_sales: number;
+  total_expenses: number;
+  appointments_count: number;
+  direct_sales_count: number;
+}
+
 interface ShiftSummary {
-  shift: ReturnType<typeof useShift>['openShift'];
-  // Sales breakdown
   salesByMethod: Record<PaymentMethod, number>;
   totalSales: number;
   appointmentSalesCount: number;
   directSalesCount: number;
-  // Expenses breakdown
   expensesByMethod: Record<PaymentMethod, number>;
   totalExpenses: number;
-  // Purchases breakdown
   purchasesByMethod: Record<PaymentMethod, number>;
   totalPurchases: number;
-  // Expected by method
   expectedByMethod: Record<PaymentMethod, number>;
-  // Appointments completed count
   completedAppointments: number;
 }
 
 export default function Cortes() {
   const { currentBranch } = useApp();
-  const { shifts, getShiftsForBranch } = useShift(currentBranch.id);
+  const { shifts, getShiftsForBranch, loading: shiftsLoading } = useShift(currentBranch.id);
   const isMobile = useIsMobile();
-  const [cashCuts, setCashCuts] = useState<CashCut[]>(mockCashCuts);
+  const [cashCuts, setCashCuts] = useState<CashCut[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [viewingCut, setViewingCut] = useState<CashCut | null>(null);
   const [selectedShiftId, setSelectedShiftId] = useState('');
+  const [selectedSummary, setSelectedSummary] = useState<ShiftSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const [realAmounts, setRealAmounts] = useState<Record<PaymentMethod, string>>({
     cash: '',
     card: '',
     transfer: '',
   });
 
-  const filteredCuts = cashCuts.filter(c => c.branchId === currentBranch.id);
+  // Load cash cuts from API
+  useEffect(() => {
+    const loadCashCuts = async () => {
+      if (!currentBranch?.id) return;
+      setLoading(true);
+      try {
+        const data = await api.cashCuts.getAll({ branch_id: currentBranch.id });
+        setCashCuts(data.map((c: any) => ({
+          ...c,
+          user: c.user || { id: c.user_id, name: 'Usuario', color: '#3B82F6' },
+          sales_by_method: c.sales_by_method || { cash: 0, card: 0, transfer: 0 },
+        })));
+      } catch (error) {
+        console.error('Error loading cash cuts:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadCashCuts();
+  }, [currentBranch?.id]);
+
   const allShifts = getShiftsForBranch(currentBranch.id);
   const closedShifts = allShifts.filter(s => s.status === 'closed');
-  const cutShiftIds = new Set(cashCuts.map(c => c.shiftId));
+  const cutShiftIds = new Set(cashCuts.map(c => c.shift_id));
   const pendingShifts = closedShifts.filter(s => !cutShiftIds.has(s.id));
 
-  const calculateShiftSummary = (shiftId: string): ShiftSummary | null => {
-    const shift = allShifts.find(s => s.id === shiftId);
-    if (!shift) return null;
+  // Load shift summary when selecting a shift
+  useEffect(() => {
+    const loadSummary = async () => {
+      if (!selectedShiftId) {
+        setSelectedSummary(null);
+        return;
+      }
 
-    const shiftDate = shift.date;
-    
-    // Filter data for this shift's date and branch
-    const shiftSales = sales.filter(s => 
-      s.branchId === currentBranch.id && s.date === shiftDate
-    );
-    const shiftExpenses = expenses.filter(e => 
-      e.branchId === currentBranch.id && e.date === shiftDate
-    );
-    const shiftPurchases = purchases.filter(p => 
-      p.branchId === currentBranch.id && p.date === shiftDate
-    );
-    const shiftAppointments = appointments.filter(a => 
-      a.branchId === currentBranch.id && 
-      a.date === shiftDate && 
-      a.status === 'completed'
-    );
+      const shift = allShifts.find(s => s.id === selectedShiftId);
+      if (!shift) return;
 
-    // Initialize method totals
-    const salesByMethod: Record<PaymentMethod, number> = { cash: 0, card: 0, transfer: 0 };
-    const expensesByMethod: Record<PaymentMethod, number> = { cash: 0, card: 0, transfer: 0 };
-    const purchasesByMethod: Record<PaymentMethod, number> = { cash: 0, card: 0, transfer: 0 };
+      setSummaryLoading(true);
+      try {
+        const data = await api.shifts.getSummary(selectedShiftId);
+        
+        const salesByMethod: Record<PaymentMethod, number> = {
+          cash: data.sales_by_method?.cash || 0,
+          card: data.sales_by_method?.card || 0,
+          transfer: data.sales_by_method?.transfer || 0,
+        };
+        const expensesByMethod: Record<PaymentMethod, number> = {
+          cash: data.expenses_by_method?.cash || 0,
+          card: data.expenses_by_method?.card || 0,
+          transfer: data.expenses_by_method?.transfer || 0,
+        };
+        const purchasesByMethod: Record<PaymentMethod, number> = {
+          cash: data.purchases_by_method?.cash || 0,
+          card: data.purchases_by_method?.card || 0,
+          transfer: data.purchases_by_method?.transfer || 0,
+        };
+        
+        const expectedByMethod: Record<PaymentMethod, number> = {
+          cash: shift.initialCash + salesByMethod.cash - expensesByMethod.cash - purchasesByMethod.cash,
+          card: salesByMethod.card - expensesByMethod.card - purchasesByMethod.card,
+          transfer: salesByMethod.transfer - expensesByMethod.transfer - purchasesByMethod.transfer,
+        };
 
-    // Calculate sales by method (including mixed payments)
-    shiftSales.forEach(sale => {
-      if (sale.paymentMethod === 'mixed' && sale.payments) {
-        sale.payments.forEach(p => {
-          if (p.method in salesByMethod) {
-            salesByMethod[p.method as PaymentMethod] += p.amount;
-          }
+        const totalSales = Object.values(salesByMethod).reduce((sum, v) => sum + v, 0);
+        const totalExpenses = Object.values(expensesByMethod).reduce((sum, v) => sum + v, 0);
+        const totalPurchases = Object.values(purchasesByMethod).reduce((sum, v) => sum + v, 0);
+
+        setSelectedSummary({
+          salesByMethod,
+          totalSales,
+          appointmentSalesCount: data.appointment_sales_count || 0,
+          directSalesCount: data.direct_sales_count || 0,
+          expensesByMethod,
+          totalExpenses,
+          purchasesByMethod,
+          totalPurchases,
+          expectedByMethod,
+          completedAppointments: data.completed_appointments || 0,
         });
-      } else if (sale.paymentMethod in salesByMethod) {
-        salesByMethod[sale.paymentMethod as PaymentMethod] += sale.total;
+      } catch (error) {
+        console.error('Error loading shift summary:', error);
+        const shift = allShifts.find(s => s.id === selectedShiftId);
+        setSelectedSummary({
+          salesByMethod: { cash: 0, card: 0, transfer: 0 },
+          totalSales: 0,
+          appointmentSalesCount: 0,
+          directSalesCount: 0,
+          expensesByMethod: { cash: 0, card: 0, transfer: 0 },
+          totalExpenses: 0,
+          purchasesByMethod: { cash: 0, card: 0, transfer: 0 },
+          totalPurchases: 0,
+          expectedByMethod: { cash: shift?.initialCash || 0, card: 0, transfer: 0 },
+          completedAppointments: 0,
+        });
+      } finally {
+        setSummaryLoading(false);
       }
-    });
-
-    // Calculate expenses by method
-    shiftExpenses.forEach(expense => {
-      if (expense.paymentMethod in expensesByMethod) {
-        expensesByMethod[expense.paymentMethod as PaymentMethod] += expense.amount;
-      }
-    });
-
-    // Calculate purchases by method
-    shiftPurchases.forEach(purchase => {
-      if (purchase.paymentMethod in purchasesByMethod) {
-        purchasesByMethod[purchase.paymentMethod as PaymentMethod] += purchase.total;
-      }
-    });
-
-    // Calculate expected amounts per method
-    const expectedByMethod: Record<PaymentMethod, number> = {
-      cash: shift.initialCash + salesByMethod.cash - expensesByMethod.cash - purchasesByMethod.cash,
-      card: salesByMethod.card - expensesByMethod.card - purchasesByMethod.card,
-      transfer: salesByMethod.transfer - expensesByMethod.transfer - purchasesByMethod.transfer,
     };
 
-    const totalSales = Object.values(salesByMethod).reduce((sum, v) => sum + v, 0);
-    const totalExpenses = Object.values(expensesByMethod).reduce((sum, v) => sum + v, 0);
-    const totalPurchases = Object.values(purchasesByMethod).reduce((sum, v) => sum + v, 0);
-
-    return {
-      shift,
-      salesByMethod,
-      totalSales,
-      appointmentSalesCount: shiftSales.filter(s => s.type === 'appointment').length,
-      directSalesCount: shiftSales.filter(s => s.type === 'direct').length,
-      expensesByMethod,
-      totalExpenses,
-      purchasesByMethod,
-      totalPurchases,
-      expectedByMethod,
-      completedAppointments: shiftAppointments.length,
-    };
-  };
-
-  const selectedSummary = selectedShiftId ? calculateShiftSummary(selectedShiftId) : null;
+    loadSummary();
+  }, [selectedShiftId, allShifts]);
 
   // Reset real amounts when shift changes
   useEffect(() => {
-    if (selectedSummary) {
-      setRealAmounts({
-        cash: '',
-        card: '',
-        transfer: '',
-      });
-    }
+    setRealAmounts({ cash: '', card: '', transfer: '' });
   }, [selectedShiftId]);
 
-  const handleSubmit = () => {
-    if (!selectedSummary || !selectedSummary.shift) {
+  const handleSubmit = async () => {
+    if (!selectedSummary || !selectedShiftId) {
       toast.error('Selecciona un turno');
       return;
     }
+
+    const shift = allShifts.find(s => s.id === selectedShiftId);
+    if (!shift) return;
 
     // Calculate differences
     const differences: Record<PaymentMethod, number> = { cash: 0, card: 0, transfer: 0 };
     let totalDifference = 0;
 
-    (Object.keys(paymentMethodConfig) as PaymentMethod[]).forEach(method => {
+    const usedMethods = getUsedMethods();
+    usedMethods.forEach(method => {
       const real = parseFloat(realAmounts[method]) || 0;
       const expected = selectedSummary.expectedByMethod[method];
       differences[method] = real - expected;
@@ -209,44 +233,60 @@ export default function Cortes() {
     });
 
     const finalCash = parseFloat(realAmounts.cash) || 0;
-    const expectedCash = selectedSummary.expectedByMethod.cash;
 
-    const newCut: CashCut = {
-      id: `cc${Date.now()}`,
-      shiftId: selectedShiftId,
-      branchId: currentBranch.id,
-      date: selectedSummary.shift.date,
-      userId: selectedSummary.shift.userId,
-      user: selectedSummary.shift.user,
-      initialCash: selectedSummary.shift.initialCash,
-      finalCash,
-      expectedCash,
-      difference: totalDifference,
-      salesByMethod: selectedSummary.salesByMethod,
-      totalSales: selectedSummary.totalSales,
-      totalExpenses: selectedSummary.totalExpenses,
-      appointmentsCount: selectedSummary.completedAppointments,
-      directSalesCount: selectedSummary.directSalesCount,
-    };
+    try {
+      const newCut = await api.cashCuts.create({
+        shift_id: selectedShiftId,
+        branch_id: currentBranch.id,
+        date: shift.date,
+        user_id: shift.userId,
+        initial_cash: shift.initialCash,
+        final_cash: finalCash,
+        expected_cash: selectedSummary.expectedByMethod.cash,
+        difference: totalDifference,
+        sales_by_method: selectedSummary.salesByMethod,
+        total_sales: selectedSummary.totalSales,
+        total_expenses: selectedSummary.totalExpenses,
+        appointments_count: selectedSummary.completedAppointments,
+        direct_sales_count: selectedSummary.directSalesCount,
+      });
 
-    setCashCuts(prev => [newCut, ...prev]);
-    toast.success('Corte de caja generado correctamente');
-    setIsDialogOpen(false);
-    setSelectedShiftId('');
-    setRealAmounts({ cash: '', card: '', transfer: '' });
+      setCashCuts(prev => [{
+        ...newCut,
+        user: shift.user,
+        sales_by_method: selectedSummary.salesByMethod,
+      }, ...prev]);
+
+      toast.success('Corte de caja generado correctamente');
+      setIsDialogOpen(false);
+      setSelectedShiftId('');
+      setRealAmounts({ cash: '', card: '', transfer: '' });
+    } catch (error) {
+      console.error('Error creating cash cut:', error);
+      toast.error('Error al generar corte');
+    }
   };
 
   const getUsedMethods = (): PaymentMethod[] => {
     if (!selectedSummary) return [];
+    const shift = allShifts.find(s => s.id === selectedShiftId);
     return (Object.keys(paymentMethodConfig) as PaymentMethod[]).filter(method => 
       selectedSummary.salesByMethod[method] > 0 || 
       selectedSummary.expensesByMethod[method] > 0 ||
       selectedSummary.purchasesByMethod[method] > 0 ||
-      (method === 'cash' && selectedSummary.shift?.initialCash)
+      (method === 'cash' && shift?.initialCash)
     );
   };
 
   const usedMethods = getUsedMethods();
+
+  if (loading || shiftsLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -292,29 +332,41 @@ export default function Cortes() {
                 </select>
               </div>
 
-              {selectedSummary && selectedSummary.shift && (
+              {summaryLoading && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              )}
+
+              {selectedSummary && !summaryLoading && (
                 <>
                   {/* Shift Info */}
-                  <div className="p-4 bg-secondary/30 rounded-lg">
-                    <div className="flex items-center gap-3 mb-3">
-                      <User className="h-5 w-5 text-primary" />
-                      <div>
-                        <p className="font-medium">{selectedSummary.shift.user.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(selectedSummary.shift.date).toLocaleDateString('es-MX', { 
-                            weekday: 'long', 
-                            day: 'numeric', 
-                            month: 'long' 
-                          })}
-                        </p>
+                  {(() => {
+                    const shift = allShifts.find(s => s.id === selectedShiftId);
+                    if (!shift) return null;
+                    return (
+                      <div className="p-4 bg-secondary/30 rounded-lg">
+                        <div className="flex items-center gap-3 mb-3">
+                          <User className="h-5 w-5 text-primary" />
+                          <div>
+                            <p className="font-medium">{shift.user.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(shift.date).toLocaleDateString('es-MX', { 
+                                weekday: 'long', 
+                                day: 'numeric', 
+                                month: 'long' 
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Banknote className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">Caja inicial:</span>
+                          <span className="font-medium">${shift.initialCash.toLocaleString()}</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Banknote className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Caja inicial:</span>
-                      <span className="font-medium">${selectedSummary.shift.initialCash.toLocaleString()}</span>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   {/* Summary Cards */}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -554,12 +606,12 @@ export default function Cortes() {
       {/* Table / Mobile Cards */}
       {isMobile ? (
         <div className="space-y-3">
-          {filteredCuts.length === 0 ? (
+          {cashCuts.length === 0 ? (
             <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
               No hay cortes de caja registrados
             </div>
           ) : (
-            filteredCuts
+            cashCuts
               .sort((a, b) => b.date.localeCompare(a.date))
               .map((cut) => (
                 <div key={cut.id} className="glass-card rounded-xl p-4 space-y-3">
@@ -568,9 +620,9 @@ export default function Cortes() {
                       <div className="flex items-center gap-2">
                         <div 
                           className="h-3 w-3 rounded-full" 
-                          style={{ backgroundColor: cut.user.color }}
+                          style={{ backgroundColor: cut.user?.color || '#3B82F6' }}
                         />
-                        <p className="font-semibold">{cut.user.name}</p>
+                        <p className="font-semibold">{cut.user?.name || 'Usuario'}</p>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                         <Calendar className="h-3.5 w-3.5" />
@@ -592,19 +644,19 @@ export default function Cortes() {
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
                       <p className="text-muted-foreground">Ventas</p>
-                      <p className="font-semibold text-success">${cut.totalSales.toLocaleString()}</p>
+                      <p className="font-semibold text-success">${cut.total_sales.toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Gastos</p>
-                      <p className="font-semibold text-destructive">${cut.totalExpenses.toLocaleString()}</p>
+                      <p className="font-semibold text-destructive">${cut.total_expenses.toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Esperado</p>
-                      <p className="font-semibold">${cut.expectedCash.toLocaleString()}</p>
+                      <p className="font-semibold">${cut.expected_cash.toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Real</p>
-                      <p className="font-semibold">${cut.finalCash.toLocaleString()}</p>
+                      <p className="font-semibold">${cut.final_cash.toLocaleString()}</p>
                     </div>
                   </div>
                   
@@ -638,14 +690,14 @@ export default function Cortes() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredCuts.length === 0 ? (
+              {cashCuts.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No hay cortes de caja registrados
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredCuts
+                cashCuts
                   .sort((a, b) => b.date.localeCompare(a.date))
                   .map((cut) => (
                     <TableRow key={cut.id}>
@@ -659,22 +711,22 @@ export default function Cortes() {
                         <div className="flex items-center gap-2">
                           <div 
                             className="h-3 w-3 rounded-full" 
-                            style={{ backgroundColor: cut.user.color }}
+                            style={{ backgroundColor: cut.user?.color || '#3B82F6' }}
                           />
-                          {cut.user.name}
+                          {cut.user?.name || 'Usuario'}
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-medium text-success">
-                        ${cut.totalSales.toLocaleString()}
+                        ${cut.total_sales.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right font-medium text-destructive">
-                        ${cut.totalExpenses.toLocaleString()}
+                        ${cut.total_expenses.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right">
-                        ${cut.expectedCash.toLocaleString()}
+                        ${cut.expected_cash.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        ${cut.finalCash.toLocaleString()}
+                        ${cut.final_cash.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right">
                         <Badge className={cn(
@@ -723,7 +775,7 @@ export default function Cortes() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Responsable:</span>
-                  <span>{viewingCut.user.name}</span>
+                  <span>{viewingCut.user?.name || 'Usuario'}</span>
                 </div>
               </div>
 
@@ -733,17 +785,17 @@ export default function Cortes() {
                   <div className="p-3 bg-green-500/10 rounded-lg text-center">
                     <Banknote className="h-5 w-5 mx-auto mb-1 text-green-600" />
                     <p className="text-xs text-muted-foreground">Efectivo</p>
-                    <p className="font-bold">${viewingCut.salesByMethod.cash.toLocaleString()}</p>
+                    <p className="font-bold">${(viewingCut.sales_by_method?.cash || 0).toLocaleString()}</p>
                   </div>
                   <div className="p-3 bg-blue-500/10 rounded-lg text-center">
                     <CreditCard className="h-5 w-5 mx-auto mb-1 text-blue-600" />
                     <p className="text-xs text-muted-foreground">Tarjeta</p>
-                    <p className="font-bold">${viewingCut.salesByMethod.card.toLocaleString()}</p>
+                    <p className="font-bold">${(viewingCut.sales_by_method?.card || 0).toLocaleString()}</p>
                   </div>
                   <div className="p-3 bg-purple-500/10 rounded-lg text-center">
                     <ArrowRightLeft className="h-5 w-5 mx-auto mb-1 text-purple-600" />
                     <p className="text-xs text-muted-foreground">Transferencia</p>
-                    <p className="font-bold">${viewingCut.salesByMethod.transfer.toLocaleString()}</p>
+                    <p className="font-bold">${(viewingCut.sales_by_method?.transfer || 0).toLocaleString()}</p>
                   </div>
                 </div>
               </div>
@@ -753,11 +805,11 @@ export default function Cortes() {
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="flex items-center gap-2">
                     <Scissors className="h-4 w-4 text-muted-foreground" />
-                    <span>{viewingCut.appointmentsCount} citas completadas</span>
+                    <span>{viewingCut.appointments_count} citas completadas</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-                    <span>{viewingCut.directSalesCount} ventas directas</span>
+                    <span>{viewingCut.direct_sales_count} ventas directas</span>
                   </div>
                 </div>
               </div>
@@ -765,23 +817,23 @@ export default function Cortes() {
               <div className="border-t pt-4 space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Efectivo inicial:</span>
-                  <span>${viewingCut.initialCash.toLocaleString()}</span>
+                  <span>${viewingCut.initial_cash.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-success">
                   <span>Total ventas:</span>
-                  <span>+${viewingCut.totalSales.toLocaleString()}</span>
+                  <span>+${viewingCut.total_sales.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-destructive">
                   <span>Total gastos:</span>
-                  <span>-${viewingCut.totalExpenses.toLocaleString()}</span>
+                  <span>-${viewingCut.total_expenses.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between font-medium pt-2 border-t">
                   <span>Efectivo esperado:</span>
-                  <span>${viewingCut.expectedCash.toLocaleString()}</span>
+                  <span>${viewingCut.expected_cash.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between font-medium">
                   <span>Efectivo real:</span>
-                  <span>${viewingCut.finalCash.toLocaleString()}</span>
+                  <span>${viewingCut.final_cash.toLocaleString()}</span>
                 </div>
               </div>
 
