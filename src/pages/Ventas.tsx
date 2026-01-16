@@ -887,7 +887,7 @@ export default function Ventas() {
         <TicketPrinter
           data={ticketData}
           open={showTicket}
-          onClose={() => setShowTicket(false)}
+          onOpenChange={setShowTicket}
         />
       )}
     </div>
