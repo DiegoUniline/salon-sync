@@ -5,10 +5,13 @@ const API_URL =
 
 let authToken: string | null = localStorage.getItem("salon_token");
 
-const getHeaders = () => ({
-  "Content-Type": "application/json",
-  ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-});
+const getHeaders = () => {
+  const token = localStorage.getItem("salon_token");
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
 
 const request = async (endpoint: string, options: RequestInit = {}) => {
   const response = await fetch(`${API_URL}${endpoint}`, {
