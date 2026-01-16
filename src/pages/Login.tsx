@@ -23,7 +23,7 @@ export default function Login() {
     // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const result = login(email, password);
+    const result = await login(email, password);
     
     if (!result.success) {
       setError(result.error || 'Error al iniciar sesión');
@@ -125,13 +125,13 @@ export default function Login() {
                   type="button"
                   onClick={() => {
                     setEmail(user.email);
-                    setPassword(user.password);
+                    setPassword('123456');
                   }}
                   className="flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors text-left"
                 >
                   <span className="font-medium">{user.email}</span>
                   <span className="text-muted-foreground text-xs">
-                    {user.password}
+                    {user.role}
                   </span>
                 </button>
               ))}
