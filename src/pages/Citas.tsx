@@ -419,32 +419,54 @@ export default function Citas() {
         onClick={() => openAppointmentDetail(appointment)}
       >
         <TableCell>
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <p className="font-medium">
-                {appointment.date.split("T")[0].split("-").reverse().join("/")}
-              </p>
-              <p className="text-sm text-muted-foreground">{appointment.time}</p>
-            </div>
-          </div>
+          <EditableCell
+            value={appointment.date.split("T")[0]}
+            type="text"
+            onSave={(value) => updateAppointmentField(appointment.id, "date", String(value))}
+            displayValue={
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="font-medium">
+                    {appointment.date.split("T")[0].split("-").reverse().join("/")}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{appointment.time}</p>
+                </div>
+              </div>
+            }
+          />
         </TableCell>
         <TableCell>
-          <div>
-            <p className="font-medium">{appointment.client_name || "Cliente"}</p>
-            <p className="text-sm text-muted-foreground">{appointment.client_phone || "-"}</p>
-          </div>
+          <EditableCell
+            value={appointment.client_name || "Cliente"}
+            type="text"
+            onSave={(value) => updateAppointmentField(appointment.id, "client_name", String(value))}
+            displayValue={
+              <div>
+                <p className="font-medium">{appointment.client_name || "Cliente"}</p>
+                <p className="text-sm text-muted-foreground">{appointment.client_phone || "-"}</p>
+              </div>
+            }
+          />
         </TableCell>
         <TableCell>
-          <div className="flex items-center gap-2">
-            <div
-              className="h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium text-white"
-              style={{ backgroundColor: getStylistColor(appointment.stylist_id) }}
-            >
-              {getStylistName(appointment.stylist_id).charAt(0)}
-            </div>
-            <span>{getStylistName(appointment.stylist_id)}</span>
-          </div>
+          <EditableCell
+            value={appointment.stylist_id}
+            type="select"
+            options={stylistOptions}
+            onSave={(value) => updateAppointmentField(appointment.id, "stylist_id", String(value))}
+            displayValue={
+              <div className="flex items-center gap-2">
+                <div
+                  className="h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium text-white"
+                  style={{ backgroundColor: getStylistColor(appointment.stylist_id) }}
+                >
+                  {getStylistName(appointment.stylist_id).charAt(0)}
+                </div>
+                <span>{getStylistName(appointment.stylist_id)}</span>
+              </div>
+            }
+          />
         </TableCell>
         <TableCell>
           <div className="flex flex-wrap gap-1">
@@ -461,9 +483,17 @@ export default function Citas() {
           </div>
         </TableCell>
         <TableCell>
-          <Badge className={cn("border", statusColors[appointment.status])}>
-            {statusLabels[appointment.status]}
-          </Badge>
+          <EditableCell
+            value={appointment.status}
+            type="select"
+            options={statusOptions}
+            onSave={(value) => updateStatus(appointment.id, value as Appointment["status"])}
+            displayValue={
+              <Badge className={cn("border", statusColors[appointment.status])}>
+                {statusLabels[appointment.status]}
+              </Badge>
+            }
+          />
         </TableCell>
         <TableCell className="text-right font-semibold">
           ${appointment.total?.toLocaleString()}

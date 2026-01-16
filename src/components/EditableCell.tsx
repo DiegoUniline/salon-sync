@@ -41,7 +41,8 @@ export function EditableCell({
     setEditValue(value);
   }, [value]);
 
-  const handleDoubleClick = () => {
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click when double-clicking to edit
     setIsEditing(true);
     setEditValue(value);
   };
