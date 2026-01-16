@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { useSearchParams } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useShift } from "@/hooks/useShift";
 import api from "@/lib/api";
 import { TicketPrinter, type TicketData } from "@/components/TicketPrinter";
 import { AppointmentDetailView } from "@/components/AppointmentDetailView";
@@ -153,6 +154,7 @@ type DateFilterType = "all" | "today" | "week" | "month" | "year" | "custom";
 export default function Citas() {
   const { currentBranch } = useApp();
   const { canCreate, canDelete } = usePermissions();
+  const { hasOpenShift } = useShift(currentBranch?.id || "");
   const [searchParams] = useSearchParams();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -894,6 +896,7 @@ export default function Citas() {
             initialDate={initialDate}
             initialTime={initialTime}
             initialStylistId={initialStylistId}
+            hasOpenShift={hasOpenShift}
             onClose={closeDetail}
             onSave={() => {
               loadAppointments();

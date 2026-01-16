@@ -30,6 +30,7 @@ interface MultiPaymentSelectorProps {
   payments: Payment[];
   onChange: (payments: Payment[]) => void;
   total: number;
+  disabled?: boolean;
 }
 
 const paymentMethods = [
@@ -42,6 +43,7 @@ export function MultiPaymentSelector({
   payments,
   onChange,
   total,
+  disabled = false,
 }: MultiPaymentSelectorProps) {
   const addPayment = () => {
     const round = (n: number) => Math.round(n * 100) / 100;
@@ -113,10 +115,10 @@ export function MultiPaymentSelector({
   }, [total]);
 
   return (
-    <div className="space-y-4">
+    <div className={cn("space-y-4", disabled && "opacity-50 pointer-events-none")}>
       <div className="flex items-center justify-between">
         <Label className="text-base font-semibold">Métodos de Pago</Label>
-        <Button type="button" variant="outline" size="sm" onClick={addPayment}>
+        <Button type="button" variant="outline" size="sm" onClick={addPayment} disabled={disabled}>
           <Plus className="h-4 w-4 mr-1" />
           Agregar
         </Button>

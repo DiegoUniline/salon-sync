@@ -40,9 +40,11 @@ import {
   Loader2,
   ArrowLeft,
   Printer,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Service {
   id: string;
@@ -125,6 +127,7 @@ interface AppointmentDetailViewProps {
   initialTime?: string;
   initialStylistId?: string;
   initialDuration?: number;
+  hasOpenShift?: boolean;
   onClose: () => void;
   onSave?: () => void;
 }
@@ -149,6 +152,7 @@ export function AppointmentDetailView({
   initialTime,
   initialStylistId,
   initialDuration,
+  hasOpenShift = true,
   onClose,
   onSave,
 }: AppointmentDetailViewProps) {
@@ -719,7 +723,20 @@ export function AppointmentDetailView({
             </div>
 
             {/* Payments */}
-            <MultiPaymentSelector payments={payments} onChange={setPayments} total={total} />
+            {!hasOpenShift && (
+              <Alert variant="destructive" className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Debes abrir un turno para registrar pagos
+                </AlertDescription>
+              </Alert>
+            )}
+            <MultiPaymentSelector 
+              payments={payments} 
+              onChange={setPayments} 
+              total={total}
+              disabled={!hasOpenShift}
+            />
 
             {/* Notes */}
             <div className="space-y-2">
@@ -797,7 +814,14 @@ export function AppointmentDetailView({
                         </Button>
                       )}
                       {currentStatus === "in-progress" && (
-                        <Button size="sm" variant="outline" className="flex-1 gap-1 text-success" onClick={() => updateStatus("completed")}>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="flex-1 gap-1 text-success" 
+                          onClick={() => updateStatus("completed")}
+                          disabled={!hasOpenShift}
+                          title={!hasOpenShift ? "Debes abrir un turno para completar citas" : undefined}
+                        >
                           <CheckCircle className="h-4 w-4" />
                           Completar
                         </Button>
