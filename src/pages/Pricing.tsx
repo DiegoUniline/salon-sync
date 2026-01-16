@@ -93,13 +93,16 @@ export default function Pricing() {
   }, []);
 
   const getPrice = (plan: Plan) => {
-    return isYearly ? plan.price_yearly : plan.price_monthly;
+    const price = isYearly ? plan.price_yearly : plan.price_monthly;
+    return Number(price) || 0;
   };
 
   const getSavings = (plan: Plan) => {
-    if (plan.price_monthly === 0) return 0;
-    const yearlyMonthly = plan.price_yearly / 12;
-    return Math.round(((plan.price_monthly - yearlyMonthly) / plan.price_monthly) * 100);
+    const monthly = Number(plan.price_monthly) || 0;
+    const yearly = Number(plan.price_yearly) || 0;
+    if (monthly === 0) return 0;
+    const yearlyMonthly = yearly / 12;
+    return Math.round(((monthly - yearlyMonthly) / monthly) * 100);
   };
 
   if (isLoading) {
@@ -228,7 +231,7 @@ export default function Pricing() {
                     className="w-full gap-2" 
                     variant={plan.is_popular ? 'default' : 'outline'}
                   >
-                    {plan.price_monthly === 0 ? 'Comenzar gratis' : 'Probar 14 días gratis'}
+                    {Number(plan.price_monthly) === 0 ? 'Comenzar gratis' : 'Probar 14 días gratis'}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
