@@ -103,16 +103,7 @@ export function MultiPaymentSelector({
       maximumFractionDigits: 2,
     });
 
-  useEffect(() => {
-    if (payments.length === 1) {
-      onChange([
-        {
-          ...payments[0],
-          amount: Number(total.toFixed(2)),
-        },
-      ]);
-    }
-  }, [total]);
+  // Removed auto-fill of total - user must enter amount manually
 
   return (
     <div className={cn("space-y-4", disabled && "opacity-50 pointer-events-none")}>
