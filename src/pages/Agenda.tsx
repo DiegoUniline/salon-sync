@@ -467,9 +467,13 @@ export default function Agenda() {
                 </div>
                 
                 {displayStylists.map(stylist => {
-                  const appointment = filteredAppointments.find(
-                    a => a.stylist_id === stylist.id && a.time === time
-                  );
+                  // Find appointment that starts in this hour slot
+                  const slotHour = parseInt(time.split(':')[0]);
+                  const appointment = filteredAppointments.find(a => {
+                    if (a.stylist_id !== stylist.id) return false;
+                    const appointmentHour = parseInt((a.time || '').split(':')[0]);
+                    return appointmentHour === slotHour;
+                  });
                   const isInDragRange = isSlotInDragRange(time, stylist.id);
 
                   return (
@@ -529,7 +533,11 @@ export default function Agenda() {
                 
                 {weekDates.map((date, i) => {
                   const dayAppointments = getAppointmentsForDate(date);
-                  const appointment = dayAppointments.find(a => a.time === time);
+                  const slotHour = parseInt(time.split(':')[0]);
+                  const appointment = dayAppointments.find(a => {
+                    const appointmentHour = parseInt((a.time || '').split(':')[0]);
+                    return appointmentHour === slotHour;
+                  });
 
                   return (
                     <div 
