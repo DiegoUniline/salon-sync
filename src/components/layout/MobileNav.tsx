@@ -38,6 +38,7 @@ const navItems: NavItem[] = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard', moduleId: 'dashboard' },
   { path: '/agenda', icon: Calendar, label: 'Agenda', moduleId: 'agenda' },
   { path: '/citas', icon: CalendarCheck, label: 'Citas', moduleId: 'agenda' },
+  { path: '/pagos', icon: DollarSign, label: 'Pagos', moduleId: 'pagos' },
   { path: '/servicios', icon: Scissors, label: 'Servicios', moduleId: 'servicios' },
   { path: '/productos', icon: Package, label: 'Productos', moduleId: 'productos' },
   { path: '/ventas', icon: ShoppingCart, label: 'Ventas', moduleId: 'ventas' },

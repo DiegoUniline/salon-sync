@@ -14,6 +14,7 @@ const TOKEN_KEY = "salon_token";
 export type ModuleId =
   | "dashboard"
   | "agenda"
+  | "pagos"
   | "ventas"
   | "gastos"
   | "compras"

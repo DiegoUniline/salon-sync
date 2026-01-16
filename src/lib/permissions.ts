@@ -2,6 +2,7 @@
 export const modules = [
   { id: 'dashboard', name: 'Dashboard', icon: '📊' },
   { id: 'agenda', name: 'Agenda', icon: '📅' },
+  { id: 'pagos', name: 'Pagos', icon: '💳' },
   { id: 'ventas', name: 'Ventas', icon: '💰' },
   { id: 'gastos', name: 'Gastos', icon: '💸' },
   { id: 'compras', name: 'Compras', icon: '📦' },
@@ -15,6 +16,7 @@ export const modules = [
   { id: 'permisos', name: 'Permisos', icon: '🔐' },
 ] as const;
 
+// Type derived from modules array
 export type ModuleId = typeof modules[number]['id'];
 
 // Acciones disponibles
@@ -60,6 +62,7 @@ export interface UserWithRole {
 const defaultPermissions: Record<ModuleId, ModulePermissions> = {
   dashboard: { view: false, create: false, edit: false, delete: false },
   agenda: { view: false, create: false, edit: false, delete: false },
+  pagos: { view: false, create: false, edit: false, delete: false },
   ventas: { view: false, create: false, edit: false, delete: false },
   gastos: { view: false, create: false, edit: false, delete: false },
   compras: { view: false, create: false, edit: false, delete: false },
@@ -77,6 +80,7 @@ const defaultPermissions: Record<ModuleId, ModulePermissions> = {
 const fullPermissions: Record<ModuleId, ModulePermissions> = {
   dashboard: { view: true, create: true, edit: true, delete: true },
   agenda: { view: true, create: true, edit: true, delete: true },
+  pagos: { view: true, create: true, edit: true, delete: true },
   ventas: { view: true, create: true, edit: true, delete: true },
   gastos: { view: true, create: true, edit: true, delete: true },
   compras: { view: true, create: true, edit: true, delete: true },
@@ -120,6 +124,7 @@ export const defaultRoles: Role[] = [
     permissions: {
       dashboard: { view: true, create: false, edit: false, delete: false },
       agenda: { view: true, create: true, edit: true, delete: true },
+      pagos: { view: true, create: false, edit: false, delete: false },
       ventas: { view: true, create: true, edit: false, delete: false },
       gastos: { view: false, create: false, edit: false, delete: false },
       compras: { view: false, create: false, edit: false, delete: false },
@@ -142,6 +147,7 @@ export const defaultRoles: Role[] = [
     permissions: {
       dashboard: { view: true, create: false, edit: false, delete: false },
       agenda: { view: true, create: false, edit: false, delete: false },
+      pagos: { view: false, create: false, edit: false, delete: false },
       ventas: { view: false, create: false, edit: false, delete: false },
       gastos: { view: false, create: false, edit: false, delete: false },
       compras: { view: false, create: false, edit: false, delete: false },
