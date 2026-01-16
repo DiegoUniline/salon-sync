@@ -1,14 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useApp } from '@/contexts/AppContext';
-import { 
-  stylists,
-  sales,
-  expenses,
-  purchases,
-  appointments,
-  cashCuts as mockCashCuts,
-  type CashCut,
-} from '@/lib/mockData';
+import api from '@/lib/api';
 import { useShift } from '@/hooks/useShift';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -57,6 +49,7 @@ import {
   Scissors,
   Receipt,
   Calculator,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -68,12 +61,35 @@ const paymentMethodConfig = {
 
 type PaymentMethod = keyof typeof paymentMethodConfig;
 
+interface ShiftSummary {
+  salesByMethod: Record<PaymentMethod, number>;
+  totalSales: number;
+  appointmentSalesCount: number;
+  directSalesCount: number;
+  expensesByMethod: Record<PaymentMethod, number>;
+  totalExpenses: number;
+  purchasesByMethod: Record<PaymentMethod, number>;
+  totalPurchases: number;
+  expectedByMethod: Record<PaymentMethod, number>;
+  completedAppointments: number;
+  usedMethods: PaymentMethod[];
+}
+
+interface UserOption {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export default function Turnos() {
   const { currentBranch } = useApp();
-  const { shifts, openShift, hasOpenShift, openTurn, closeTurn, getShiftsForBranch } = useShift(currentBranch.id);
+  const { shifts, openShift, hasOpenShift, openTurn, closeTurn, getShiftsForBranch, loading: shiftsLoading } = useShift(currentBranch.id);
   const [isOpenDialogOpen, setIsOpenDialogOpen] = useState(false);
   const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
-  const [cashCuts, setCashCuts] = useState<CashCut[]>(mockCashCuts);
+  const [users, setUsers] = useState<UserOption[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [shiftSummary, setShiftSummary] = useState<ShiftSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const [openFormData, setOpenFormData] = useState({
     userId: '',
@@ -89,7 +105,7 @@ export default function Turnos() {
   // Step for close dialog: 'input' = enter amounts, 'summary' = show readonly result
   const [closeStep, setCloseStep] = useState<'input' | 'summary'>('input');
   const [closedSummaryData, setClosedSummaryData] = useState<{
-    shiftSummary: typeof shiftSummary;
+    shiftSummary: ShiftSummary;
     realAmounts: Record<PaymentMethod, number>;
     differences: Record<PaymentMethod, number>;
     totalDifference: number;
@@ -97,101 +113,114 @@ export default function Turnos() {
 
   const filteredShifts = getShiftsForBranch(currentBranch.id);
 
-  // Calculate shift summary for closing
-  const shiftSummary = useMemo(() => {
-    if (!openShift) return null;
+  // Load users for the select
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const data = await api.users.getAll({ branch_id: currentBranch.id });
+        setUsers(data.map((u: any) => ({
+          id: u.id,
+          name: u.name,
+          color: u.color || '#3B82F6',
+        })));
+      } catch (error) {
+        console.error('Error loading users:', error);
+      } finally {
+        setUsersLoading(false);
+      }
+    };
+    if (currentBranch?.id) {
+      loadUsers();
+    }
+  }, [currentBranch?.id]);
 
-    const shiftDate = openShift.date;
-    
-    // Filter data for this shift's date and branch
-    const shiftSales = sales.filter(s => 
-      s.branchId === currentBranch.id && s.date === shiftDate
-    );
-    const shiftExpenses = expenses.filter(e => 
-      e.branchId === currentBranch.id && e.date === shiftDate
-    );
-    const shiftPurchases = purchases.filter(p => 
-      p.branchId === currentBranch.id && p.date === shiftDate
-    );
-    const shiftAppointments = appointments.filter(a => 
-      a.branchId === currentBranch.id && 
-      a.date === shiftDate && 
-      a.status === 'completed'
-    );
+  // Load shift summary when opening close dialog
+  useEffect(() => {
+    const loadSummary = async () => {
+      if (!openShift || !isCloseDialogOpen) return;
+      
+      setSummaryLoading(true);
+      try {
+        const data = await api.shifts.getSummary(openShift.id);
+        
+        // Normalize API response
+        const salesByMethod: Record<PaymentMethod, number> = {
+          cash: data.sales_by_method?.cash || 0,
+          card: data.sales_by_method?.card || 0,
+          transfer: data.sales_by_method?.transfer || 0,
+        };
+        const expensesByMethod: Record<PaymentMethod, number> = {
+          cash: data.expenses_by_method?.cash || 0,
+          card: data.expenses_by_method?.card || 0,
+          transfer: data.expenses_by_method?.transfer || 0,
+        };
+        const purchasesByMethod: Record<PaymentMethod, number> = {
+          cash: data.purchases_by_method?.cash || 0,
+          card: data.purchases_by_method?.card || 0,
+          transfer: data.purchases_by_method?.transfer || 0,
+        };
+        
+        const expectedByMethod: Record<PaymentMethod, number> = {
+          cash: openShift.initialCash + salesByMethod.cash - expensesByMethod.cash - purchasesByMethod.cash,
+          card: salesByMethod.card - expensesByMethod.card - purchasesByMethod.card,
+          transfer: salesByMethod.transfer - expensesByMethod.transfer - purchasesByMethod.transfer,
+        };
 
-    // Initialize method totals
-    const salesByMethod: Record<PaymentMethod, number> = { cash: 0, card: 0, transfer: 0 };
-    const expensesByMethod: Record<PaymentMethod, number> = { cash: 0, card: 0, transfer: 0 };
-    const purchasesByMethod: Record<PaymentMethod, number> = { cash: 0, card: 0, transfer: 0 };
+        const totalSales = Object.values(salesByMethod).reduce((sum, v) => sum + v, 0);
+        const totalExpenses = Object.values(expensesByMethod).reduce((sum, v) => sum + v, 0);
+        const totalPurchases = Object.values(purchasesByMethod).reduce((sum, v) => sum + v, 0);
 
-    // Calculate sales by method (including mixed payments)
-    shiftSales.forEach(sale => {
-      if (sale.paymentMethod === 'mixed' && sale.payments) {
-        sale.payments.forEach(p => {
-          if (p.method in salesByMethod) {
-            salesByMethod[p.method as PaymentMethod] += p.amount;
-          }
+        const usedMethods = (Object.keys(paymentMethodConfig) as PaymentMethod[]).filter(method => 
+          salesByMethod[method] > 0 || 
+          expensesByMethod[method] > 0 ||
+          purchasesByMethod[method] > 0 ||
+          method === 'cash'
+        );
+
+        setShiftSummary({
+          salesByMethod,
+          totalSales,
+          appointmentSalesCount: data.appointment_sales_count || 0,
+          directSalesCount: data.direct_sales_count || 0,
+          expensesByMethod,
+          totalExpenses,
+          purchasesByMethod,
+          totalPurchases,
+          expectedByMethod,
+          completedAppointments: data.completed_appointments || 0,
+          usedMethods,
         });
-      } else if (sale.paymentMethod in salesByMethod) {
-        salesByMethod[sale.paymentMethod as PaymentMethod] += sale.total;
+      } catch (error) {
+        console.error('Error loading shift summary:', error);
+        // Fallback to empty summary
+        setShiftSummary({
+          salesByMethod: { cash: 0, card: 0, transfer: 0 },
+          totalSales: 0,
+          appointmentSalesCount: 0,
+          directSalesCount: 0,
+          expensesByMethod: { cash: 0, card: 0, transfer: 0 },
+          totalExpenses: 0,
+          purchasesByMethod: { cash: 0, card: 0, transfer: 0 },
+          totalPurchases: 0,
+          expectedByMethod: { cash: openShift?.initialCash || 0, card: 0, transfer: 0 },
+          completedAppointments: 0,
+          usedMethods: ['cash'],
+        });
+      } finally {
+        setSummaryLoading(false);
       }
-    });
-
-    // Calculate expenses by method
-    shiftExpenses.forEach(expense => {
-      if (expense.paymentMethod in expensesByMethod) {
-        expensesByMethod[expense.paymentMethod as PaymentMethod] += expense.amount;
-      }
-    });
-
-    // Calculate purchases by method
-    shiftPurchases.forEach(purchase => {
-      if (purchase.paymentMethod in purchasesByMethod) {
-        purchasesByMethod[purchase.paymentMethod as PaymentMethod] += purchase.total;
-      }
-    });
-
-    // Calculate expected amounts per method
-    const expectedByMethod: Record<PaymentMethod, number> = {
-      cash: openShift.initialCash + salesByMethod.cash - expensesByMethod.cash - purchasesByMethod.cash,
-      card: salesByMethod.card - expensesByMethod.card - purchasesByMethod.card,
-      transfer: salesByMethod.transfer - expensesByMethod.transfer - purchasesByMethod.transfer,
     };
+    
+    loadSummary();
+  }, [openShift, isCloseDialogOpen]);
 
-    const totalSales = Object.values(salesByMethod).reduce((sum, v) => sum + v, 0);
-    const totalExpenses = Object.values(expensesByMethod).reduce((sum, v) => sum + v, 0);
-    const totalPurchases = Object.values(purchasesByMethod).reduce((sum, v) => sum + v, 0);
-
-    // Get methods that were actually used
-    const usedMethods = (Object.keys(paymentMethodConfig) as PaymentMethod[]).filter(method => 
-      salesByMethod[method] > 0 || 
-      expensesByMethod[method] > 0 ||
-      purchasesByMethod[method] > 0 ||
-      (method === 'cash') // Always include cash
-    );
-
-    return {
-      salesByMethod,
-      totalSales,
-      appointmentSalesCount: shiftSales.filter(s => s.type === 'appointment').length,
-      directSalesCount: shiftSales.filter(s => s.type === 'direct').length,
-      expensesByMethod,
-      totalExpenses,
-      purchasesByMethod,
-      totalPurchases,
-      expectedByMethod,
-      completedAppointments: shiftAppointments.length,
-      usedMethods,
-    };
-  }, [openShift, currentBranch.id]);
-
-  const handleOpenTurn = () => {
+  const handleOpenTurn = async () => {
     if (!openFormData.userId || !openFormData.initialCash) {
       toast.error('Completa los campos requeridos');
       return;
     }
 
-    const result = openTurn(
+    const result = await openTurn(
       openFormData.userId,
       parseFloat(openFormData.initialCash),
       currentBranch.id
@@ -201,18 +230,15 @@ export default function Turnos() {
       toast.success('Turno abierto correctamente');
       setIsOpenDialogOpen(false);
       setOpenFormData({ userId: '', initialCash: '' });
-    } else {
-      toast.error('No se pudo abrir el turno');
     }
   };
 
-  const handleCloseTurn = () => {
+  const handleCloseTurn = async () => {
     if (!openShift || !shiftSummary) {
       toast.error('No hay turno activo');
       return;
     }
 
-    // Check at least cash amount is entered
     if (!realAmounts.cash) {
       toast.error('Ingresa al menos el efectivo en caja');
       return;
@@ -233,32 +259,31 @@ export default function Turnos() {
 
     const finalCash = parseFloat(realAmounts.cash) || 0;
 
-    // Create cash cut
-    const newCut: CashCut = {
-      id: `cc${Date.now()}`,
-      shiftId: openShift.id,
-      branchId: currentBranch.id,
-      date: openShift.date,
-      userId: openShift.userId,
-      user: openShift.user,
-      initialCash: openShift.initialCash,
-      finalCash,
-      expectedCash: shiftSummary.expectedByMethod.cash,
-      difference: totalDiff,
-      salesByMethod: shiftSummary.salesByMethod,
-      totalSales: shiftSummary.totalSales,
-      totalExpenses: shiftSummary.totalExpenses,
-      appointmentsCount: shiftSummary.completedAppointments,
-      directSalesCount: shiftSummary.directSalesCount,
-    };
-
-    setCashCuts(prev => [newCut, ...prev]);
+    // Create cash cut via API
+    try {
+      await api.cashCuts.create({
+        shift_id: openShift.id,
+        branch_id: currentBranch.id,
+        date: openShift.date,
+        user_id: openShift.userId,
+        initial_cash: openShift.initialCash,
+        final_cash: finalCash,
+        expected_cash: shiftSummary.expectedByMethod.cash,
+        difference: totalDiff,
+        sales_by_method: shiftSummary.salesByMethod,
+        total_sales: shiftSummary.totalSales,
+        total_expenses: shiftSummary.totalExpenses,
+        appointments_count: shiftSummary.completedAppointments,
+        direct_sales_count: shiftSummary.directSalesCount,
+      });
+    } catch (error) {
+      console.error('Error creating cash cut:', error);
+    }
 
     // Close the shift
-    const success = closeTurn(openShift.id, finalCash);
+    const success = await closeTurn(openShift.id, finalCash);
 
     if (success) {
-      // Store summary data and switch to summary step
       setClosedSummaryData({
         shiftSummary: { ...shiftSummary },
         realAmounts: realAmountsNum,
@@ -267,8 +292,6 @@ export default function Turnos() {
       });
       setCloseStep('summary');
       toast.success('Turno cerrado correctamente');
-    } else {
-      toast.error('No se pudo cerrar el turno');
     }
   };
 
@@ -277,6 +300,7 @@ export default function Turnos() {
     setRealAmounts({ cash: '', card: '', transfer: '' });
     setCloseStep('input');
     setClosedSummaryData(null);
+    setShiftSummary(null);
   };
 
   const formatTime = (time: string) => {
@@ -287,6 +311,13 @@ export default function Turnos() {
     return `${formattedHour}:${minutes} ${ampm}`;
   };
 
+  if (shiftsLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -321,14 +352,20 @@ export default function Turnos() {
                         <SelectValue placeholder="Selecciona responsable" />
                       </SelectTrigger>
                       <SelectContent>
-                        {stylists.map(stylist => (
-                          <SelectItem key={stylist.id} value={stylist.id}>
-                            <div className="flex items-center gap-2">
-                              <div className="h-3 w-3 rounded-full" style={{ backgroundColor: stylist.color }} />
-                              {stylist.name}
-                            </div>
-                          </SelectItem>
-                        ))}
+                        {usersLoading ? (
+                          <div className="p-2 text-center">
+                            <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                          </div>
+                        ) : (
+                          users.map(user => (
+                            <SelectItem key={user.id} value={user.id}>
+                              <div className="flex items-center gap-2">
+                                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: user.color }} />
+                                {user.name}
+                              </div>
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -597,82 +634,90 @@ export default function Turnos() {
           </DialogHeader>
           
           {/* STEP 1: Input amounts only */}
-          {closeStep === 'input' && openShift && shiftSummary && (
+          {closeStep === 'input' && openShift && (
             <div className="space-y-4 py-4">
-              {/* Shift Info */}
-              <div className="p-4 bg-secondary/30 rounded-lg">
-                <div className="flex items-center gap-3 mb-3">
-                  <User className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="font-medium">{openShift.user.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(openShift.date).toLocaleDateString('es-MX', { 
-                        weekday: 'long', 
-                        day: 'numeric', 
-                        month: 'long' 
-                      })} • {formatTime(openShift.startTime)} - Ahora
-                    </p>
-                  </div>
+              {summaryLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Banknote className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Caja inicial:</span>
-                  <span className="font-medium">${openShift.initialCash.toLocaleString()}</span>
-                </div>
-              </div>
-
-              {/* Real Amount Inputs */}
-              <div className="space-y-3">
-                <h4 className="font-medium flex items-center gap-2">
-                  <Calculator className="h-4 w-4" />
-                  ¿Cuánto tienes en caja por cada método?
-                </h4>
-                
-                <div className="grid gap-3">
-                  {shiftSummary.usedMethods.map(method => {
-                    const config = paymentMethodConfig[method];
-                    const Icon = config.icon;
-                    
-                    return (
-                      <div key={method} className={cn("p-3 rounded-lg border", config.bg)}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Icon className={cn("h-5 w-5", config.color)} />
-                          <span className="font-medium">{config.label}</span>
-                        </div>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                          <Input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            value={realAmounts[method]}
-                            onChange={(e) => setRealAmounts(prev => ({ 
-                              ...prev, 
-                              [method]: e.target.value 
-                            }))}
-                            className="pl-7 bg-background"
-                            placeholder="0.00"
-                          />
-                        </div>
+              ) : shiftSummary && (
+                <>
+                  {/* Shift Info */}
+                  <div className="p-4 bg-secondary/30 rounded-lg">
+                    <div className="flex items-center gap-3 mb-3">
+                      <User className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="font-medium">{openShift.user.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(openShift.date).toLocaleDateString('es-MX', { 
+                            weekday: 'long', 
+                            day: 'numeric', 
+                            month: 'long' 
+                          })} • {formatTime(openShift.startTime)} - Ahora
+                        </p>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Banknote className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Caja inicial:</span>
+                      <span className="font-medium">${openShift.initialCash.toLocaleString()}</span>
+                    </div>
+                  </div>
 
-              <div className="flex justify-end gap-3 pt-4">
-                <Button variant="outline" onClick={handleCloseDialog}>
-                  Cancelar
-                </Button>
-                <Button 
-                  variant="destructive"
-                  onClick={handleCloseTurn}
-                  disabled={!realAmounts.cash}
-                >
-                  <StopCircle className="h-4 w-4 mr-2" />
-                  Cerrar Turno
-                </Button>
-              </div>
+                  {/* Real Amount Inputs */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Calculator className="h-4 w-4" />
+                      ¿Cuánto tienes en caja por cada método?
+                    </h4>
+                    
+                    <div className="grid gap-3">
+                      {shiftSummary.usedMethods.map(method => {
+                        const config = paymentMethodConfig[method];
+                        const Icon = config.icon;
+                        
+                        return (
+                          <div key={method} className={cn("p-3 rounded-lg border", config.bg)}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Icon className={cn("h-5 w-5", config.color)} />
+                              <span className="font-medium">{config.label}</span>
+                            </div>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={realAmounts[method]}
+                                onChange={(e) => setRealAmounts(prev => ({ 
+                                  ...prev, 
+                                  [method]: e.target.value 
+                                }))}
+                                className="pl-7 bg-background"
+                                placeholder="0.00"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4">
+                    <Button variant="outline" onClick={handleCloseDialog}>
+                      Cancelar
+                    </Button>
+                    <Button 
+                      variant="destructive"
+                      onClick={handleCloseTurn}
+                      disabled={!realAmounts.cash}
+                    >
+                      <StopCircle className="h-4 w-4 mr-2" />
+                      Cerrar Turno
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
