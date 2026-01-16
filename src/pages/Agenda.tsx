@@ -634,33 +634,37 @@ export default function Agenda() {
       {/* Appointment Detail Dialog */}
       <Dialog open={!!selectedAppointment} onOpenChange={() => setSelectedAppointment(null)}>
         <DialogContent className="max-w-sm">
-          {selectedAppointment && (
-            <>
-              <DialogHeader className="pb-2">
-                <DialogTitle className="flex items-center gap-2">
-                  <div 
-                    className="w-3 h-3 rounded-full" 
-                    style={{ backgroundColor: getStylistColor(selectedAppointment.stylist_id) }}
-                  />
-                  {selectedAppointment.client?.name || 'Cliente'}
-                </DialogTitle>
-              </DialogHeader>
-              
-              <div className="space-y-3">
-                <Badge className={cn("text-xs", statusColors[selectedAppointment.status])}>
-                  {statusLabels[selectedAppointment.status]}
-                </Badge>
+          {selectedAppointment && (() => {
+              const clientName = (selectedAppointment as any).client_name || selectedAppointment.client?.name || 'Cliente';
+              const clientPhone = (selectedAppointment as any).client_phone || selectedAppointment.client?.phone || '-';
+              const timeFormatted = (selectedAppointment.time || '').slice(0, 5);
+              return (
+                <>
+                  <DialogHeader className="pb-2">
+                    <DialogTitle className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: getStylistColor(selectedAppointment.stylist_id) }}
+                      />
+                      {clientName}
+                    </DialogTitle>
+                  </DialogHeader>
+                  
+                  <div className="space-y-3">
+                    <Badge className={cn("text-xs", statusColors[selectedAppointment.status])}>
+                      {statusLabels[selectedAppointment.status]}
+                    </Badge>
 
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Clock className="h-4 w-4" />
-                    <span>{selectedAppointment.time}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Phone className="h-4 w-4" />
-                    <span>{selectedAppointment.client?.phone || '-'}</span>
-                  </div>
-                </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Clock className="h-4 w-4" />
+                        <span>{timeFormatted}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Phone className="h-4 w-4" />
+                        <span>{clientPhone}</span>
+                      </div>
+                    </div>
 
                 {selectedAppointment.services && selectedAppointment.services.length > 0 && (
                   <div className="border-t pt-3">
@@ -696,7 +700,8 @@ export default function Agenda() {
                 </div>
               </div>
             </>
-          )}
+              );
+            })()}
         </DialogContent>
       </Dialog>
 
@@ -717,6 +722,12 @@ function AppointmentChip({ appointment, stylistColor, onClick }: { appointment: 
   const duration = appointment.services?.reduce((sum, s) => sum + s.duration, 0) || 60;
   const slots = Math.ceil(duration / 60);
   const height = Math.max(slots * 44 - 4, 40);
+  
+  // Use direct fields from API (client_name, client_phone) or fallback to nested objects
+  const clientName = (appointment as any).client_name || appointment.client?.name || 'Cliente';
+  const clientPhone = (appointment as any).client_phone || appointment.client?.phone || '';
+  const serviceName = appointment.services?.[0]?.name || 'Servicio';
+  const timeFormatted = (appointment.time || '').slice(0, 5);
 
   return (
     <div
@@ -730,8 +741,9 @@ function AppointmentChip({ appointment, stylistColor, onClick }: { appointment: 
         borderLeft: `3px solid ${stylistColor}`,
       }}
     >
-      <p className="font-medium text-xs truncate">{appointment.client?.name || 'Cliente'}</p>
-      <p className="text-[10px] text-muted-foreground truncate">{appointment.services?.[0]?.name || 'Servicio'}</p>
+      <p className="font-medium text-xs truncate">{clientName}</p>
+      <p className="text-[10px] text-muted-foreground truncate">{serviceName}</p>
+      {clientPhone && <p className="text-[10px] text-muted-foreground truncate">📞 {clientPhone}</p>}
       {slots > 1 && <p className="text-[10px] font-medium mt-0.5">${appointment.total}</p>}
     </div>
   );
