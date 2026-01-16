@@ -105,6 +105,13 @@ export default function Login() {
                 {isLoading ? 'Iniciando...' : 'Iniciar Sesión'}
               </Button>
             </form>
+            
+            <p className="text-center text-sm text-muted-foreground mt-4">
+              ¿No tienes cuenta?{' '}
+              <a href="#/signup" className="text-primary hover:underline font-medium">
+                Inicia tu prueba gratis de 14 días
+              </a>
+            </p>
           </CardContent>
         </Card>
 
