@@ -663,14 +663,21 @@ export default function SuperAdmin() {
                     const days = getDaysRemaining(sub?.ends_at || null, sub?.trial_ends_at);
                     
                     return (
-                      <TableRow key={account.id}>
+                      <TableRow key={account.id} className={!account.active ? 'opacity-60 bg-muted/30' : ''}>
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <Store className="h-5 w-5 text-primary" />
+                            <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                              account.active ? 'bg-primary/10' : 'bg-muted'
+                            }`}>
+                              <Store className={`h-5 w-5 ${account.active ? 'text-primary' : 'text-muted-foreground'}`} />
                             </div>
                             <div>
-                              <p className="font-medium">{account.name}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium">{account.name}</p>
+                                {!account.active && (
+                                  <Badge variant="secondary" className="text-xs">Inactiva</Badge>
+                                )}
+                              </div>
                               <p className="text-sm text-muted-foreground">
                                 Desde {format(new Date(account.created_at), "MMM yyyy", { locale: es })}
                               </p>
@@ -688,32 +695,51 @@ export default function SuperAdmin() {
                               {plan && <p className="text-xs text-muted-foreground">${plan.price_monthly}/mes</p>}
                             </div>
                           ) : (
-                            <Badge variant="secondary">Sin plan</Badge>
+                            <div className="space-y-1">
+                              <Badge variant="secondary" className="bg-orange-100 text-orange-700 border-orange-200">
+                                Sin plan asignado
+                              </Badge>
+                              <Button 
+                                variant="link" 
+                                size="sm" 
+                                className="h-auto p-0 text-xs text-primary"
+                                onClick={() => openEditSubscription(account)}
+                              >
+                                + Asignar plan
+                              </Button>
+                            </div>
                           )}
                         </TableCell>
                         <TableCell>
                           {sub ? getStatusBadge(sub.status) : (
-                            <Badge variant="secondary">Sin suscripción</Badge>
+                            <Badge variant="outline" className="text-muted-foreground border-dashed">
+                              <XCircle className="h-3 w-3 mr-1" />
+                              Sin suscripción
+                            </Badge>
                           )}
                         </TableCell>
                         <TableCell>
-                          {getDaysRemainingBadge(days)}
+                          {sub ? getDaysRemainingBadge(days) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => openPaymentDialog(account)}
-                              title="Registrar pago"
-                            >
-                              <Receipt className="h-4 w-4 text-green-600" />
-                            </Button>
+                            {sub && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => openPaymentDialog(account)}
+                                title="Registrar pago"
+                              >
+                                <Receipt className="h-4 w-4 text-green-600" />
+                              </Button>
+                            )}
                             <Button 
                               variant="ghost" 
                               size="icon" 
                               onClick={() => openEditSubscription(account)}
-                              title="Gestionar suscripción"
+                              title={sub ? "Gestionar suscripción" : "Asignar plan"}
                             >
                               <CreditCard className="h-4 w-4" />
                             </Button>
