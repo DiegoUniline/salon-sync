@@ -111,12 +111,23 @@ export default function SuperAdmin() {
   const [selectedAccountForPayment, setSelectedAccountForPayment] = useState<Account | null>(null);
 
   // Form states
-  const [accountForm, setAccountForm] = useState<Partial<Account>>({
+  const [accountForm, setAccountForm] = useState<Partial<Account> & {
+    admin_name?: string;
+    admin_email?: string;
+    admin_password?: string;
+    plan_id?: string;
+    trial_days?: number;
+  }>({
     name: '',
     email: '',
     phone: '',
     address: '',
     active: true,
+    admin_name: '',
+    admin_email: '',
+    admin_password: '',
+    plan_id: '',
+    trial_days: 14,
   });
 
   const [subscriptionForm, setSubscriptionForm] = useState({
@@ -260,36 +271,61 @@ export default function SuperAdmin() {
       toast.error('El nombre del negocio es requerido');
       return;
     }
-    if (!accountForm.email?.trim()) {
-      toast.error('El email es requerido');
+    
+    // Para edición solo necesitamos datos básicos
+    if (editingAccount) {
+      try {
+        const dataToSend = {
+          name: accountForm.name.trim(),
+          email: accountForm.email?.trim() || editingAccount.email,
+          phone: accountForm.phone?.trim() || null,
+          address: accountForm.address?.trim() || null,
+          active: accountForm.active ?? true,
+        };
+        
+        console.log('💾 Actualizando cuenta:', dataToSend);
+        const result = await api.admin.updateAccount(editingAccount.id, dataToSend);
+        console.log('✅ Cuenta actualizada:', result);
+        toast.success('Cuenta actualizada');
+        await loadData();
+        resetAccountForm();
+      } catch (error: any) {
+        console.error('❌ Error actualizando cuenta:', error);
+        toast.error(error.message || 'Error al actualizar cuenta');
+      }
+      return;
+    }
+    
+    // Para crear nueva cuenta, validar campos de admin
+    if (!accountForm.admin_email?.trim()) {
+      toast.error('El email del administrador es requerido');
+      return;
+    }
+    if (!accountForm.admin_password?.trim()) {
+      toast.error('La contraseña del administrador es requerida');
       return;
     }
     
     try {
       const dataToSend = {
         account_name: accountForm.name.trim(),
-        email: accountForm.email.trim(),
-        phone: accountForm.phone?.trim() || null,
-        address: accountForm.address?.trim() || null,
-        active: accountForm.active ?? true,
+        admin_name: accountForm.admin_name?.trim() || accountForm.name.trim(),
+        admin_email: accountForm.admin_email.trim(),
+        admin_password: accountForm.admin_password.trim(),
+        admin_phone: accountForm.phone?.trim() || null,
+        plan_id: accountForm.plan_id || 'plan-basic',
+        trial_days: accountForm.trial_days || 14,
       };
       
-      console.log('💾 Guardando cuenta:', dataToSend);
-      
-      if (editingAccount) {
-        const result = await api.admin.updateAccount(editingAccount.id, dataToSend);
-        console.log('✅ Cuenta actualizada:', result);
-        toast.success('Cuenta actualizada');
-      } else {
-        const result = await api.admin.createAccount(dataToSend);
-        console.log('✅ Cuenta creada:', result);
-        toast.success('Cuenta creada exitosamente');
-      }
+      console.log('💾 Creando cuenta:', dataToSend);
+      const result = await api.admin.createAccount(dataToSend);
+      console.log('✅ Cuenta creada:', result);
+      toast.success('Cuenta creada exitosamente');
       await loadData();
       resetAccountForm();
     } catch (error: any) {
-      console.error('❌ Error guardando cuenta:', error);
-      toast.error(error.message || 'Error al guardar cuenta');
+      console.error('❌ Error creando cuenta:', error);
+      toast.error(error.message || 'Error al crear cuenta');
     }
   };
 
@@ -305,7 +341,18 @@ export default function SuperAdmin() {
   };
 
   const resetAccountForm = () => {
-    setAccountForm({ name: '', email: '', phone: '', address: '', active: true });
+    setAccountForm({ 
+      name: '', 
+      email: '', 
+      phone: '', 
+      address: '', 
+      active: true,
+      admin_name: '',
+      admin_email: '',
+      admin_password: '',
+      plan_id: '',
+      trial_days: 14,
+    });
     setEditingAccount(null);
     setAccountDialogOpen(false);
   };
@@ -585,22 +632,14 @@ export default function SuperAdmin() {
                     {editingAccount ? 'Modifica los datos de la cuenta' : 'Registra una nueva cuenta de cliente'}
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                  {/* Datos del negocio */}
                   <div className="space-y-2">
                     <Label>Nombre del negocio *</Label>
                     <Input
                       value={accountForm.name || ''}
                       onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })}
                       placeholder="Ej: Salón Bella Vista"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Email *</Label>
-                    <Input
-                      type="email"
-                      value={accountForm.email || ''}
-                      onChange={(e) => setAccountForm({ ...accountForm, email: e.target.value })}
-                      placeholder="contacto@ejemplo.com"
                     />
                   </div>
                   <div className="space-y-2">
@@ -611,25 +650,114 @@ export default function SuperAdmin() {
                       placeholder="555-0000"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Dirección</Label>
-                    <Input
-                      value={accountForm.address || ''}
-                      onChange={(e) => setAccountForm({ ...accountForm, address: e.target.value })}
-                      placeholder="Calle y número, ciudad"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={accountForm.active ?? true}
-                      onCheckedChange={(checked) => setAccountForm({ ...accountForm, active: checked })}
-                    />
-                    <Label>Cuenta activa</Label>
-                  </div>
+                  
+                  {/* Campos solo para crear nueva cuenta */}
+                  {!editingAccount && (
+                    <>
+                      <div className="border-t pt-4 mt-4">
+                        <p className="text-sm font-medium text-muted-foreground mb-3">Datos del Administrador</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Nombre del administrador</Label>
+                        <Input
+                          value={accountForm.admin_name || ''}
+                          onChange={(e) => setAccountForm({ ...accountForm, admin_name: e.target.value })}
+                          placeholder="Nombre completo del admin"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Email del administrador *</Label>
+                        <Input
+                          type="email"
+                          value={accountForm.admin_email || ''}
+                          onChange={(e) => setAccountForm({ ...accountForm, admin_email: e.target.value })}
+                          placeholder="admin@ejemplo.com"
+                        />
+                        <p className="text-xs text-muted-foreground">Este email se usará para iniciar sesión</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Contraseña temporal *</Label>
+                        <Input
+                          type="password"
+                          value={accountForm.admin_password || ''}
+                          onChange={(e) => setAccountForm({ ...accountForm, admin_password: e.target.value })}
+                          placeholder="••••••••"
+                        />
+                      </div>
+                      
+                      <div className="border-t pt-4 mt-4">
+                        <p className="text-sm font-medium text-muted-foreground mb-3">Configuración de Suscripción</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Plan inicial</Label>
+                        <Select
+                          value={accountForm.plan_id || ''}
+                          onValueChange={(value) => setAccountForm({ ...accountForm, plan_id: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona un plan" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {plans.filter(p => p.active).map(p => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.name} - ${p.price_monthly}/mes
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Días de prueba</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="90"
+                          value={accountForm.trial_days || 14}
+                          onChange={(e) => setAccountForm({ ...accountForm, trial_days: parseInt(e.target.value) || 14 })}
+                        />
+                      </div>
+                    </>
+                  )}
+                  
+                  {/* Campos solo para edición */}
+                  {editingAccount && (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Email de contacto</Label>
+                        <Input
+                          type="email"
+                          value={accountForm.email || ''}
+                          onChange={(e) => setAccountForm({ ...accountForm, email: e.target.value })}
+                          placeholder="contacto@ejemplo.com"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Dirección</Label>
+                        <Input
+                          value={accountForm.address || ''}
+                          onChange={(e) => setAccountForm({ ...accountForm, address: e.target.value })}
+                          placeholder="Calle y número, ciudad"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={accountForm.active ?? true}
+                          onCheckedChange={(checked) => setAccountForm({ ...accountForm, active: checked })}
+                        />
+                        <Label>Cuenta activa</Label>
+                      </div>
+                    </>
+                  )}
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={resetAccountForm}>Cancelar</Button>
-                  <Button onClick={handleSaveAccount} disabled={!accountForm.name || !accountForm.email}>
+                  <Button 
+                    onClick={handleSaveAccount} 
+                    disabled={
+                      !accountForm.name || 
+                      (!editingAccount && (!accountForm.admin_email || !accountForm.admin_password))
+                    }
+                  >
                     {editingAccount ? 'Guardar cambios' : 'Crear cuenta'}
                   </Button>
                 </DialogFooter>
