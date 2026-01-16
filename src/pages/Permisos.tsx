@@ -132,7 +132,9 @@ export default function Permisos() {
         name: r.name,
         description: r.description || '',
         color: r.color || '#3B82F6',
-        permissions: r.permissions || createEmptyPermissions(),
+        permissions: typeof r.permissions === 'string' 
+          ? JSON.parse(r.permissions) 
+          : (r.permissions || createEmptyPermissions()),
       }));
       
       // Normalize users data
