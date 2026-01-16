@@ -559,7 +559,7 @@ export default function Permisos() {
               <div className="border rounded-lg divide-y">
                 {modules.map(module => {
                   const isExpanded = expandedModules.includes(module.id);
-                  const modulePerms = roleForm.permissions[module.id];
+                  const modulePerms = roleForm.permissions[module.id] || { view: false, create: false, edit: false, delete: false };
                   const activeCount = Object.values(modulePerms).filter(Boolean).length;
                   
                   return (
