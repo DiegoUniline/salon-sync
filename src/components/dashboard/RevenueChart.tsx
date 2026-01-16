@@ -1,9 +1,16 @@
-import { getDashboardStats } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 
-export function RevenueChart() {
-  const stats = getDashboardStats();
-  const maxAmount = Math.max(...stats.weeklyRevenue.map(d => d.amount));
+interface RevenueChartProps {
+  weeklyRevenue: Array<{ day: string; amount: number }>;
+}
+
+export function RevenueChart({ weeklyRevenue }: RevenueChartProps) {
+  const maxAmount = Math.max(...weeklyRevenue.map(d => d.amount), 1);
+  const total = weeklyRevenue.reduce((sum, d) => sum + d.amount, 0);
+  
+  // Calculate today's index (0 = Monday, 6 = Sunday)
+  const today = new Date().getDay();
+  const todayIndex = today === 0 ? 6 : today - 1;
 
   return (
     <div className="glass-card rounded-xl p-5">
@@ -14,16 +21,16 @@ export function RevenueChart() {
         </div>
         <div className="text-right">
           <p className="text-2xl font-bold gradient-text">
-            ${stats.weeklyRevenue.reduce((sum, d) => sum + d.amount, 0).toLocaleString()}
+            ${total.toLocaleString()}
           </p>
           <p className="text-sm text-success">+12.5% vs semana anterior</p>
         </div>
       </div>
 
       <div className="flex items-end justify-between gap-2 h-48">
-        {stats.weeklyRevenue.map((data, index) => {
-          const height = (data.amount / maxAmount) * 100;
-          const isToday = index === stats.weeklyRevenue.length - 2; // Saturday
+        {weeklyRevenue.map((data, index) => {
+          const height = maxAmount > 0 ? (data.amount / maxAmount) * 100 : 0;
+          const isToday = index === todayIndex;
 
           return (
             <div
@@ -43,7 +50,7 @@ export function RevenueChart() {
                     isToday ? 'gradient-bg' : 'bg-primary/20 hover:bg-primary/40'
                   )}
                   style={{
-                    height: `${height}%`,
+                    height: `${Math.max(height, 2)}%`,
                     animationDelay: `${index * 100}ms`,
                   }}
                 />

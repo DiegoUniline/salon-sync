@@ -1,5 +1,6 @@
+import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
-import { getDashboardStats } from '@/lib/mockData';
+import api from '@/lib/api';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { AppointmentTimeline } from '@/components/dashboard/AppointmentTimeline';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
@@ -12,11 +13,27 @@ import {
   CalendarCheck,
   CheckCircle,
   Clock,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
+
+interface DashboardStats {
+  todaySales: number;
+  todayAppointments: number;
+  completedAppointments: number;
+  pendingAppointments: number;
+  inProgressAppointments?: number;
+  topServices: Array<{ name: string; count: number; revenue: number }>;
+  topProducts: Array<{ name: string; count: number; revenue: number }>;
+  weeklyRevenue: Array<{ day: string; amount: number }>;
+  pendingBalance?: number;
+}
 
 export default function Dashboard() {
   const { currentBranch } = useApp();
-  const stats = getDashboardStats(currentBranch.id);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const today = new Date().toLocaleDateString('es-MX', {
     weekday: 'long',
@@ -24,6 +41,44 @@ export default function Dashboard() {
     month: 'long',
     day: 'numeric',
   });
+
+  useEffect(() => {
+    const loadStats = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await api.dashboard.get(currentBranch.id);
+        setStats(data);
+      } catch (err) {
+        console.error('Error loading dashboard:', err);
+        setError('Error al cargar el dashboard');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadStats();
+  }, [currentBranch.id]);
+
+  if (loading) {
+    return (
+      <PageTransition className="space-y-6">
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </PageTransition>
+    );
+  }
+
+  if (error || !stats) {
+    return (
+      <PageTransition className="space-y-6">
+        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+          <AlertCircle className="h-12 w-12 mb-4 text-destructive" />
+          <p>{error || 'Error al cargar el dashboard'}</p>
+        </div>
+      </PageTransition>
+    );
+  }
 
   return (
     <PageTransition className="space-y-6">
@@ -95,6 +150,23 @@ export default function Dashboard() {
         </motion.div>
       </div>
 
+      {/* Pending Balance Card (if exists) */}
+      {stats.pendingBalance !== undefined && stats.pendingBalance > 0 && (
+        <AnimatedContainer variant="fadeInUp" delay={0.3}>
+          <div className="glass-card rounded-xl p-4 border-l-4 border-warning">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-warning" />
+              <div>
+                <p className="text-sm text-muted-foreground">Saldo por cobrar total</p>
+                <p className="text-xl font-bold text-warning">
+                  ${stats.pendingBalance.toLocaleString()}
+                </p>
+              </div>
+            </div>
+          </div>
+        </AnimatedContainer>
+      )}
+
       {/* Main Content Grid */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -109,7 +181,7 @@ export default function Dashboard() {
 
         {/* Revenue Chart */}
         <div>
-          <RevenueChart />
+          <RevenueChart weeklyRevenue={stats.weeklyRevenue} />
         </div>
       </motion.div>
 
