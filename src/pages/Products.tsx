@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { products as mockProducts, productCategories, type Product } from '@/lib/mockData';
+import { useState, useEffect } from 'react';
+import { type Product } from '@/lib/mockData';
+import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -44,14 +45,31 @@ import {
   TrendingDown,
   LayoutGrid,
   List,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 
+// Helper to map API response to frontend Product type
+const mapApiProduct = (apiProduct: any): Product => ({
+  id: apiProduct.id,
+  name: apiProduct.name,
+  category: apiProduct.category,
+  sku: apiProduct.sku,
+  price: parseFloat(apiProduct.price) || 0,
+  cost: parseFloat(apiProduct.cost) || 0,
+  stock: apiProduct.stock || 0,
+  minStock: apiProduct.min_stock || 5,
+  active: apiProduct.active === 1 || apiProduct.active === true,
+});
+
 export default function Products() {
   const isMobile = useIsMobile();
   const { canCreate, canEdit, canDelete } = usePermissions();
-  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [stockFilter, setStockFilter] = useState<string>('all');
@@ -74,6 +92,27 @@ export default function Products() {
 
   // Bulk form lines
   const [bulkLines, setBulkLines] = useState<LineItem[]>([]);
+
+  // Load products and categories on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [productsData, categoriesData] = await Promise.all([
+          api.products.getAll(),
+          api.products.getCategories(),
+        ]);
+        setProducts(productsData.map(mapApiProduct));
+        setCategories(categoriesData);
+      } catch (error) {
+        console.error('Error loading products:', error);
+        toast.error('Error al cargar productos');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -107,43 +146,80 @@ export default function Products() {
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.name) {
       toast.error('Ingresa el nombre del producto');
       return;
     }
 
-    if (editingProduct) {
-      setProducts(prev => prev.map(p =>
-        p.id === editingProduct.id ? { ...p, ...formData } : p
-      ));
-      toast.success('Producto actualizado');
-    } else {
-      const newProduct: Product = {
-        id: `p${Date.now()}`,
-        ...formData,
+    try {
+      setSaving(true);
+      const apiData = {
+        name: formData.name,
+        category: formData.category,
         sku: formData.sku || `SKU-${Date.now()}`,
+        price: formData.price,
+        cost: formData.cost,
+        stock: formData.stock,
+        min_stock: formData.minStock,
+        active: formData.active ? 1 : 0,
       };
-      setProducts(prev => [...prev, newProduct]);
-      toast.success('Producto creado');
+
+      if (editingProduct) {
+        const updated = await api.products.update(editingProduct.id, apiData);
+        setProducts(prev => prev.map(p =>
+          p.id === editingProduct.id ? mapApiProduct(updated) : p
+        ));
+        toast.success('Producto actualizado');
+      } else {
+        const created = await api.products.create(apiData);
+        setProducts(prev => [...prev, mapApiProduct(created)]);
+        toast.success('Producto creado');
+      }
+
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error('Error saving product:', error);
+      toast.error('Error al guardar producto');
+    } finally {
+      setSaving(false);
     }
-
-    setIsDialogOpen(false);
-    resetForm();
   };
 
-  const deleteProduct = (id: string) => {
-    setProducts(prev => prev.filter(p => p.id !== id));
-    toast.success('Producto eliminado');
+  const deleteProduct = async (id: string) => {
+    try {
+      await api.products.delete(id);
+      setProducts(prev => prev.filter(p => p.id !== id));
+      toast.success('Producto eliminado');
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast.error('Error al eliminar producto');
+    }
   };
 
-  const toggleProduct = (id: string, active: boolean) => {
-    setProducts(prev => prev.map(p => p.id === id ? { ...p, active } : p));
+  const toggleProduct = async (id: string, active: boolean) => {
+    try {
+      await api.products.update(id, { active: active ? 1 : 0 });
+      setProducts(prev => prev.map(p => p.id === id ? { ...p, active } : p));
+    } catch (error) {
+      console.error('Error toggling product:', error);
+      toast.error('Error al actualizar producto');
+    }
   };
 
-  const updateProductField = (id: string, field: string, value: any) => {
-    setProducts(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
-    toast.success('Actualizado');
+  const updateProductField = async (id: string, field: string, value: any) => {
+    try {
+      const apiField = field === 'minStock' ? 'min_stock' : field;
+      const apiValue = field === 'active' ? (value ? 1 : 0) : value;
+      
+      await api.products.update(id, { [apiField]: apiValue });
+      setProducts(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
+      toast.success('Actualizado');
+    } catch (error) {
+      console.error('Error updating product:', error);
+      toast.error('Error al actualizar');
+    }
   };
 
   // Bulk operations
@@ -161,7 +237,7 @@ export default function Products() {
       type: 'search',
       placeholder: 'Categoría',
       width: 'w-36',
-      searchItems: productCategories.map(c => ({ id: c, label: c })),
+      searchItems: categories.map(c => ({ id: c, label: c })),
     },
     {
       key: 'sku',
@@ -210,29 +286,42 @@ export default function Products() {
     setBulkLines(prev => prev.filter(line => line.id !== lineId));
   };
 
-  const handleBulkSubmit = () => {
+  const handleBulkSubmit = async () => {
     const validLines = bulkLines.filter(line => line.name);
     if (validLines.length === 0) {
       toast.error('Agrega al menos un producto');
       return;
     }
 
-    const newProducts: Product[] = validLines.map(line => ({
-      id: `p${Date.now()}-${Math.random()}`,
-      name: line.name,
-      category: line.category || 'Shampoo',
-      sku: line.sku || `SKU-${Date.now()}`,
-      price: line.price || 0,
-      cost: line.cost || 0,
-      stock: line.stock || 0,
-      minStock: 5,
-      active: true,
-    }));
+    try {
+      setSaving(true);
+      const createdProducts: Product[] = [];
+      
+      for (const line of validLines) {
+        const apiData = {
+          name: line.name,
+          category: line.category || 'Shampoo',
+          sku: line.sku || `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+          price: line.price || 0,
+          cost: line.cost || 0,
+          stock: line.stock || 0,
+          min_stock: 5,
+          active: 1,
+        };
+        const created = await api.products.create(apiData);
+        createdProducts.push(mapApiProduct(created));
+      }
 
-    setProducts(prev => [...prev, ...newProducts]);
-    toast.success(`${newProducts.length} productos creados`);
-    setBulkLines([]);
-    setIsBulkDialogOpen(false);
+      setProducts(prev => [...prev, ...createdProducts]);
+      toast.success(`${createdProducts.length} productos creados`);
+      setBulkLines([]);
+      setIsBulkDialogOpen(false);
+    } catch (error) {
+      console.error('Error creating bulk products:', error);
+      toast.error('Error al crear productos');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const getStockBadge = (product: Product) => {
@@ -249,6 +338,14 @@ export default function Products() {
     const margin = product.price > 0 ? ((profit / product.price) * 100).toFixed(0) : '0';
     return { margin: Number(margin), isGood: Number(margin) >= 40 };
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -286,7 +383,8 @@ export default function Products() {
                   <Button variant="outline" onClick={() => { setBulkLines([]); setIsBulkDialogOpen(false); }}>
                     Cancelar
                   </Button>
-                  <Button className="gradient-bg border-0" onClick={handleBulkSubmit}>
+                  <Button className="gradient-bg border-0" onClick={handleBulkSubmit} disabled={saving}>
+                    {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     Guardar {bulkLines.filter(l => l.name).length} Productos
                   </Button>
                 </div>
@@ -322,7 +420,7 @@ export default function Products() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {productCategories.map(cat => (
+                        {categories.map(cat => (
                           <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                         ))}
                       </SelectContent>
@@ -388,7 +486,8 @@ export default function Products() {
                   <Button variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>
                     Cancelar
                   </Button>
-                  <Button className="gradient-bg border-0" onClick={handleSubmit}>
+                  <Button className="gradient-bg border-0" onClick={handleSubmit} disabled={saving}>
+                    {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     {editingProduct ? 'Actualizar' : 'Crear'}
                   </Button>
                 </div>
@@ -434,7 +533,7 @@ export default function Products() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas las categorías</SelectItem>
-              {productCategories.map(cat => (
+              {categories.map(cat => (
                 <SelectItem key={cat} value={cat}>{cat}</SelectItem>
               ))}
             </SelectContent>
@@ -495,72 +594,62 @@ export default function Products() {
                     <TableCell className="font-medium">
                       <EditableCell
                         value={product.name}
-                        onSave={(v) => updateProductField(product.id, 'name', v)}
-                        type="text"
+                        onSave={(value) => updateProductField(product.id, 'name', value)}
                       />
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      <EditableCell
-                        value={product.sku}
-                        onSave={(v) => updateProductField(product.id, 'sku', v)}
-                        type="text"
-                      />
+                    <TableCell className="text-muted-foreground">
+                      <code className="text-xs">{product.sku}</code>
                     </TableCell>
                     <TableCell>
-                      <EditableCell
-                        value={product.category}
-                        onSave={(v) => updateProductField(product.id, 'category', v)}
-                        type="select"
-                        options={productCategories.map(c => ({ value: c, label: c }))}
-                        displayValue={<Badge variant="secondary">{product.category}</Badge>}
-                      />
+                      <Badge variant="outline">{product.category}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <EditableCell
                         value={product.cost}
-                        onSave={(v) => updateProductField(product.id, 'cost', v)}
                         type="number"
-                        min={0}
-                        displayValue={<span className="text-muted-foreground">${product.cost}</span>}
+                        onSave={(value) => updateProductField(product.id, 'cost', value)}
                       />
                     </TableCell>
                     <TableCell className="text-right">
                       <EditableCell
                         value={product.price}
-                        onSave={(v) => updateProductField(product.id, 'price', v)}
                         type="number"
-                        min={0}
-                        displayValue={<span className="font-semibold">${product.price}</span>}
+                        onSave={(value) => updateProductField(product.id, 'price', value)}
                       />
                     </TableCell>
                     <TableCell className="text-center">
-                      <span className={cn('flex items-center justify-center gap-1 text-sm font-medium', isGood ? 'text-success' : 'text-warning')}>
-                        {isGood ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-                        {margin}%
-                      </span>
+                      <div className={cn('flex items-center justify-center gap-1', isGood ? 'text-green-600' : 'text-amber-600')}>
+                        {isGood ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                        <span>{margin}%</span>
+                      </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      <EditableCell
-                        value={product.stock}
-                        onSave={(v) => updateProductField(product.id, 'stock', v)}
-                        type="number"
-                        min={0}
-                        displayValue={getStockBadge(product)}
-                      />
+                      {getStockBadge(product)}
                     </TableCell>
                     <TableCell className="text-center">
                       <Switch
                         checked={product.active}
-                        onCheckedChange={(active) => toggleProduct(product.id, active)}
-                        className="scale-90"
+                        onCheckedChange={(checked) => toggleProduct(product.id, checked)}
+                        disabled={!canEdit('productos')}
                       />
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(product)}>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(product)}
+                          disabled={!canEdit('productos')}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteProduct(product.id)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteProduct(product.id)}
+                          disabled={!canDelete('productos')}
+                          className="text-destructive hover:text-destructive"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -568,40 +657,46 @@ export default function Products() {
                   </TableRow>
                 );
               })}
-              {filteredProducts.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                    No se encontraron productos
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </div>
       )}
 
-      {/* Card View - also shows on mobile */}
+      {/* Card View */}
       {(viewMode === 'card' || isMobile) && (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredProducts.map((product, index) => (
-              <ProductCard 
-                key={product.id} 
-                product={product} 
-                delay={index * 50}
+        <AnimatedList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredProducts.map((product) => (
+            <AnimatedListItem key={product.id}>
+              <ProductCard
+                product={product}
                 onEdit={() => openEditDialog(product)}
                 onDelete={() => deleteProduct(product.id)}
                 onToggle={(active) => toggleProduct(product.id, active)}
+                canEdit={canEdit('productos')}
+                canDelete={canDelete('productos')}
               />
-            ))}
-          </div>
+            </AnimatedListItem>
+          ))}
+        </AnimatedList>
+      )}
 
-          {filteredProducts.length === 0 && (
-            <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
-              No se encontraron productos
-            </div>
+      {/* Empty State */}
+      {filteredProducts.length === 0 && !loading && (
+        <div className="glass-card rounded-xl p-12 text-center">
+          <Package className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+          <h3 className="font-semibold text-lg mb-1">No hay productos</h3>
+          <p className="text-muted-foreground mb-4">
+            {searchQuery || categoryFilter !== 'all' || stockFilter !== 'all'
+              ? 'No se encontraron productos con esos filtros'
+              : 'Comienza agregando tu primer producto'}
+          </p>
+          {!searchQuery && categoryFilter === 'all' && stockFilter === 'all' && (
+            <Button className="gradient-bg border-0" onClick={() => setIsDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Agregar Producto
+            </Button>
           )}
-        </>
+        </div>
       )}
     </div>
   );
@@ -609,88 +704,84 @@ export default function Products() {
 
 interface ProductCardProps {
   product: Product;
-  delay: number;
   onEdit: () => void;
   onDelete: () => void;
   onToggle: (active: boolean) => void;
+  canEdit: boolean;
+  canDelete: boolean;
 }
 
-function ProductCard({ product, delay, onEdit, onDelete, onToggle }: ProductCardProps) {
+function ProductCard({ product, onEdit, onDelete, onToggle, canEdit, canDelete }: ProductCardProps) {
   const isLowStock = product.stock <= product.minStock;
   const profit = product.price - product.cost;
-  const profitMargin = product.price > 0 ? ((profit / product.price) * 100).toFixed(0) : '0';
+  const margin = product.price > 0 ? ((profit / product.price) * 100).toFixed(0) : '0';
 
   return (
-    <div
+    <motion.div
       className={cn(
-        'glass-card-hover rounded-xl p-5 fade-up',
-        isLowStock && 'border-warning/30'
+        'glass-card rounded-xl p-4 space-y-3',
+        !product.active && 'opacity-60'
       )}
-      style={{ animationDelay: `${delay}ms` }}
+      whileHover={{ scale: 1.02 }}
+      transition={{ type: 'spring', stiffness: 300 }}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className="p-2.5 rounded-lg bg-secondary">
-          <Package className="h-5 w-5 text-muted-foreground" />
-        </div>
-        <div className="flex items-center gap-1">
-          <Switch 
-            checked={product.active} 
-            onCheckedChange={onToggle}
-            className="scale-75" 
-          />
-        </div>
-      </div>
-
-      <div className="mb-3">
-        <h3 className="font-semibold text-foreground line-clamp-2">{product.name}</h3>
-        <p className="text-xs text-muted-foreground mt-1">SKU: {product.sku}</p>
-      </div>
-
-      <div className="flex items-center gap-2 mb-3">
-        <Badge variant="secondary" className="text-xs">
-          {product.category}
-        </Badge>
-      </div>
-
-      <div className="flex items-center justify-between text-sm mb-3">
+      <div className="flex items-start justify-between">
         <div>
-          <p className="text-muted-foreground">Precio</p>
-          <p className="font-semibold text-lg">${product.price}</p>
+          <h3 className="font-medium">{product.name}</h3>
+          <p className="text-xs text-muted-foreground">{product.sku}</p>
         </div>
-        <div className="text-right">
-          <p className="text-muted-foreground">Margen</p>
-          <p className={cn(
-            'font-semibold flex items-center gap-1',
-            Number(profitMargin) >= 40 ? 'text-success' : 'text-warning'
-          )}>
-            {Number(profitMargin) >= 40 ? (
-              <TrendingUp className="h-3.5 w-3.5" />
-            ) : (
-              <TrendingDown className="h-3.5 w-3.5" />
-            )}
-            {profitMargin}%
-          </p>
+        <Switch
+          checked={product.active}
+          onCheckedChange={onToggle}
+          disabled={!canEdit}
+        />
+      </div>
+
+      <Badge variant="outline">{product.category}</Badge>
+
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        <div>
+          <p className="text-muted-foreground text-xs">Costo</p>
+          <p className="font-medium">${product.cost}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground text-xs">Precio</p>
+          <p className="font-medium">${product.price}</p>
         </div>
       </div>
 
-      <div className={cn(
-        'flex items-center gap-2 text-sm p-2 rounded-lg mb-4',
-        isLowStock ? 'bg-warning/10 text-warning' : 'bg-secondary'
-      )}>
-        {isLowStock && <AlertTriangle className="h-4 w-4" />}
-        <span className="font-medium">Stock: {product.stock}</span>
-        <span className="text-muted-foreground">/ Mín: {product.minStock}</span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Badge variant={isLowStock ? 'destructive' : 'secondary'} className={cn(isLowStock && 'bg-warning/10 text-warning border-warning/30')}>
+            {product.stock} uds
+          </Badge>
+          <span className={cn('text-xs', Number(margin) >= 40 ? 'text-green-600' : 'text-amber-600')}>
+            {margin}% margen
+          </span>
+        </div>
       </div>
 
-      <div className="flex gap-2 pt-4 border-t border-border">
-        <Button variant="outline" size="sm" className="flex-1" onClick={onEdit}>
-          <Edit className="h-3.5 w-3.5 mr-1.5" />
+      <div className="flex gap-2 pt-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1"
+          onClick={onEdit}
+          disabled={!canEdit}
+        >
+          <Edit className="h-4 w-4 mr-1" />
           Editar
         </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={onDelete}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onDelete}
+          disabled={!canDelete}
+          className="text-destructive hover:text-destructive"
+        >
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
-    </div>
+    </motion.div>
   );
 }

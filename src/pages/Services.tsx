@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { services as mockServices, serviceCategories, type Service } from '@/lib/mockData';
+import { useState, useEffect } from 'react';
+import { type Service } from '@/lib/mockData';
+import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -45,6 +46,7 @@ import {
   Trash2,
   LayoutGrid,
   List,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -59,10 +61,26 @@ const categoryIcons: Record<string, React.ReactNode> = {
   'Tratamiento': <Sparkles className="h-4 w-4" />,
 };
 
+// Helper to map API response to frontend Service type
+const mapApiService = (apiService: any): Service => ({
+  id: apiService.id,
+  name: apiService.name,
+  category: apiService.category,
+  duration: apiService.duration,
+  price: parseFloat(apiService.price) || 0,
+  commission: parseFloat(apiService.commission) || 0,
+  active: apiService.active === 1 || apiService.active === true,
+  allowConcurrent: apiService.allow_concurrent === 1 || apiService.allow_concurrent === true,
+  maxConcurrent: apiService.max_concurrent || 1,
+});
+
 export default function Services() {
   const isMobile = useIsMobile();
   const { canCreate, canEdit, canDelete } = usePermissions();
-  const [services, setServices] = useState<Service[]>(mockServices);
+  const [services, setServices] = useState<Service[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -84,6 +102,27 @@ export default function Services() {
 
   // Bulk form lines
   const [bulkLines, setBulkLines] = useState<LineItem[]>([]);
+
+  // Load services and categories on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [servicesData, categoriesData] = await Promise.all([
+          api.services.getAll(),
+          api.services.getCategories(),
+        ]);
+        setServices(servicesData.map(mapApiService));
+        setCategories(categoriesData);
+      } catch (error) {
+        console.error('Error loading services:', error);
+        toast.error('Error al cargar servicios');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
   const filteredServices = services.filter(service => {
     const matchesSearch = service.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -119,44 +158,81 @@ export default function Services() {
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.name) {
       toast.error('Ingresa el nombre del servicio');
       return;
     }
 
-    if (editingService) {
-      setServices(prev => prev.map(s =>
-        s.id === editingService.id
-          ? { ...s, ...formData }
-          : s
-      ));
-      toast.success('Servicio actualizado');
-    } else {
-      const newService: Service = {
-        id: `s${Date.now()}`,
-        ...formData,
+    try {
+      setSaving(true);
+      const apiData = {
+        name: formData.name,
+        category: formData.category,
+        duration: formData.duration,
+        price: formData.price,
+        commission: formData.commission,
+        active: formData.active ? 1 : 0,
+        allow_concurrent: formData.allowConcurrent ? 1 : 0,
+        max_concurrent: formData.maxConcurrent,
       };
-      setServices(prev => [...prev, newService]);
-      toast.success('Servicio creado');
+
+      if (editingService) {
+        const updated = await api.services.update(editingService.id, apiData);
+        setServices(prev => prev.map(s =>
+          s.id === editingService.id ? mapApiService(updated) : s
+        ));
+        toast.success('Servicio actualizado');
+      } else {
+        const created = await api.services.create(apiData);
+        setServices(prev => [...prev, mapApiService(created)]);
+        toast.success('Servicio creado');
+      }
+      
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error('Error saving service:', error);
+      toast.error('Error al guardar servicio');
+    } finally {
+      setSaving(false);
     }
-    
-    setIsDialogOpen(false);
-    resetForm();
   };
 
-  const deleteService = (id: string) => {
-    setServices(prev => prev.filter(s => s.id !== id));
-    toast.success('Servicio eliminado');
+  const deleteService = async (id: string) => {
+    try {
+      await api.services.delete(id);
+      setServices(prev => prev.filter(s => s.id !== id));
+      toast.success('Servicio eliminado');
+    } catch (error) {
+      console.error('Error deleting service:', error);
+      toast.error('Error al eliminar servicio');
+    }
   };
 
-  const toggleService = (id: string, active: boolean) => {
-    setServices(prev => prev.map(s => s.id === id ? { ...s, active } : s));
+  const toggleService = async (id: string, active: boolean) => {
+    try {
+      await api.services.update(id, { active: active ? 1 : 0 });
+      setServices(prev => prev.map(s => s.id === id ? { ...s, active } : s));
+    } catch (error) {
+      console.error('Error toggling service:', error);
+      toast.error('Error al actualizar servicio');
+    }
   };
 
-  const updateServiceField = (id: string, field: string, value: any) => {
-    setServices(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
-    toast.success('Actualizado');
+  const updateServiceField = async (id: string, field: string, value: any) => {
+    try {
+      const apiField = field === 'allowConcurrent' ? 'allow_concurrent' : 
+                       field === 'maxConcurrent' ? 'max_concurrent' : field;
+      const apiValue = field === 'active' || field === 'allowConcurrent' ? (value ? 1 : 0) : value;
+      
+      await api.services.update(id, { [apiField]: apiValue });
+      setServices(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
+      toast.success('Actualizado');
+    } catch (error) {
+      console.error('Error updating service:', error);
+      toast.error('Error al actualizar');
+    }
   };
 
   // Bulk operations
@@ -174,7 +250,7 @@ export default function Services() {
       type: 'search',
       placeholder: 'Categoría',
       width: 'w-40',
-      searchItems: serviceCategories.map(c => ({ id: c, label: c })),
+      searchItems: categories.map(c => ({ id: c, label: c })),
     },
     {
       key: 'duration',
@@ -218,28 +294,44 @@ export default function Services() {
     setBulkLines(prev => prev.filter(line => line.id !== lineId));
   };
 
-  const handleBulkSubmit = () => {
+  const handleBulkSubmit = async () => {
     const validLines = bulkLines.filter(line => line.name);
     if (validLines.length === 0) {
       toast.error('Agrega al menos un servicio');
       return;
     }
 
-    const newServices: Service[] = validLines.map(line => ({
-      id: `s${Date.now()}-${Math.random()}`,
-      name: line.name,
-      category: line.category || 'Corte',
-      duration: line.duration || 30,
-      price: line.price || 0,
-      commission: line.commission || 0,
-      active: true,
-    }));
+    try {
+      setSaving(true);
+      const bulkData = validLines.map(line => ({
+        name: line.name,
+        category: line.category || 'Corte',
+        duration: line.duration || 30,
+        price: line.price || 0,
+        commission: line.commission || 0,
+        active: 1,
+      }));
 
-    setServices(prev => [...prev, ...newServices]);
-    toast.success(`${newServices.length} servicios creados`);
-    setBulkLines([]);
-    setIsBulkDialogOpen(false);
+      const created = await api.services.createBulk(bulkData);
+      setServices(prev => [...prev, ...created.map(mapApiService)]);
+      toast.success(`${created.length} servicios creados`);
+      setBulkLines([]);
+      setIsBulkDialogOpen(false);
+    } catch (error) {
+      console.error('Error creating bulk services:', error);
+      toast.error('Error al crear servicios');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -277,7 +369,8 @@ export default function Services() {
                   <Button variant="outline" onClick={() => { setBulkLines([]); setIsBulkDialogOpen(false); }}>
                     Cancelar
                   </Button>
-                  <Button className="gradient-bg border-0" onClick={handleBulkSubmit}>
+                  <Button className="gradient-bg border-0" onClick={handleBulkSubmit} disabled={saving}>
+                    {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     Guardar {bulkLines.filter(l => l.name).length} Servicios
                   </Button>
                 </div>
@@ -313,7 +406,7 @@ export default function Services() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {serviceCategories.map(cat => (
+                        {categories.map(cat => (
                           <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                         ))}
                       </SelectContent>
@@ -402,7 +495,8 @@ export default function Services() {
                   <Button variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>
                     Cancelar
                   </Button>
-                  <Button className="gradient-bg border-0" onClick={handleSubmit}>
+                  <Button className="gradient-bg border-0" onClick={handleSubmit} disabled={saving}>
+                    {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     {editingService ? 'Actualizar' : 'Crear'}
                   </Button>
                 </div>
@@ -430,7 +524,7 @@ export default function Services() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas las categorías</SelectItem>
-              {serviceCategories.map(cat => (
+              {categories.map(cat => (
                 <SelectItem key={cat} value={cat}>{cat}</SelectItem>
               ))}
             </SelectContent>
@@ -478,134 +572,122 @@ export default function Services() {
                   <TableCell className="font-medium">
                     <EditableCell
                       value={service.name}
-                      onSave={(v) => updateServiceField(service.id, 'name', v)}
-                      type="text"
+                      onSave={(value) => updateServiceField(service.id, 'name', value)}
                     />
                   </TableCell>
                   <TableCell>
-                    <EditableCell
-                      value={service.category}
-                      onSave={(v) => updateServiceField(service.id, 'category', v)}
-                      type="select"
-                      options={serviceCategories.map(c => ({ value: c, label: c }))}
-                      displayValue={
-                        <div className="flex items-center gap-2">
-                          <span className="p-1.5 rounded bg-primary/10 text-primary">
-                            {categoryIcons[service.category] || <Scissors className="h-3 w-3" />}
-                          </span>
-                          {service.category}
-                        </div>
-                      }
-                    />
+                    <Badge variant="outline" className="gap-1.5">
+                      {categoryIcons[service.category]}
+                      {service.category}
+                    </Badge>
                   </TableCell>
                   <TableCell className="text-center">
                     <EditableCell
                       value={service.duration}
-                      onSave={(v) => updateServiceField(service.id, 'duration', v)}
                       type="number"
-                      min={5}
-                      step={5}
-                      displayValue={
-                        <div className="flex items-center justify-center gap-1 text-muted-foreground">
-                          <Clock className="h-3.5 w-3.5" />
-                          {service.duration} min
-                        </div>
-                      }
+                      onSave={(value) => updateServiceField(service.id, 'duration', value)}
                     />
                   </TableCell>
                   <TableCell className="text-right">
                     <EditableCell
                       value={service.price}
-                      onSave={(v) => updateServiceField(service.id, 'price', v)}
                       type="number"
-                      min={0}
-                      displayValue={<span className="font-semibold">${service.price}</span>}
+                      onSave={(value) => updateServiceField(service.id, 'price', value)}
                     />
                   </TableCell>
                   <TableCell className="text-center">
                     <EditableCell
                       value={service.commission || 0}
-                      onSave={(v) => updateServiceField(service.id, 'commission', v)}
                       type="number"
-                      min={0}
-                      max={100}
-                      displayValue={<span>{service.commission || 0}%</span>}
+                      onSave={(value) => updateServiceField(service.id, 'commission', value)}
                     />
                   </TableCell>
                   <TableCell className="text-center">
                     {service.allowConcurrent ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-success/10 text-success">
-                        {service.maxConcurrent || 2} máx
-                      </span>
+                      <Badge variant="secondary">{service.maxConcurrent || 2}</Badge>
                     ) : (
-                      <span className="text-xs text-muted-foreground">1 cliente</span>
+                      <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
                   <TableCell className="text-center">
                     <Switch
                       checked={service.active}
-                      onCheckedChange={(active) => toggleService(service.id, active)}
-                      className="scale-90"
+                      onCheckedChange={(checked) => toggleService(service.id, checked)}
+                      disabled={!canEdit('servicios')}
                     />
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(service)}>
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditDialog(service)}
+                        disabled={!canEdit('servicios')}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteService(service.id)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteService(service.id)}
+                        disabled={!canDelete('servicios')}
+                        className="text-destructive hover:text-destructive"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredServices.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                    No se encontraron servicios
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </div>
       )}
 
-      {/* Card View - also shows on mobile */}
+      {/* Card View */}
       {(viewMode === 'card' || isMobile) && (
-        <div className="space-y-8">
+        <AnimatedList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Object.entries(groupedServices).map(([category, categoryServices]) => (
-            <div key={category} className="space-y-4">
+            <div key={category} className="col-span-full space-y-3">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                  {categoryIcons[category] || <Scissors className="h-4 w-4" />}
-                </div>
-                <h2 className="text-lg font-semibold">{category}</h2>
-                <span className="text-sm text-muted-foreground">
-                  ({categoryServices.length})
-                </span>
+                {categoryIcons[category]}
+                <h2 className="font-semibold text-lg">{category}</h2>
+                <Badge variant="secondary">{categoryServices.length}</Badge>
               </div>
-
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {categoryServices.map((service, index) => (
-                  <ServiceCard 
-                    key={service.id} 
-                    service={service} 
-                    delay={index * 50}
-                    onEdit={() => openEditDialog(service)}
-                    onDelete={() => deleteService(service.id)}
-                    onToggle={(active) => toggleService(service.id, active)}
-                  />
+                {categoryServices.map((service) => (
+                  <AnimatedListItem key={service.id}>
+                    <ServiceCard
+                      service={service}
+                      onEdit={() => openEditDialog(service)}
+                      onDelete={() => deleteService(service.id)}
+                      onToggle={(active) => toggleService(service.id, active)}
+                      canEdit={canEdit('servicios')}
+                      canDelete={canDelete('servicios')}
+                    />
+                  </AnimatedListItem>
                 ))}
               </div>
             </div>
           ))}
+        </AnimatedList>
+      )}
 
-          {Object.keys(groupedServices).length === 0 && (
-            <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
-              No se encontraron servicios
-            </div>
+      {/* Empty State */}
+      {filteredServices.length === 0 && !loading && (
+        <div className="glass-card rounded-xl p-12 text-center">
+          <Scissors className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+          <h3 className="font-semibold text-lg mb-1">No hay servicios</h3>
+          <p className="text-muted-foreground mb-4">
+            {searchQuery || categoryFilter !== 'all' 
+              ? 'No se encontraron servicios con esos filtros'
+              : 'Comienza agregando tu primer servicio'}
+          </p>
+          {!searchQuery && categoryFilter === 'all' && (
+            <Button className="gradient-bg border-0" onClick={() => setIsDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Agregar Servicio
+            </Button>
           )}
         </div>
       )}
@@ -615,60 +697,73 @@ export default function Services() {
 
 interface ServiceCardProps {
   service: Service;
-  delay: number;
   onEdit: () => void;
   onDelete: () => void;
   onToggle: (active: boolean) => void;
+  canEdit: boolean;
+  canDelete: boolean;
 }
 
-function ServiceCard({ service, delay, onEdit, onDelete, onToggle }: ServiceCardProps) {
+function ServiceCard({ service, onEdit, onDelete, onToggle, canEdit, canDelete }: ServiceCardProps) {
   return (
-    <div
-      className="glass-card-hover rounded-xl p-5 fade-up"
-      style={{ animationDelay: `${delay}ms` }}
+    <motion.div
+      className={cn(
+        'glass-card rounded-xl p-4 space-y-3',
+        !service.active && 'opacity-60'
+      )}
+      whileHover={{ scale: 1.02 }}
+      transition={{ type: 'spring', stiffness: 300 }}
     >
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <h3 className="font-semibold text-foreground">{service.name}</h3>
-          <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
-            {service.category}
-          </span>
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="font-medium">{service.name}</h3>
+          <p className="text-sm text-muted-foreground">{service.category}</p>
         </div>
-        <div className="flex items-center gap-1">
-          <Switch 
-            checked={service.active} 
-            onCheckedChange={onToggle}
-            className="scale-75" 
-          />
-        </div>
+        <Switch
+          checked={service.active}
+          onCheckedChange={onToggle}
+          disabled={!canEdit}
+        />
       </div>
 
-      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-        <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-1 text-muted-foreground">
           <Clock className="h-4 w-4" />
           <span>{service.duration} min</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 font-medium">
           <DollarSign className="h-4 w-4" />
-          <span className="font-semibold text-foreground">${service.price}</span>
+          <span>${service.price}</span>
         </div>
       </div>
 
-      {service.commission && (
-        <p className="text-xs text-muted-foreground mt-3">
+      {service.commission > 0 && (
+        <Badge variant="secondary" className="text-xs">
           Comisión: {service.commission}%
-        </p>
+        </Badge>
       )}
 
-      <div className="flex gap-2 mt-4 pt-4 border-t border-border">
-        <Button variant="outline" size="sm" className="flex-1" onClick={onEdit}>
-          <Edit className="h-3.5 w-3.5 mr-1.5" />
+      <div className="flex gap-2 pt-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1"
+          onClick={onEdit}
+          disabled={!canEdit}
+        >
+          <Edit className="h-4 w-4 mr-1" />
           Editar
         </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={onDelete}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onDelete}
+          disabled={!canDelete}
+          className="text-destructive hover:text-destructive"
+        >
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
-    </div>
+    </motion.div>
   );
 }
