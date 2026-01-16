@@ -189,7 +189,7 @@ export default function Compras() {
     }
 
     const total = calculateTotal();
-    const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+    const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
     
     if (totalPaid < total) {
       toast.error('El monto pagado es menor al total');

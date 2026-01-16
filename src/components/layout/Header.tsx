@@ -145,7 +145,7 @@ export function Header() {
                     {currentUser ? 'Cambiar usuario (Admin)' : 'Iniciar sesión como'}
                   </DropdownMenuLabel>
                   {users.filter(u => u.active).map(user => {
-                    const role = roles.find(r => r.id === user.roleId);
+                    const role = roles.find(r => r.name.toLowerCase() === user.role?.toLowerCase());
                     return (
                       <DropdownMenuItem 
                         key={user.id}
