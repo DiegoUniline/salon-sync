@@ -48,7 +48,6 @@ interface Role {
   name: string;
   description: string;
   color: string;
-  isSystem?: boolean;
   permissions: Record<ModuleId, ModulePermissions>;
 }
 
@@ -133,7 +132,6 @@ export default function Permisos() {
         name: r.name,
         description: r.description || '',
         color: r.color || '#3B82F6',
-        isSystem: r.isSystem || r.is_system || false,
         permissions: r.permissions || createEmptyPermissions(),
       }));
       
@@ -182,9 +180,6 @@ export default function Permisos() {
     setRoleDialogOpen(true);
   };
 
-  // Check if role name can be changed (system roles can edit permissions but not name)
-  const isSystemRole = editingRole?.isSystem ?? false;
-
   const handleSaveRole = async () => {
     if (!roleForm.name.trim()) {
       toast.error('El nombre del rol es requerido');
@@ -219,12 +214,6 @@ export default function Permisos() {
   };
 
   const deleteRole = async (roleId: string) => {
-    const role = roles.find(r => r.id === roleId);
-    if (role?.isSystem) {
-      toast.error('No se pueden eliminar roles del sistema');
-      return;
-    }
-    
     const usersWithRole = users.filter(u => u.roleId === roleId);
     if (usersWithRole.length > 0) {
       toast.error(`No se puede eliminar: ${usersWithRole.length} usuario(s) tienen este rol asignado`);
@@ -413,17 +402,12 @@ export default function Permisos() {
             {roles.map(role => (
               <Card key={role.id} className="relative">
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="h-4 w-4 rounded-full" 
-                        style={{ backgroundColor: role.color }}
-                      />
-                      <CardTitle className="text-lg">{role.name}</CardTitle>
-                    </div>
-                    {role.isSystem && (
-                      <Badge variant="secondary" className="text-xs">Sistema</Badge>
-                    )}
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="h-4 w-4 rounded-full" 
+                      style={{ backgroundColor: role.color }}
+                    />
+                    <CardTitle className="text-lg">{role.name}</CardTitle>
                   </div>
                   <CardDescription>{role.description}</CardDescription>
                 </CardHeader>
@@ -466,16 +450,14 @@ export default function Permisos() {
                       >
                         <Copy className="h-3 w-3" />
                       </Button>
-                      {!role.isSystem && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deleteRole(role.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteRole(role.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -557,19 +539,10 @@ export default function Permisos() {
       <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle>
               {editingRole ? 'Editar Rol' : 'Nuevo Rol'}
-              {isSystemRole && (
-                <Badge variant="secondary" className="text-xs">Rol del Sistema</Badge>
-              )}
             </DialogTitle>
           </DialogHeader>
-
-          {isSystemRole && (
-            <div className="bg-muted/50 border rounded-lg p-3 text-sm text-muted-foreground">
-              💡 Este es un rol del sistema. Puedes editar sus permisos, pero el nombre está protegido.
-            </div>
-          )}
 
           <div className="space-y-6 py-4">
             {/* Basic Info */}
@@ -581,7 +554,6 @@ export default function Permisos() {
                   value={roleForm.name}
                   onChange={(e) => setRoleForm(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Ej: Administrador"
-                  disabled={isSystemRole}
                 />
               </div>
               <div className="space-y-2">
