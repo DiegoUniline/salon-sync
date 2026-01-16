@@ -61,7 +61,21 @@ export function MultiPaymentSelector({
   };
 
   const updatePayment = (id: string, field: keyof Payment, value: any) => {
-    onChange(payments.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
+    onChange(payments.map((p) => {
+      if (p.id !== id) return p;
+      const updated = { ...p, [field]: value };
+      
+      // Auto-fill remaining balance when switching to card/transfer
+      if (field === "method" && (value === "card" || value === "transfer")) {
+        const otherPaymentsTotal = payments
+          .filter((pay) => pay.id !== id)
+          .reduce((sum, pay) => sum + normalize(pay.amount), 0);
+        const remaining = round(total - otherPaymentsTotal);
+        updated.amount = Math.max(0, remaining);
+      }
+      
+      return updated;
+    }));
   };
 
   const removePayment = (id: string) => {
@@ -206,10 +220,16 @@ export function MultiPaymentSelector({
           </div>
         )}
         {change > 0 && (
-          <div className="flex justify-between text-sm text-success">
-            <span>Cambio:</span>
-            <span className="font-medium">${money(change)}</span>
-          </div>
+          <>
+            <div className="flex justify-between text-sm text-success">
+              <span>Cambio:</span>
+              <span className="font-medium">${money(change)}</span>
+            </div>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Se registrará:</span>
+              <span className="font-medium">${money(total)}</span>
+            </div>
+          </>
         )}
       </div>
     </div>
