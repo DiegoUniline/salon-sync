@@ -1,39 +1,23 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   ChevronLeft,
   ChevronRight,
-  CalendarDays,
-  LayoutGrid,
-  List,
   Plus,
   Building2,
   Users,
-  Clock,
-  Phone,
-  DollarSign,
-  Scissors,
   Loader2,
-  Edit,
 } from 'lucide-react';
-import { AppointmentFormDialog } from '@/components/AppointmentFormDialog';
+import { AppointmentEditorDialog } from '@/components/AppointmentEditorDialog';
 
 type ViewMode = 'day' | 'week' | 'month';
 
@@ -68,11 +52,37 @@ interface Appointment {
   time: string;
   status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
   client_id: string;
+  client_name: string;
+  client_phone: string;
   client?: Client;
   stylist_id: string;
   stylist?: Stylist;
   branch_id: string;
-  services?: Service[];
+  services?: Array<{
+    id: string;
+    service_id: string;
+    name: string;
+    price: number;
+    discount: number;
+    duration: number;
+  }>;
+  products?: Array<{
+    id: string;
+    product_id: string;
+    name: string;
+    price: number;
+    quantity: number;
+    discount?: number;
+  }>;
+  payments?: Array<{
+    id: string;
+    method: 'cash' | 'card' | 'transfer';
+    amount: number;
+    reference?: string;
+  }>;
+  subtotal?: number;
+  discount?: number;
+  discount_percent?: number;
   total: number;
   notes?: string;
 }
@@ -97,7 +107,6 @@ const statusLabels = {
 };
 
 export default function Agenda() {
-  const navigate = useNavigate();
   const { currentBranch } = useApp();
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -109,13 +118,13 @@ export default function Agenda() {
   const [selectedBranches, setSelectedBranches] = useState<string[]>([currentBranch?.id || '']);
   const [selectedStylists, setSelectedStylists] = useState<string[]>([]);
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogInitialDate, setDialogInitialDate] = useState<string>('');
   const [dialogInitialTime, setDialogInitialTime] = useState<string>('');
   const [dialogInitialStylist, setDialogInitialStylist] = useState<string>('');
   const [dialogInitialDuration, setDialogInitialDuration] = useState<number | undefined>();
-
+  
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ time: string; stylistId: string; date: Date } | null>(null);
@@ -264,7 +273,8 @@ export default function Agenda() {
     setDialogInitialTime(time);
     setDialogInitialStylist(stylistId);
     setDialogInitialDuration(duration);
-    setIsDialogOpen(true);
+    setSelectedAppointment(null);
+    setIsEditorOpen(true);
   };
 
   const handleSlotClick = (time: string, stylistId: string, date: Date) => {
@@ -643,101 +653,24 @@ export default function Agenda() {
         </div>
       )}
 
-      {/* Appointment Detail Dialog */}
-      <Dialog open={!!selectedAppointment} onOpenChange={() => setSelectedAppointment(null)}>
-        <DialogContent className="max-w-sm">
-          {selectedAppointment && (() => {
-              const clientName = (selectedAppointment as any).client_name || selectedAppointment.client?.name || 'Cliente';
-              const clientPhone = (selectedAppointment as any).client_phone || selectedAppointment.client?.phone || '-';
-              const timeFormatted = (selectedAppointment.time || '').slice(0, 5);
-              return (
-                <>
-                  <DialogHeader className="pb-2">
-                    <DialogTitle className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: getStylistColor(selectedAppointment.stylist_id) }}
-                      />
-                      {clientName}
-                    </DialogTitle>
-                  </DialogHeader>
-                  
-                  <div className="space-y-3">
-                    <Badge className={cn("text-xs", statusColors[selectedAppointment.status])}>
-                      {statusLabels[selectedAppointment.status]}
-                    </Badge>
-
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Clock className="h-4 w-4" />
-                        <span>{timeFormatted}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Phone className="h-4 w-4" />
-                        <span>{clientPhone}</span>
-                      </div>
-                    </div>
-
-                {selectedAppointment.services && selectedAppointment.services.length > 0 && (
-                  <div className="border-t pt-3">
-                    <p className="text-xs text-muted-foreground mb-2">Servicios</p>
-                    <div className="space-y-1.5">
-                      {selectedAppointment.services.map(service => (
-                        <div key={service.id} className="flex justify-between text-sm">
-                          <span className="flex items-center gap-2">
-                            <Scissors className="h-3.5 w-3.5 text-muted-foreground" />
-                            {service.name}
-                          </span>
-                          <span className="font-medium">${service.price}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between border-t pt-3">
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-medium"
-                      style={{ backgroundColor: getStylistColor(selectedAppointment.stylist_id) }}
-                    >
-                      {getStylistName(selectedAppointment.stylist_id).split(' ').map(n => n[0]).join('')}
-                    </div>
-                    <span className="text-sm font-medium">{getStylistName(selectedAppointment.stylist_id)}</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-lg font-bold">
-                    <DollarSign className="h-5 w-5" />
-                    {selectedAppointment.total}
-                  </div>
-                </div>
-
-                {selectedAppointment.status !== 'completed' && selectedAppointment.status !== 'cancelled' && (
-                  <Button 
-                    className="w-full mt-3 gap-2" 
-                    onClick={() => {
-                      navigate(`/citas?edit=${selectedAppointment.id}`);
-                      setSelectedAppointment(null);
-                    }}
-                  >
-                    <Edit className="h-4 w-4" />
-                    Editar Cita
-                  </Button>
-                )}
-              </div>
-            </>
-              );
-            })()}
-        </DialogContent>
-      </Dialog>
-
-      <AppointmentFormDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+      {/* Appointment Editor Dialog - for both viewing and editing */}
+      <AppointmentEditorDialog
+        open={isEditorOpen || !!selectedAppointment}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsEditorOpen(false);
+            setSelectedAppointment(null);
+          }
+        }}
+        appointment={selectedAppointment}
         initialDate={dialogInitialDate}
         initialTime={dialogInitialTime}
         initialStylistId={dialogInitialStylist}
-        initialDuration={dialogInitialDuration}
-        onSave={reloadAppointments}
+        onSave={() => {
+          reloadAppointments();
+          setSelectedAppointment(null);
+          setIsEditorOpen(false);
+        }}
       />
     </div>
   );
