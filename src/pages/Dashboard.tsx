@@ -48,7 +48,26 @@ export default function Dashboard() {
       setError(null);
       try {
         const data = await api.dashboard.get(currentBranch.id);
-        setStats(data);
+        // Ensure all required fields have defaults
+        setStats({
+          todaySales: data.todaySales ?? 0,
+          todayAppointments: data.todayAppointments ?? 0,
+          completedAppointments: data.completedAppointments ?? 0,
+          pendingAppointments: data.pendingAppointments ?? 0,
+          inProgressAppointments: data.inProgressAppointments ?? 0,
+          topServices: data.topServices ?? [],
+          topProducts: data.topProducts ?? [],
+          weeklyRevenue: data.weeklyRevenue ?? [
+            { day: 'Lun', amount: 0 },
+            { day: 'Mar', amount: 0 },
+            { day: 'Mié', amount: 0 },
+            { day: 'Jue', amount: 0 },
+            { day: 'Vie', amount: 0 },
+            { day: 'Sáb', amount: 0 },
+            { day: 'Dom', amount: 0 },
+          ],
+          pendingBalance: data.pendingBalance ?? 0,
+        });
       } catch (err) {
         console.error('Error loading dashboard:', err);
         setError('Error al cargar el dashboard');
