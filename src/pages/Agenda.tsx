@@ -315,18 +315,24 @@ export default function Agenda() {
     ? filteredStylists.filter(s => selectedStylists.includes(s.id))
     : filteredStylists;
 
-  const handleSaveAppointment = async (appointment: any) => {
+  const reloadAppointments = async () => {
     try {
-      if (appointment.id && !appointment.id.startsWith('temp')) {
-        await api.appointments.update(appointment.id, appointment);
-      } else {
-        await api.appointments.create(appointment);
-      }
-      // Reload appointments
-      const data = await api.appointments.getAll({ date: selectedDate.toISOString().split('T')[0] });
+      const startDate = viewMode === 'month' 
+        ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1).toISOString().split('T')[0]
+        : viewMode === 'week'
+        ? getWeekDates(selectedDate)[0].toISOString().split('T')[0]
+        : selectedDate.toISOString().split('T')[0];
+      
+      const endDate = viewMode === 'month'
+        ? new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).toISOString().split('T')[0]
+        : viewMode === 'week'
+        ? getWeekDates(selectedDate)[6].toISOString().split('T')[0]
+        : selectedDate.toISOString().split('T')[0];
+
+      const data = await api.appointments.getAll({ start_date: startDate, end_date: endDate });
       setAppointments(data);
     } catch (error) {
-      console.error('Error saving appointment:', error);
+      console.error('Error reloading appointments:', error);
     }
   };
 
@@ -689,7 +695,7 @@ export default function Agenda() {
         initialTime={dialogInitialTime}
         initialStylistId={dialogInitialStylist}
         initialDuration={dialogInitialDuration}
-        onSave={handleSaveAppointment}
+        onSave={reloadAppointments}
       />
     </div>
   );

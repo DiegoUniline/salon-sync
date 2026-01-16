@@ -1,6 +1,22 @@
-import { appointments, type Appointment } from '@/lib/mockData';
+import { useState, useEffect } from 'react';
+import api from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { Clock, User } from 'lucide-react';
+import { Clock, Loader2 } from 'lucide-react';
+
+interface Appointment {
+  id: string;
+  date: string;
+  time: string;
+  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
+  client_name?: string;
+  stylist_name?: string;
+  stylist_color?: string;
+  total: number;
+  services?: Array<{
+    name: string;
+    duration: number;
+  }>;
+}
 
 const statusLabels = {
   'scheduled': 'Agendada',
@@ -10,10 +26,39 @@ const statusLabels = {
 };
 
 export function AppointmentTimeline() {
-  const today = new Date().toISOString().split('T')[0];
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadAppointments = async () => {
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const data = await api.appointments.getAll({ start_date: today, end_date: today });
+        setAppointments(data);
+      } catch (error) {
+        console.error('Error loading appointments:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadAppointments();
+  }, []);
+
   const todayAppointments = appointments
-    .filter(a => a.date === today)
     .sort((a, b) => a.time.localeCompare(b.time));
+
+  if (loading) {
+    return (
+      <div className="glass-card rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Citas de Hoy</h3>
+        </div>
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="glass-card rounded-xl p-5">
@@ -44,7 +89,10 @@ export function AppointmentTimeline() {
 }
 
 function AppointmentCard({ appointment, delay }: { appointment: Appointment; delay: number }) {
-  const totalDuration = appointment.services.reduce((sum, s) => sum + s.duration, 0);
+  const totalDuration = appointment.services?.reduce((sum, s) => sum + s.duration, 0) || 0;
+  const stylistColor = appointment.stylist_color || '#3B82F6';
+  const stylistName = appointment.stylist_name || 'Sin asignar';
+  const clientName = appointment.client_name || 'Cliente';
 
   return (
     <div
@@ -55,12 +103,12 @@ function AppointmentCard({ appointment, delay }: { appointment: Appointment; del
       style={{ 
         animationDelay: `${delay}ms`,
         borderLeftWidth: '4px',
-        borderLeftColor: appointment.stylist.color,
+        borderLeftColor: stylistColor,
       }}
     >
       {/* Time */}
       <div className="flex flex-col items-center w-16">
-        <span className="text-lg font-semibold">{appointment.time}</span>
+        <span className="text-lg font-semibold">{appointment.time?.slice(0, 5)}</span>
         <span className="text-xs text-muted-foreground flex items-center gap-1">
           <Clock className="h-3 w-3" />
           {totalDuration}min
@@ -70,32 +118,32 @@ function AppointmentCard({ appointment, delay }: { appointment: Appointment; del
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-medium truncate">{appointment.client.name}</span>
+          <span className="font-medium truncate">{clientName}</span>
           <span className={cn('badge-status', `badge-${appointment.status}`)}>
             {statusLabels[appointment.status]}
           </span>
         </div>
         
         <p className="text-sm text-muted-foreground mt-1">
-          {appointment.services.map(s => s.name).join(', ')}
+          {appointment.services?.map(s => s.name).join(', ') || 'Sin servicios'}
         </p>
 
         <div className="flex items-center gap-2 mt-2">
           <div
             className="h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium text-white"
-            style={{ backgroundColor: appointment.stylist.color }}
+            style={{ backgroundColor: stylistColor }}
           >
-            {appointment.stylist.name.charAt(0)}
+            {stylistName.charAt(0)}
           </div>
           <span className="text-sm text-muted-foreground">
-            {appointment.stylist.name}
+            {stylistName}
           </span>
         </div>
       </div>
 
       {/* Price */}
       <div className="text-right">
-        <span className="text-lg font-semibold">${appointment.total}</span>
+        <span className="text-lg font-semibold">${Number(appointment.total).toLocaleString()}</span>
       </div>
     </div>
   );
