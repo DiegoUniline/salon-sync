@@ -182,6 +182,9 @@ export default function Permisos() {
     setRoleDialogOpen(true);
   };
 
+  // Check if role name can be changed (system roles can edit permissions but not name)
+  const isSystemRole = editingRole?.isSystem ?? false;
+
   const handleSaveRole = async () => {
     if (!roleForm.name.trim()) {
       toast.error('El nombre del rol es requerido');
@@ -554,10 +557,19 @@ export default function Permisos() {
       <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
               {editingRole ? 'Editar Rol' : 'Nuevo Rol'}
+              {isSystemRole && (
+                <Badge variant="secondary" className="text-xs">Rol del Sistema</Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
+
+          {isSystemRole && (
+            <div className="bg-muted/50 border rounded-lg p-3 text-sm text-muted-foreground">
+              💡 Este es un rol del sistema. Puedes editar sus permisos, pero el nombre está protegido.
+            </div>
+          )}
 
           <div className="space-y-6 py-4">
             {/* Basic Info */}
@@ -569,6 +581,7 @@ export default function Permisos() {
                   value={roleForm.name}
                   onChange={(e) => setRoleForm(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Ej: Administrador"
+                  disabled={isSystemRole}
                 />
               </div>
               <div className="space-y-2">
