@@ -152,7 +152,20 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const init = async () => {
       const token = localStorage.getItem(TOKEN_KEY);
-      if (token && currentUser) {
+      const savedUser = localStorage.getItem(CURRENT_USER_KEY);
+      
+      // No token = no session, redirect to login
+      if (!token) {
+        localStorage.removeItem(CURRENT_USER_KEY);
+        localStorage.removeItem(SUBSCRIPTION_KEY);
+        setCurrentUser(null);
+        setSubscription(null);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Has token, verify it's still valid
+      if (token && savedUser) {
         try {
           const userData = await api.auth.me();
 
@@ -173,7 +186,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
           }
 
           await refreshData();
-        } catch {
+        } catch (error) {
+          // Token invalid or expired, clear everything and redirect to login
+          console.log('Session expired or invalid, clearing...');
           localStorage.removeItem(TOKEN_KEY);
           localStorage.removeItem(CURRENT_USER_KEY);
           localStorage.removeItem(SUBSCRIPTION_KEY);
