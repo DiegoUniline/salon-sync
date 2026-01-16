@@ -6,7 +6,8 @@ export interface ShiftUser {
   id: string;
   name: string;
   color: string;
-  role?: string;
+  role: 'admin' | 'stylist' | 'receptionist';
+  avatar?: string;
 }
 
 export interface Shift {
@@ -41,6 +42,8 @@ const normalizeShift = (apiShift: any): Shift => ({
     id: apiShift.user_id,
     name: apiShift.user_name || apiShift.user?.name || 'Usuario',
     color: apiShift.user_color || apiShift.user?.color || '#3B82F6',
+    role: (apiShift.user_role || apiShift.user?.role || 'stylist') as 'admin' | 'stylist' | 'receptionist',
+    avatar: apiShift.user_avatar || apiShift.user?.avatar,
   },
   date: apiShift.date?.split('T')[0] || new Date().toISOString().split('T')[0],
   startTime: apiShift.start_time?.slice(0, 5) || apiShift.startTime || '00:00',
