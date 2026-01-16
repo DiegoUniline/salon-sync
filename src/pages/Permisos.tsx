@@ -33,7 +33,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
-import { api } from '@/lib/api';
+import api from '@/lib/api';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   modules,
   actions,
@@ -80,6 +81,7 @@ const colorOptions = [
 ];
 
 export default function Permisos() {
+  const { refreshCurrentUser } = usePermissions();
   const [roles, setRoles] = useState<Role[]>([]);
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -200,6 +202,7 @@ export default function Permisos() {
 
       if (editingRole) {
         await api.roles.update(editingRole.id, roleData);
+        await refreshCurrentUser(); // Actualizar permisos del usuario actual inmediatamente
         toast.success('Rol actualizado');
       } else {
         await api.roles.create(roleData);

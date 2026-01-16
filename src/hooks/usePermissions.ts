@@ -79,6 +79,7 @@ interface PermissionsContextType {
   canEdit: (moduleId: ModuleId) => boolean;
   canDelete: (moduleId: ModuleId) => boolean;
   refreshData: () => Promise<void>;
+  refreshCurrentUser: () => Promise<void>;
 }
 
 const PermissionsContext = createContext<PermissionsContextType | undefined>(
@@ -138,6 +139,19 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       setRoles(rolesData);
     } catch (error) {
       console.error("Error refreshing data:", error);
+    }
+  };
+
+  const refreshCurrentUser = async () => {
+    try {
+      const userData = await api.auth.me();
+      if (userData.permissions && typeof userData.permissions === "string") {
+        userData.permissions = JSON.parse(userData.permissions);
+      }
+      setCurrentUser(userData);
+      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userData));
+    } catch (error) {
+      console.error("Error refreshing current user:", error);
     }
   };
 
@@ -239,6 +253,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     canEdit,
     canDelete,
     refreshData,
+    refreshCurrentUser,
   };
 
   return createElement(PermissionsContext.Provider, { value }, children);
