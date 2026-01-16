@@ -1,26 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { usePermissions } from '@/hooks/usePermissions';
-import { 
-  sales as mockSales,
-  products,
-  services,
-  stylists,
-  type Sale,
-  type Product,
-  type Service,
-} from '@/lib/mockData';
+import api from '@/lib/api';
 import { TicketPrinter, type TicketData } from '@/components/TicketPrinter';
 import { ShiftRequiredAlert } from '@/components/ShiftRequiredAlert';
 import { useShift } from '@/hooks/useShift';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
-import { AnimatedContainer, AnimatedCard, AnimatedList, AnimatedListItem, PageTransition } from '@/components/ui/animated-container';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -68,6 +58,7 @@ import {
   DollarSign,
   Minus,
   X,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -86,6 +77,38 @@ const paymentLabels = {
   mixed: 'Mixto',
 };
 
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  cost: number;
+  stock: number;
+  sku: string;
+  active: boolean;
+}
+
+interface Service {
+  id: string;
+  name: string;
+  price: number;
+  duration: number;
+  active: boolean;
+}
+
+interface Sale {
+  id: string;
+  branch_id: string;
+  shift_id?: string;
+  date: string;
+  time: string;
+  type: 'direct' | 'appointment';
+  items: { type: 'product' | 'service'; item: Product | Service; quantity: number }[];
+  payment_method: string;
+  payments?: { method: string; amount: number }[];
+  total: number;
+  client_name?: string;
+}
+
 interface CartItem {
   type: 'product' | 'service';
   item: Product | Service;
@@ -95,9 +118,14 @@ interface CartItem {
 export default function Ventas() {
   const { currentBranch } = useApp();
   const { canCreate, canDelete } = usePermissions();
-  const { hasOpenShift, openShift } = useShift(currentBranch.id);
+  const { hasOpenShift, openShift, loading: shiftLoading } = useShift(currentBranch?.id || '');
   const isMobile = useIsMobile();
-  const [sales, setSales] = useState<Sale[]>(mockSales);
+  
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
+  
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [isPOSOpen, setIsPOSOpen] = useState(false);
@@ -114,7 +142,43 @@ export default function Ventas() {
   const [showTicket, setShowTicket] = useState(false);
   const [ticketData, setTicketData] = useState<TicketData | null>(null);
 
+  // Load data
+  useEffect(() => {
+    const loadData = async () => {
+      if (!currentBranch?.id) return;
+      setLoading(true);
+      try {
+        const [salesData, productsData, servicesData] = await Promise.all([
+          api.sales.getAll({ branch_id: currentBranch.id }),
+          api.products.getAll({ active: true }),
+          api.services.getAll({ active: true }),
+        ]);
+        setSales(salesData.map((s: any) => ({
+          ...s,
+          branch_id: s.branch_id,
+          payment_method: s.payment_method || s.paymentMethod,
+        })));
+        setProducts(productsData);
+        setServices(servicesData);
+      } catch (error) {
+        console.error('Error loading data:', error);
+        toast.error('Error al cargar datos');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [currentBranch?.id]);
+
   // Require open shift for sales
+  if (shiftLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   if (!hasOpenShift) {
     return (
       <div className="space-y-6">
@@ -128,21 +192,21 @@ export default function Ventas() {
   }
 
   const filteredSales = sales.filter(s => {
-    const matchesBranch = s.branchId === currentBranch.id;
-    const matchesSearch = s.clientName?.toLowerCase().includes(search.toLowerCase()) || false;
+    const matchesBranch = s.branch_id === currentBranch?.id;
+    const matchesSearch = s.client_name?.toLowerCase().includes(search.toLowerCase()) || false;
     const matchesType = typeFilter === 'all' || s.type === typeFilter;
     return matchesBranch && matchesSearch && matchesType;
   });
 
   const today = new Date().toISOString().split('T')[0];
   const todaySales = filteredSales.filter(s => s.date === today);
-  const totalToday = todaySales.reduce((sum, s) => sum + s.total, 0);
-  const cashToday = todaySales.filter(s => s.paymentMethod === 'cash').reduce((sum, s) => sum + s.total, 0);
-  const cardToday = todaySales.filter(s => s.paymentMethod === 'card').reduce((sum, s) => sum + s.total, 0);
+  const totalToday = todaySales.reduce((sum, s) => sum + Number(s.total), 0);
+  const cashToday = todaySales.filter(s => s.payment_method === 'cash').reduce((sum, s) => sum + Number(s.total), 0);
+  const cardToday = todaySales.filter(s => s.payment_method === 'card').reduce((sum, s) => sum + Number(s.total), 0);
 
   const cartTotal = cart.reduce((sum, item) => {
     const price = 'price' in item.item ? item.item.price : 0;
-    return sum + (price * item.quantity);
+    return sum + (Number(price) * item.quantity);
   }, 0);
 
   const addToCart = (type: 'product' | 'service', item: Product | Service) => {
@@ -189,7 +253,7 @@ export default function Ventas() {
 
   const mixedTotal = mixedPayments.reduce((sum, p) => sum + p.amount, 0);
 
-  const completeSale = () => {
+  const completeSale = async () => {
     if (cart.length === 0) {
       toast.error('El carrito está vacío');
       return;
@@ -202,59 +266,78 @@ export default function Ventas() {
 
     const now = new Date();
     const folio = `V${Date.now().toString().slice(-6)}`;
-    const newSale: Sale = {
-      id: `sl${Date.now()}`,
-      branchId: currentBranch.id,
-      date: now.toISOString().split('T')[0],
-      time: now.toTimeString().slice(0, 5),
-      type: 'direct',
-      items: cart.map(c => ({ type: c.type, item: c.item, quantity: c.quantity })),
-      paymentMethod,
-      payments: paymentMethod === 'mixed' ? mixedPayments : undefined,
-      total: cartTotal,
-      clientName: clientName || 'Cliente mostrador',
-    };
+    
+    try {
+      const saleData = {
+        branch_id: currentBranch?.id,
+        shift_id: openShift?.id,
+        date: now.toISOString().split('T')[0],
+        time: now.toTimeString().slice(0, 5),
+        type: 'direct',
+        items: cart.map(c => ({
+          type: c.type,
+          item_id: c.item.id,
+          name: c.item.name,
+          quantity: c.quantity,
+          price: 'price' in c.item ? c.item.price : 0,
+        })),
+        payment_method: paymentMethod,
+        payments: paymentMethod === 'mixed' ? mixedPayments : [{ method: paymentMethod, amount: cartTotal }],
+        total: cartTotal,
+        client_name: clientName || 'Cliente mostrador',
+      };
 
-    setSales(prev => [newSale, ...prev]);
-    
-    // Prepare ticket data
-    const serviceItems = cart.filter(c => c.type === 'service').map(c => ({
-      name: c.item.name,
-      quantity: c.quantity,
-      price: 'price' in c.item ? c.item.price : 0,
-    }));
-    
-    const productItems = cart.filter(c => c.type === 'product').map(c => ({
-      name: c.item.name,
-      quantity: c.quantity,
-      price: 'price' in c.item ? c.item.price : 0,
-    }));
-    
-    setTicketData({
-      folio,
-      date: now,
-      clientName: clientName || 'Cliente mostrador',
-      services: serviceItems,
-      products: productItems,
-      subtotal: cartTotal,
-      discount: 0,
-      total: cartTotal,
-      paymentMethod: paymentLabels[paymentMethod],
-      payments: paymentMethod === 'mixed' ? mixedPayments.map(p => ({
-        method: paymentLabels[p.method],
-        amount: p.amount
-      })) : undefined,
-    });
-    
-    setShowTicket(true);
-    toast.success('Venta completada');
-    
-    // Reset
-    setCart([]);
-    setClientName('');
-    setPaymentMethod('cash');
-    setMixedPayments([]);
-    setIsPOSOpen(false);
+      const newSale = await api.sales.create(saleData);
+      // Reload sales to get proper structure
+      const updatedSales = await api.sales.getAll({ branch_id: currentBranch?.id });
+      setSales(updatedSales.map((s: any) => ({
+        ...s,
+        branch_id: s.branch_id,
+        payment_method: s.payment_method || s.paymentMethod,
+      })));
+      
+      // Prepare ticket data
+      const serviceItems = cart.filter(c => c.type === 'service').map(c => ({
+        name: c.item.name,
+        quantity: c.quantity,
+        price: 'price' in c.item ? Number(c.item.price) : 0,
+      }));
+      
+      const productItems = cart.filter(c => c.type === 'product').map(c => ({
+        name: c.item.name,
+        quantity: c.quantity,
+        price: 'price' in c.item ? Number(c.item.price) : 0,
+      }));
+      
+      setTicketData({
+        folio,
+        date: now,
+        clientName: clientName || 'Cliente mostrador',
+        services: serviceItems,
+        products: productItems,
+        subtotal: cartTotal,
+        discount: 0,
+        total: cartTotal,
+        paymentMethod: paymentLabels[paymentMethod],
+        payments: paymentMethod === 'mixed' ? mixedPayments.map(p => ({
+          method: paymentLabels[p.method as keyof typeof paymentLabels],
+          amount: p.amount
+        })) : undefined,
+      });
+      
+      setShowTicket(true);
+      toast.success('Venta completada');
+      
+      // Reset
+      setCart([]);
+      setClientName('');
+      setPaymentMethod('cash');
+      setMixedPayments([]);
+      setIsPOSOpen(false);
+    } catch (error) {
+      console.error('Error creating sale:', error);
+      toast.error('Error al registrar venta');
+    }
   };
 
   const filteredProducts = products.filter(p => 
@@ -267,9 +350,15 @@ export default function Ventas() {
     s.name.toLowerCase().includes(searchPOS.toLowerCase())
   );
 
-  const deleteSale = (id: string) => {
-    setSales(prev => prev.filter(s => s.id !== id));
-    toast.success('Venta eliminada');
+  const deleteSale = async (id: string) => {
+    try {
+      await api.sales.delete(id);
+      setSales(prev => prev.filter(s => s.id !== id));
+      toast.success('Venta eliminada');
+    } catch (error) {
+      console.error('Error deleting sale:', error);
+      toast.error('Error al eliminar venta');
+    }
   };
 
   return (
@@ -334,7 +423,7 @@ export default function Ventas() {
                             <p className="font-medium text-sm">{product.name}</p>
                             <p className="text-xs text-muted-foreground">Stock: {product.stock}</p>
                           </div>
-                          <span className="font-bold">${product.price}</span>
+                          <span className="font-bold">${Number(product.price).toLocaleString()}</span>
                         </button>
                       ))}
                     </div>
@@ -355,7 +444,7 @@ export default function Ventas() {
                             <p className="font-medium text-sm">{service.name}</p>
                             <p className="text-xs text-muted-foreground">{service.duration} min</p>
                           </div>
-                          <span className="font-bold">${service.price}</span>
+                          <span className="font-bold">${Number(service.price).toLocaleString()}</span>
                         </button>
                       ))}
                     </div>
@@ -388,7 +477,7 @@ export default function Ventas() {
                           <div className="flex-1">
                             <p className="font-medium text-sm">{item.item.name}</p>
                             <p className="text-xs text-muted-foreground">
-                              ${('price' in item.item ? item.item.price : 0)} c/u
+                              ${Number('price' in item.item ? item.item.price : 0).toLocaleString()} c/u
                             </p>
                           </div>
                           <div className="flex items-center gap-1">
@@ -411,7 +500,7 @@ export default function Ventas() {
                             </Button>
                           </div>
                           <span className="w-20 text-right font-bold">
-                            ${(('price' in item.item ? item.item.price : 0) * item.quantity).toLocaleString()}
+                            ${(Number('price' in item.item ? item.item.price : 0) * item.quantity).toLocaleString()}
                           </span>
                           <Button 
                             size="icon" 
@@ -464,7 +553,7 @@ export default function Ventas() {
                       </div>
                       {mixedPayments.map((payment, index) => (
                         <div key={index} className="flex items-center gap-2">
-                          <Select 
+                          <Select
                             value={payment.method}
                             onValueChange={(v) => updateMixedPayment(index, 'method', v)}
                           >
@@ -474,18 +563,22 @@ export default function Ventas() {
                             <SelectContent>
                               <SelectItem value="cash">Efectivo</SelectItem>
                               <SelectItem value="card">Tarjeta</SelectItem>
-                              <SelectItem value="transfer">Transferencia</SelectItem>
+                              <SelectItem value="transfer">Transfer.</SelectItem>
                             </SelectContent>
                           </Select>
-                          <Input
-                            type="number"
-                            value={payment.amount}
-                            onChange={(e) => updateMixedPayment(index, 'amount', parseFloat(e.target.value) || 0)}
-                            className="flex-1"
-                          />
-                          <Button 
-                            size="icon" 
+                          <div className="relative flex-1">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                            <Input
+                              type="number"
+                              value={payment.amount}
+                              onChange={(e) => updateMixedPayment(index, 'amount', parseFloat(e.target.value) || 0)}
+                              className="pl-6"
+                            />
+                          </div>
+                          <Button
+                            size="icon"
                             variant="ghost"
+                            className="text-destructive"
                             onClick={() => removeMixedPayment(index)}
                           >
                             <X className="h-4 w-4" />
@@ -494,20 +587,21 @@ export default function Ventas() {
                       ))}
                       <div className="flex justify-between text-sm">
                         <span>Total pagos:</span>
-                        <span className={cn("font-medium", mixedTotal !== cartTotal && "text-destructive")}>
+                        <span className={cn("font-bold", mixedTotal !== cartTotal && "text-destructive")}>
                           ${mixedTotal.toLocaleString()}
                         </span>
                       </div>
                     </div>
                   )}
 
-                  <Button 
-                    className="w-full gradient-bg border-0 h-12 text-lg"
+                  <Button
+                    className="w-full gradient-bg border-0"
+                    size="lg"
                     onClick={completeSale}
                     disabled={cart.length === 0}
                   >
-                    <Receipt className="h-5 w-5 mr-2" />
-                    Cobrar ${cartTotal.toLocaleString()}
+                    <Receipt className="h-4 w-4 mr-2" />
+                    Completar Venta
                   </Button>
                 </div>
               </div>
@@ -517,33 +611,22 @@ export default function Ventas() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-3">
         <div className="glass-card rounded-xl p-4">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-lg bg-success/10">
-              <DollarSign className="h-5 w-5 text-success" />
+            <div className="p-3 rounded-lg bg-primary/10">
+              <DollarSign className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Ventas Hoy</p>
+              <p className="text-sm text-muted-foreground">Ventas de Hoy</p>
               <p className="text-2xl font-bold">${totalToday.toLocaleString()}</p>
             </div>
           </div>
         </div>
         <div className="glass-card rounded-xl p-4">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-lg bg-primary/10">
-              <Receipt className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Transacciones</p>
-              <p className="text-2xl font-bold">{todaySales.length}</p>
-            </div>
-          </div>
-        </div>
-        <div className="glass-card rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-lg bg-green-500/10">
-              <Banknote className="h-5 w-5 text-green-600" />
+            <div className="p-3 rounded-lg bg-success/10">
+              <Banknote className="h-5 w-5 text-success" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Efectivo</p>
@@ -553,8 +636,8 @@ export default function Ventas() {
         </div>
         <div className="glass-card rounded-xl p-4">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-lg bg-blue-500/10">
-              <CreditCard className="h-5 w-5 text-blue-600" />
+            <div className="p-3 rounded-lg bg-info/10">
+              <CreditCard className="h-5 w-5 text-info" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Tarjeta</p>
@@ -583,164 +666,64 @@ export default function Ventas() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas</SelectItem>
-              <SelectItem value="appointment">Citas</SelectItem>
               <SelectItem value="direct">Directas</SelectItem>
+              <SelectItem value="appointment">De Citas</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      {/* Mobile Card View */}
-      <div className="md:hidden space-y-3">
-        {filteredSales.length === 0 ? (
-          <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
-            No hay ventas registradas
-          </div>
-        ) : (
-          filteredSales
-            .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`))
-            .map((sale) => {
-              const PaymentIcon = paymentIcons[sale.paymentMethod];
-              return (
-                <div key={sale.id} className="glass-card rounded-xl p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium">{sale.clientName}</p>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                        <Calendar className="h-3.5 w-3.5" />
-                        <span>{new Date(sale.date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</span>
-                        <Clock className="h-3.5 w-3.5 ml-1" />
-                        <span>{sale.time}</span>
-                      </div>
-                    </div>
-                    <span className="text-lg font-bold text-success">
-                      +${sale.total.toLocaleString()}
-                    </span>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-1">
-                    {sale.items.slice(0, 3).map((item, i) => (
-                      <Badge key={i} variant="outline" className="text-xs">
-                        {item.item.name} x{item.quantity}
-                      </Badge>
-                    ))}
-                    {sale.items.length > 3 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{sale.items.length - 3}
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center justify-between pt-2 border-t">
-                    <div className="flex items-center gap-2">
-                      <Badge variant={sale.type === 'appointment' ? 'default' : 'secondary'} className="text-xs">
-                        {sale.type === 'appointment' ? 'Cita' : 'Directa'}
-                      </Badge>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <PaymentIcon className="h-3.5 w-3.5" />
-                        <span>{paymentLabels[sale.paymentMethod]}</span>
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-8 px-2"
-                        onClick={() => setViewingSale(sale)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-8 px-2 text-destructive"
-                        onClick={() => deleteSale(sale.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-        )}
-      </div>
-
-      {/* Desktop Table */}
-      <div className="glass-card rounded-xl overflow-hidden hidden md:block">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Fecha/Hora</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Items</TableHead>
-              <TableHead>Pago</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredSales.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No hay ventas registradas
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredSales
-                .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`))
-                .map((sale) => {
-                  const PaymentIcon = paymentIcons[sale.paymentMethod];
-                  return (
-                    <TableRow key={sale.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span>{new Date(sale.date).toLocaleDateString('es-MX')}</span>
-                          <Clock className="h-4 w-4 text-muted-foreground ml-1" />
-                          <span>{sale.time}</span>
+      {/* Sales Table */}
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : isMobile ? (
+        <div className="space-y-3">
+          {filteredSales.length === 0 ? (
+            <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
+              No hay ventas registradas
+            </div>
+          ) : (
+            filteredSales
+              .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`))
+              .map((sale) => {
+                const PaymentIcon = paymentIcons[sale.payment_method as keyof typeof paymentIcons] || Banknote;
+                return (
+                  <div key={sale.id} className="glass-card rounded-xl p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold">{sale.client_name || 'Cliente'}</p>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {new Date(sale.date).toLocaleDateString('es-MX')}
+                          <Clock className="h-3.5 w-3.5 ml-2" />
+                          {sale.time}
                         </div>
-                      </TableCell>
-                      <TableCell className="font-medium">{sale.clientName}</TableCell>
-                      <TableCell>
-                        <Badge variant={sale.type === 'appointment' ? 'default' : 'secondary'}>
-                          {sale.type === 'appointment' ? 'Cita' : 'Directa'}
+                      </div>
+                      <p className="text-lg font-bold text-primary">${Number(sale.total).toLocaleString()}</p>
+                    </div>
+                    
+                    <div className="flex items-center justify-between pt-2 border-t">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={sale.type === 'direct' ? 'default' : 'secondary'}>
+                          {sale.type === 'direct' ? 'Directa' : 'Cita'}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {sale.items.slice(0, 2).map((item, i) => (
-                            <Badge key={i} variant="outline" className="text-xs">
-                              {item.item.name} x{item.quantity}
-                            </Badge>
-                          ))}
-                          {sale.items.length > 2 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{sale.items.length - 2}
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <PaymentIcon className="h-4 w-4 text-muted-foreground" />
-                          <span>{paymentLabels[sale.paymentMethod]}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-semibold text-success">
-                        +${sale.total.toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-1">
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            className="h-8 w-8"
-                            onClick={() => setViewingSale(sale)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                        <Badge variant="outline" className="gap-1">
+                          <PaymentIcon className="h-3 w-3" />
+                          {paymentLabels[sale.payment_method as keyof typeof paymentLabels] || sale.payment_method}
+                        </Badge>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-8 w-8"
+                          onClick={() => setViewingSale(sale)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {canDelete('ventas') && (
                           <Button 
                             size="icon" 
                             variant="ghost" 
@@ -749,17 +732,95 @@ export default function Ventas() {
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+          )}
+        </div>
+      ) : (
+        <div className="glass-card rounded-xl overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Pago</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredSales.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    No hay ventas registradas
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredSales
+                  .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`))
+                  .map((sale) => {
+                    const PaymentIcon = paymentIcons[sale.payment_method as keyof typeof paymentIcons] || Banknote;
+                    return (
+                      <TableRow key={sale.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              <p>{new Date(sale.date).toLocaleDateString('es-MX')}</p>
+                              <p className="text-sm text-muted-foreground">{sale.time}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium">{sale.client_name || 'Cliente'}</TableCell>
+                        <TableCell>
+                          <Badge variant={sale.type === 'direct' ? 'default' : 'secondary'}>
+                            {sale.type === 'direct' ? 'Directa' : 'Cita'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="gap-1">
+                            <PaymentIcon className="h-3 w-3" />
+                            {paymentLabels[sale.payment_method as keyof typeof paymentLabels] || sale.payment_method}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-bold">${Number(sale.total).toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8"
+                              onClick={() => setViewingSale(sale)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {canDelete('ventas') && (
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="h-8 w-8 text-destructive"
+                                onClick={() => deleteSale(sale.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
-      {/* View Dialog */}
+      {/* View Sale Dialog */}
       <Dialog open={!!viewingSale} onOpenChange={() => setViewingSale(null)}>
         <DialogContent>
           <DialogHeader>
@@ -767,108 +828,66 @@ export default function Ventas() {
           </DialogHeader>
           {viewingSale && (
             <div className="space-y-4">
-              <div className="grid gap-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Cliente:</span>
-                  <span className="font-medium">{viewingSale.clientName}</span>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Cliente</p>
+                  <p className="font-medium">{viewingSale.client_name || 'Cliente'}</p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Fecha:</span>
-                  <span>{new Date(viewingSale.date).toLocaleDateString('es-MX')} {viewingSale.time}</span>
+                <div>
+                  <p className="text-sm text-muted-foreground">Fecha</p>
+                  <p className="font-medium">{new Date(viewingSale.date).toLocaleDateString('es-MX')} {viewingSale.time}</p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tipo:</span>
-                  <Badge variant={viewingSale.type === 'appointment' ? 'default' : 'secondary'}>
-                    {viewingSale.type === 'appointment' ? 'Cita' : 'Directa'}
+                <div>
+                  <p className="text-sm text-muted-foreground">Tipo</p>
+                  <Badge variant={viewingSale.type === 'direct' ? 'default' : 'secondary'}>
+                    {viewingSale.type === 'direct' ? 'Directa' : 'Cita'}
                   </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Método de Pago</p>
+                  <p className="font-medium">{paymentLabels[viewingSale.payment_method as keyof typeof paymentLabels] || viewingSale.payment_method}</p>
                 </div>
               </div>
               
-              <div className="border-t pt-4">
-                <p className="font-medium mb-2">Items:</p>
-                <div className="space-y-2">
-                  {viewingSale.items.map((item, i) => (
-                    <div key={i} className="flex justify-between items-center text-sm p-2 bg-secondary/30 rounded">
-                      <div className="flex items-center gap-2">
-                        {item.type === 'product' ? <Package className="h-4 w-4" /> : <Scissors className="h-4 w-4" />}
-                        <span>{item.item.name}</span>
-                      </div>
-                      <span>
-                        {item.quantity} x ${'price' in item.item ? item.item.price : 0} = ${(item.quantity * ('price' in item.item ? item.item.price : 0)).toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-muted-foreground">Método de pago:</span>
-                  <span>{paymentLabels[viewingSale.paymentMethod]}</span>
-                </div>
-                {viewingSale.payments && (
-                  <div className="space-y-1 text-sm">
-                    {viewingSale.payments.map((p, i) => (
-                      <div key={i} className="flex justify-between">
-                        <span>{paymentLabels[p.method]}:</span>
-                        <span>${p.amount.toLocaleString()}</span>
+              {viewingSale.items && viewingSale.items.length > 0 && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-2">Items</p>
+                  <div className="space-y-2">
+                    {viewingSale.items.map((item, index) => (
+                      <div key={index} className="flex justify-between items-center p-2 bg-secondary/30 rounded">
+                        <div className="flex items-center gap-2">
+                          {item.type === 'product' ? (
+                            <Package className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Scissors className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <span>{item.item?.name || 'Item'}</span>
+                          <span className="text-muted-foreground">x{item.quantity}</span>
+                        </div>
+                        <span className="font-medium">
+                          ${(Number('price' in item.item ? item.item.price : 0) * item.quantity).toLocaleString()}
+                        </span>
                       </div>
                     ))}
                   </div>
-                )}
+                </div>
+              )}
+              
+              <div className="flex justify-between items-center pt-4 border-t">
+                <span className="text-lg font-medium">Total</span>
+                <span className="text-2xl font-bold">${Number(viewingSale.total).toLocaleString()}</span>
               </div>
-
-              <div className="flex justify-between items-center p-3 bg-success/10 rounded-lg">
-                <span className="font-medium">Total:</span>
-                <span className="text-xl font-bold text-success">${viewingSale.total.toLocaleString()}</span>
-              </div>
-
-              <Button
-                className="w-full gradient-bg border-0"
-                onClick={() => {
-                  const serviceItems = viewingSale.items.filter(i => i.type === 'service').map(i => ({
-                    name: i.item.name,
-                    quantity: i.quantity,
-                    price: 'price' in i.item ? i.item.price : 0,
-                  }));
-                  const productItems = viewingSale.items.filter(i => i.type === 'product').map(i => ({
-                    name: i.item.name,
-                    quantity: i.quantity,
-                    price: 'price' in i.item ? i.item.price : 0,
-                  }));
-                  setTicketData({
-                    folio: viewingSale.id.replace('sl', 'V'),
-                    date: new Date(`${viewingSale.date}T${viewingSale.time}`),
-                    clientName: viewingSale.clientName,
-                    services: serviceItems,
-                    products: productItems,
-                    subtotal: viewingSale.total,
-                    discount: 0,
-                    total: viewingSale.total,
-                    paymentMethod: paymentLabels[viewingSale.paymentMethod],
-                    payments: viewingSale.payments?.map(p => ({
-                      method: paymentLabels[p.method],
-                      amount: p.amount
-                    })),
-                  });
-                  setViewingSale(null);
-                  setShowTicket(true);
-                }}
-              >
-                <Receipt className="h-4 w-4 mr-2" />
-                Imprimir Ticket
-              </Button>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
       {/* Ticket Printer */}
-      {ticketData && (
+      {showTicket && ticketData && (
         <TicketPrinter
-          open={showTicket}
-          onOpenChange={setShowTicket}
           data={ticketData}
+          open={showTicket}
+          onClose={() => setShowTicket(false)}
         />
       )}
     </div>

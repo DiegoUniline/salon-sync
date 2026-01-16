@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useApp } from "@/contexts/AppContext";
+import { useShift } from "@/hooks/useShift";
+import { ShiftRequiredAlert } from "@/components/ShiftRequiredAlert";
 import api from "@/lib/api";
-import { format, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
+import { format, parseISO, startOfMonth, endOfMonth } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -49,14 +51,13 @@ import {
   CreditCard,
   ArrowRightLeft,
   Search,
-  Filter,
   Edit2,
   Trash2,
   ChevronDown,
   ChevronRight,
   Calendar,
   Loader2,
-  DollarSign,
+  AlertCircle,
 } from "lucide-react";
 
 // Types
@@ -67,7 +68,6 @@ interface Payment {
   amount: number;
   reference?: string;
   created_at: string;
-  // Joined data
   client_name?: string;
   stylist_name?: string;
   appointment_date?: string;
@@ -104,6 +104,7 @@ const methodColors: Record<string, string> = {
 
 export default function Pagos() {
   const { currentBranch } = useApp();
+  const { hasOpenShift } = useShift(currentBranch?.id || '');
 
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -146,7 +147,6 @@ export default function Pagos() {
         end_date: endDate,
       });
 
-      // Extract payments from appointments
       const allPayments: Payment[] = [];
       for (const apt of appointments) {
         if (apt.payments && Array.isArray(apt.payments)) {
@@ -263,12 +263,10 @@ export default function Pagos() {
       });
     });
 
-    // Sort by key
     result.sort((a, b) => b.key.localeCompare(a.key));
     return result;
   }, [filteredPayments, groupBy, expandedGroups]);
 
-  // Toggle group expansion
   const toggleGroup = (key: string) => {
     setExpandedGroups((prev) => {
       const next = new Set(prev);
@@ -281,7 +279,6 @@ export default function Pagos() {
     });
   };
 
-  // Expand/collapse all
   const expandAll = () => {
     setExpandedGroups(new Set(groupedPayments.map((g) => g.key)));
   };
@@ -290,8 +287,12 @@ export default function Pagos() {
     setExpandedGroups(new Set());
   };
 
-  // Edit payment
+  // Edit payment - requires open shift
   const openEditDialog = (payment: Payment) => {
+    if (!hasOpenShift) {
+      toast.error("Debes abrir un turno para editar pagos");
+      return;
+    }
     setEditingPayment(payment);
     setEditAmount(String(payment.amount));
     setEditMethod(payment.method);
@@ -310,7 +311,6 @@ export default function Pagos() {
 
     setSaving(true);
     try {
-      // Get the appointment and update its payments
       const appointment = await api.appointments.getById(editingPayment.appointment_id);
       
       if (appointment.payments) {
@@ -343,8 +343,12 @@ export default function Pagos() {
     }
   };
 
-  // Delete payment
+  // Delete payment - requires open shift
   const openDeleteDialog = (payment: Payment) => {
+    if (!hasOpenShift) {
+      toast.error("Debes abrir un turno para eliminar pagos");
+      return;
+    }
     setDeletingPayment(payment);
     setDeleteDialogOpen(true);
   };
@@ -353,7 +357,6 @@ export default function Pagos() {
     if (!deletingPayment) return;
 
     try {
-      // Get the appointment and remove the payment
       const appointment = await api.appointments.getById(deletingPayment.appointment_id);
       
       if (appointment.payments) {
@@ -382,14 +385,12 @@ export default function Pagos() {
     }
   };
 
-  // Money formatter
   const money = (n: number) =>
     n.toLocaleString("es-MX", {
       style: "currency",
       currency: "MXN",
     });
 
-  // Summary totals
   const totalAmount = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
   const totalByMethod = {
     cash: filteredPayments.filter((p) => p.method === "cash").reduce((sum, p) => sum + p.amount, 0),
@@ -407,6 +408,12 @@ export default function Pagos() {
             Gestiona todos los pagos de las citas
           </p>
         </div>
+        {!hasOpenShift && (
+          <Badge variant="outline" className="gap-1 border-warning text-warning">
+            <AlertCircle className="h-3 w-3" />
+            Turno cerrado - Solo lectura
+          </Badge>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -466,7 +473,6 @@ export default function Pagos() {
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col lg:flex-row gap-4">
-            {/* Search */}
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -477,7 +483,6 @@ export default function Pagos() {
               />
             </div>
 
-            {/* Date range */}
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <Input
@@ -495,7 +500,6 @@ export default function Pagos() {
               />
             </div>
 
-            {/* Method filter */}
             <Select value={methodFilter} onValueChange={setMethodFilter}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Método" />
@@ -508,10 +512,8 @@ export default function Pagos() {
               </SelectContent>
             </Select>
 
-            {/* Group by */}
             <Select value={groupBy} onValueChange={(v) => setGroupBy(v as GroupByOption)}>
-              <SelectTrigger className="w-48">
-                <Filter className="h-4 w-4 mr-2" />
+              <SelectTrigger className="w-44">
                 <SelectValue placeholder="Agrupar por" />
               </SelectTrigger>
               <SelectContent>
@@ -525,13 +527,12 @@ export default function Pagos() {
             </Select>
           </div>
 
-          {/* Group actions */}
           {groupBy !== "none" && (
-            <div className="flex gap-2 mt-3 pt-3 border-t">
-              <Button variant="outline" size="sm" onClick={expandAll}>
+            <div className="flex gap-2 mt-3">
+              <Button size="sm" variant="outline" onClick={expandAll}>
                 Expandir todo
               </Button>
-              <Button variant="outline" size="sm" onClick={collapseAll}>
+              <Button size="sm" variant="outline" onClick={collapseAll}>
                 Colapsar todo
               </Button>
             </div>
@@ -539,119 +540,109 @@ export default function Pagos() {
         </CardContent>
       </Card>
 
-      {/* Table */}
+      {/* Payments Table */}
       <Card>
-        <CardContent className="p-0">
+        <ScrollArea className="h-[500px]">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center py-20">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : filteredPayments.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <DollarSign className="h-12 w-12 text-muted-foreground/50 mb-4" />
-              <p className="text-muted-foreground">No hay pagos en este período</p>
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+              <Banknote className="h-12 w-12 mb-4 opacity-50" />
+              <p>No hay pagos en este período</p>
             </div>
           ) : (
-            <ScrollArea className="h-[600px]">
-              <Table>
-                <TableHeader className="sticky top-0 bg-card z-10">
-                  <TableRow>
-                    <TableHead className="w-12"></TableHead>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Método</TableHead>
-                    <TableHead className="text-right">Monto</TableHead>
-                    <TableHead>Referencia</TableHead>
-                    <TableHead className="text-right w-24">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {groupedPayments.map((group) => (
-                    <>
-                      {/* Group header */}
-                      {groupBy !== "none" && (
-                        <TableRow
-                          key={`group-${group.key}`}
-                          className="bg-muted/50 hover:bg-muted cursor-pointer"
-                          onClick={() => toggleGroup(group.key)}
-                        >
-                          <TableCell>
-                            {group.expanded ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
-                          </TableCell>
-                          <TableCell colSpan={4}>
-                            <span className="font-medium">{group.label}</span>
-                            <Badge variant="secondary" className="ml-2">
-                              {group.payments.length} pagos
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right font-semibold">
-                            {money(group.total)}
-                          </TableCell>
-                          <TableCell></TableCell>
-                        </TableRow>
-                      )}
-
-                      {/* Payment rows */}
-                      {(groupBy === "none" || group.expanded) &&
-                        group.payments.map((payment) => {
-                          const MethodIcon = methodIcons[payment.method] || Banknote;
-                          return (
-                            <TableRow key={payment.id}>
-                              <TableCell></TableCell>
-                              <TableCell>
-                                {payment.appointment_date
-                                  ? format(parseISO(payment.appointment_date), "dd/MM/yyyy", { locale: es })
-                                  : "-"}
-                              </TableCell>
-                              <TableCell className="font-medium">
-                                {payment.client_name || "Sin cliente"}
-                              </TableCell>
-                              <TableCell>
-                                <Badge className={cn("gap-1", methodColors[payment.method])}>
-                                  <MethodIcon className="h-3 w-3" />
-                                  {methodLabels[payment.method]}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right font-medium">
-                                {money(payment.amount)}
-                              </TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {payment.reference || "-"}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex justify-end gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => openEditDialog(payment)}
-                                  >
-                                    <Edit2 className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-destructive hover:text-destructive"
-                                    onClick={() => openDeleteDialog(payment)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                    </>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Método</TableHead>
+                  <TableHead className="text-right">Monto</TableHead>
+                  <TableHead>Referencia</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {groupedPayments.map((group) => (
+                  <>
+                    {groupBy !== "none" && (
+                      <TableRow
+                        key={`group-${group.key}`}
+                        className="bg-muted/50 cursor-pointer hover:bg-muted"
+                        onClick={() => toggleGroup(group.key)}
+                      >
+                        <TableCell colSpan={6}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              {group.expanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                              <span className="font-medium">{group.label}</span>
+                              <Badge variant="secondary">{group.payments.length}</Badge>
+                            </div>
+                            <span className="font-bold">{money(group.total)}</span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {(groupBy === "none" || group.expanded) &&
+                      group.payments.map((payment) => {
+                        const MethodIcon = methodIcons[payment.method];
+                        return (
+                          <TableRow key={payment.id}>
+                            <TableCell>
+                              {payment.appointment_date
+                                ? format(parseISO(payment.appointment_date), "dd/MM/yyyy", { locale: es })
+                                : "-"}
+                            </TableCell>
+                            <TableCell>{payment.client_name || "-"}</TableCell>
+                            <TableCell>
+                              <Badge className={cn("gap-1", methodColors[payment.method])}>
+                                <MethodIcon className="h-3 w-3" />
+                                {methodLabels[payment.method]}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {money(payment.amount)}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {payment.reference || "-"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8"
+                                  onClick={() => openEditDialog(payment)}
+                                  disabled={!hasOpenShift}
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-destructive"
+                                  onClick={() => openDeleteDialog(payment)}
+                                  disabled={!hasOpenShift}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                  </>
+                ))}
+              </TableBody>
+            </Table>
           )}
-        </CardContent>
+        </ScrollArea>
       </Card>
 
       {/* Edit Dialog */}
@@ -662,44 +653,29 @@ export default function Pagos() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Método de pago</Label>
-              <Select value={editMethod} onValueChange={(v: "cash" | "card" | "transfer") => setEditMethod(v)}>
+              <Label>Monto</Label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={editAmount}
+                onChange={(e) => setEditAmount(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Método</Label>
+              <Select value={editMethod} onValueChange={(v) => setEditMethod(v as any)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cash">
-                    <div className="flex items-center gap-2">
-                      <Banknote className="h-4 w-4" />
-                      Efectivo
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="card">
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="h-4 w-4" />
-                      Tarjeta
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="transfer">
-                    <div className="flex items-center gap-2">
-                      <ArrowRightLeft className="h-4 w-4" />
-                      Transferencia
-                    </div>
-                  </SelectItem>
+                  <SelectItem value="cash">Efectivo</SelectItem>
+                  <SelectItem value="card">Tarjeta</SelectItem>
+                  <SelectItem value="transfer">Transferencia</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-2">
-              <Label>Monto</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={editAmount}
-                onChange={(e) => setEditAmount(e.target.value)}
-              />
-            </div>
-
             {editMethod !== "cash" && (
               <div className="space-y-2">
                 <Label>Referencia</Label>
@@ -729,17 +705,13 @@ export default function Pagos() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar pago?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. El pago de{" "}
-              <strong>{deletingPayment && money(deletingPayment.amount)}</strong> será
-              eliminado permanentemente.
+              Esta acción eliminará el pago de {money(deletingPayment?.amount || 0)}. 
+              Esta acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleDelete}
-            >
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
               Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>

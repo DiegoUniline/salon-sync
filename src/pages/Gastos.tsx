@@ -1,16 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { usePermissions } from '@/hooks/usePermissions';
-import { 
-  expenses as mockExpenses,
-  expenseCategories,
-  type Expense,
-} from '@/lib/mockData';
+import api from '@/lib/api';
 import { ShiftRequiredAlert } from '@/components/ShiftRequiredAlert';
 import { useShift } from '@/hooks/useShift';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
-import { AnimatedContainer, AnimatedCard, AnimatedList, AnimatedListItem, PageTransition } from '@/components/ui/animated-container';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -53,11 +48,21 @@ import {
   Trash2,
   Edit,
   TrendingDown,
-  Wallet,
-  PieChart,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { motion } from 'framer-motion';
+
+interface Expense {
+  id: string;
+  branch_id: string;
+  shift_id?: string;
+  category: 'rent' | 'utilities' | 'supplies' | 'payroll' | 'other';
+  description: string;
+  amount: number;
+  payment_method: 'cash' | 'card' | 'transfer';
+  date: string;
+  supplier?: string;
+}
 
 const categoryIcons = {
   rent: Building2,
@@ -92,9 +97,11 @@ const paymentLabels = {
 export default function Gastos() {
   const { currentBranch } = useApp();
   const { canCreate, canEdit, canDelete } = usePermissions();
-  const { hasOpenShift } = useShift(currentBranch.id);
+  const { hasOpenShift, openShift, loading: shiftLoading } = useShift(currentBranch?.id || '');
   const isMobile = useIsMobile();
-  const [expenses, setExpenses] = useState<Expense[]>(mockExpenses);
+  
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -104,12 +111,42 @@ export default function Gastos() {
     category: 'supplies' as Expense['category'],
     description: '',
     amount: '',
-    paymentMethod: 'cash' as 'cash' | 'card' | 'transfer',
+    payment_method: 'cash' as 'cash' | 'card' | 'transfer',
     date: new Date().toISOString().split('T')[0],
     supplier: '',
   });
 
+  // Load expenses
+  useEffect(() => {
+    const loadExpenses = async () => {
+      if (!currentBranch?.id) return;
+      setLoading(true);
+      try {
+        const data = await api.expenses.getAll({ branch_id: currentBranch.id });
+        setExpenses(data.map((e: any) => ({
+          ...e,
+          branch_id: e.branch_id,
+          payment_method: e.payment_method || e.paymentMethod,
+        })));
+      } catch (error) {
+        console.error('Error loading expenses:', error);
+        toast.error('Error al cargar gastos');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadExpenses();
+  }, [currentBranch?.id]);
+
   // Require open shift for expenses
+  if (shiftLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   if (!hasOpenShift) {
     return (
       <div className="space-y-6">
@@ -123,16 +160,16 @@ export default function Gastos() {
   }
 
   const filteredExpenses = expenses.filter(e => {
-    const matchesBranch = e.branchId === currentBranch.id;
+    const matchesBranch = e.branch_id === currentBranch?.id;
     const matchesSearch = e.description.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = categoryFilter === 'all' || e.category === categoryFilter;
     return matchesBranch && matchesSearch && matchesCategory;
   });
 
-  const totalGastos = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalGastos = filteredExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const gastosPorCategoria = Object.keys(categoryLabels).map(cat => ({
     category: cat as Expense['category'],
-    total: filteredExpenses.filter(e => e.category === cat).reduce((sum, e) => sum + e.amount, 0),
+    total: filteredExpenses.filter(e => e.category === cat).reduce((sum, e) => sum + Number(e.amount), 0),
   })).filter(g => g.total > 0);
 
   const resetForm = () => {
@@ -140,7 +177,7 @@ export default function Gastos() {
       category: 'supplies',
       description: '',
       amount: '',
-      paymentMethod: 'cash',
+      payment_method: 'cash',
       date: new Date().toISOString().split('T')[0],
       supplier: '',
     });
@@ -153,56 +190,60 @@ export default function Gastos() {
       category: expense.category,
       description: expense.description,
       amount: expense.amount.toString(),
-      paymentMethod: expense.paymentMethod,
+      payment_method: expense.payment_method,
       date: expense.date,
       supplier: expense.supplier || '',
     });
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.description || !formData.amount) {
       toast.error('Completa los campos requeridos');
       return;
     }
 
-    if (editingExpense) {
-      setExpenses(prev => prev.map(e => 
-        e.id === editingExpense.id
-          ? {
-              ...e,
-              category: formData.category,
-              description: formData.description,
-              amount: parseFloat(formData.amount),
-              paymentMethod: formData.paymentMethod,
-              date: formData.date,
-              supplier: formData.supplier,
-            }
-          : e
-      ));
-      toast.success('Gasto actualizado');
-    } else {
-      const newExpense: Expense = {
-        id: `e${Date.now()}`,
-        branchId: currentBranch.id,
+    try {
+      const expenseData = {
+        branch_id: currentBranch?.id,
+        shift_id: openShift?.id,
         category: formData.category,
         description: formData.description,
         amount: parseFloat(formData.amount),
-        paymentMethod: formData.paymentMethod,
+        payment_method: formData.payment_method,
         date: formData.date,
-        supplier: formData.supplier,
+        supplier: formData.supplier || null,
       };
-      setExpenses(prev => [newExpense, ...prev]);
-      toast.success('Gasto registrado');
-    }
 
-    setIsDialogOpen(false);
-    resetForm();
+      if (editingExpense) {
+        await api.expenses.update(editingExpense.id, expenseData);
+        setExpenses(prev => prev.map(e => 
+          e.id === editingExpense.id ? { ...e, ...expenseData } as Expense : e
+        ));
+        toast.success('Gasto actualizado');
+      } else {
+        const newExpense = await api.expenses.create(expenseData);
+        setExpenses(prev => [{ ...expenseData, id: newExpense.id } as Expense, ...prev]);
+        toast.success('Gasto registrado');
+      }
+
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error('Error saving expense:', error);
+      toast.error('Error al guardar gasto');
+    }
   };
 
-  const deleteExpense = (id: string) => {
-    setExpenses(prev => prev.filter(e => e.id !== id));
-    toast.success('Gasto eliminado');
+  const deleteExpense = async (id: string) => {
+    try {
+      await api.expenses.delete(id);
+      setExpenses(prev => prev.filter(e => e.id !== id));
+      toast.success('Gasto eliminado');
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      toast.error('Error al eliminar gasto');
+    }
   };
 
   return (
@@ -289,8 +330,8 @@ export default function Gastos() {
               <div className="space-y-2">
                 <Label>Método de Pago</Label>
                 <Select 
-                  value={formData.paymentMethod} 
-                  onValueChange={(v: 'cash' | 'card' | 'transfer') => setFormData(prev => ({ ...prev, paymentMethod: v }))}
+                  value={formData.payment_method} 
+                  onValueChange={(v: 'cash' | 'card' | 'transfer') => setFormData(prev => ({ ...prev, payment_method: v }))}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -402,146 +443,155 @@ export default function Gastos() {
         </div>
       </div>
 
-      {/* Mobile Card View */}
-      <div className="md:hidden space-y-3">
-        {filteredExpenses.length === 0 ? (
-          <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
-            No hay gastos registrados
-          </div>
-        ) : (
-          filteredExpenses
-            .sort((a, b) => b.date.localeCompare(a.date))
-            .map((expense) => {
-              const Icon = categoryIcons[expense.category];
-              return (
-                <div key={expense.id} className="glass-card rounded-xl p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-3">
-                      <div className={cn("p-2.5 rounded-lg", categoryColors[expense.category].split(' ')[0])}>
-                        <Icon className={cn("h-5 w-5", categoryColors[expense.category].split(' ')[1])} />
+      {/* Expenses List */}
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : isMobile ? (
+        <div className="space-y-3">
+          {filteredExpenses.length === 0 ? (
+            <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
+              No hay gastos registrados
+            </div>
+          ) : (
+            filteredExpenses
+              .sort((a, b) => b.date.localeCompare(a.date))
+              .map((expense) => {
+                const Icon = categoryIcons[expense.category];
+                return (
+                  <div key={expense.id} className="glass-card rounded-xl p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className={cn("p-2.5 rounded-lg", categoryColors[expense.category].split(' ')[0])}>
+                          <Icon className={cn("h-5 w-5", categoryColors[expense.category].split(' ')[1])} />
+                        </div>
+                        <div>
+                          <p className="font-medium">{expense.description}</p>
+                          <p className="text-sm text-muted-foreground">{expense.supplier || 'Sin proveedor'}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">{expense.description}</p>
-                        <p className="text-sm text-muted-foreground">{expense.supplier || 'Sin proveedor'}</p>
+                      <span className="text-lg font-bold text-destructive">
+                        -${Number(expense.amount).toLocaleString()}
+                      </span>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 text-sm">
+                      <Badge className={cn('border gap-1', categoryColors[expense.category])}>
+                        {categoryLabels[expense.category]}
+                      </Badge>
+                      <Badge variant="outline">{paymentLabels[expense.payment_method]}</Badge>
+                    </div>
+                    
+                    <div className="flex items-center justify-between pt-2 border-t">
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <Calendar className="h-3.5 w-3.5" />
+                        {new Date(expense.date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-8 px-2"
+                          onClick={() => openEditDialog(expense)}
+                          disabled={!canEdit('gastos')}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-8 px-2 text-destructive"
+                          onClick={() => deleteExpense(expense.id)}
+                          disabled={!canDelete('gastos')}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
-                    <span className="text-lg font-bold text-destructive">
-                      -${expense.amount.toLocaleString()}
-                    </span>
                   </div>
-                  
-                  <div className="flex flex-wrap gap-2 text-sm">
-                    <Badge className={cn('border gap-1', categoryColors[expense.category])}>
-                      {categoryLabels[expense.category]}
-                    </Badge>
-                    <Badge variant="outline">{paymentLabels[expense.paymentMethod]}</Badge>
-                  </div>
-                  
-                  <div className="flex items-center justify-between pt-2 border-t">
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <Calendar className="h-3.5 w-3.5" />
-                      {new Date(expense.date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-                    </div>
-                    <div className="flex gap-1">
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-8 px-2"
-                        onClick={() => openEditDialog(expense)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-8 px-2 text-destructive"
-                        onClick={() => deleteExpense(expense.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-        )}
-      </div>
-
-      {/* Desktop Table */}
-      <div className="glass-card rounded-xl overflow-hidden hidden md:block">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Fecha</TableHead>
-              <TableHead>Categoría</TableHead>
-              <TableHead>Descripción</TableHead>
-              <TableHead>Proveedor</TableHead>
-              <TableHead>Pago</TableHead>
-              <TableHead className="text-right">Monto</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredExpenses.length === 0 ? (
+                );
+              })
+          )}
+        </div>
+      ) : (
+        <div className="glass-card rounded-xl overflow-hidden">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No hay gastos registrados
-                </TableCell>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Categoría</TableHead>
+                <TableHead>Descripción</TableHead>
+                <TableHead>Proveedor</TableHead>
+                <TableHead>Pago</TableHead>
+                <TableHead className="text-right">Monto</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
-            ) : (
-              filteredExpenses
-                .sort((a, b) => b.date.localeCompare(a.date))
-                .map((expense) => {
-                  const Icon = categoryIcons[expense.category];
-                  return (
-                    <TableRow key={expense.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          {new Date(expense.date).toLocaleDateString('es-MX')}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={cn('border gap-1', categoryColors[expense.category])}>
-                          <Icon className="h-3 w-3" />
-                          {categoryLabels[expense.category]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">{expense.description}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {expense.supplier || '-'}
-                      </TableCell>
-                      <TableCell>{paymentLabels[expense.paymentMethod]}</TableCell>
-                      <TableCell className="text-right font-semibold text-destructive">
-                        -${expense.amount.toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-1">
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            className="h-8 w-8"
-                            onClick={() => openEditDialog(expense)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => deleteExpense(expense.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {filteredExpenses.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No hay gastos registrados
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredExpenses
+                  .sort((a, b) => b.date.localeCompare(a.date))
+                  .map((expense) => {
+                    const Icon = categoryIcons[expense.category];
+                    return (
+                      <TableRow key={expense.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            {new Date(expense.date).toLocaleDateString('es-MX')}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={cn('border gap-1', categoryColors[expense.category])}>
+                            <Icon className="h-3 w-3" />
+                            {categoryLabels[expense.category]}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">{expense.description}</TableCell>
+                        <TableCell className="text-muted-foreground">{expense.supplier || '-'}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{paymentLabels[expense.payment_method]}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-bold text-destructive">
+                          -${Number(expense.amount).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8"
+                              onClick={() => openEditDialog(expense)}
+                              disabled={!canEdit('gastos')}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => deleteExpense(expense.id)}
+                              disabled={!canDelete('gastos')}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }

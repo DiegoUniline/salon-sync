@@ -1,86 +1,134 @@
-import { useState, useEffect, createContext, useContext } from 'react';
-import { shifts as mockShifts, stylists, type Shift } from '@/lib/mockData';
-import { storage, STORAGE_KEYS } from '@/lib/storage';
+import { useState, useEffect, useCallback } from 'react';
+import { api } from '@/lib/api';
+import { toast } from 'sonner';
 
-const SHIFTS_KEY = 'salon_shifts';
+export interface ShiftUser {
+  id: string;
+  name: string;
+  color: string;
+  role?: string;
+}
+
+export interface Shift {
+  id: string;
+  branchId: string;
+  userId: string;
+  user: ShiftUser;
+  date: string;
+  startTime: string;
+  endTime?: string;
+  initialCash: number;
+  finalCash?: number;
+  status: 'open' | 'closed';
+}
 
 interface ShiftContextType {
   shifts: Shift[];
   openShift: Shift | null;
   hasOpenShift: boolean;
-  openTurn: (userId: string, initialCash: number, branchId: string) => Shift | null;
-  closeTurn: (shiftId: string, finalCash: number) => boolean;
+  loading: boolean;
+  openTurn: (userId: string, initialCash: number, branchId: string) => Promise<Shift | null>;
+  closeTurn: (shiftId: string, finalCash: number) => Promise<boolean>;
   getShiftsForBranch: (branchId: string) => Shift[];
+  refreshShifts: () => Promise<void>;
 }
 
-// Get initial shifts from storage or use mock data
-const getInitialShifts = (): Shift[] => {
-  return storage.get<Shift[]>(SHIFTS_KEY, mockShifts);
-};
+const normalizeShift = (apiShift: any): Shift => ({
+  id: apiShift.id,
+  branchId: apiShift.branch_id,
+  userId: apiShift.user_id,
+  user: {
+    id: apiShift.user_id,
+    name: apiShift.user_name || apiShift.user?.name || 'Usuario',
+    color: apiShift.user_color || apiShift.user?.color || '#3B82F6',
+  },
+  date: apiShift.date?.split('T')[0] || new Date().toISOString().split('T')[0],
+  startTime: apiShift.start_time?.slice(0, 5) || apiShift.startTime || '00:00',
+  endTime: apiShift.end_time?.slice(0, 5) || apiShift.endTime,
+  initialCash: Number(apiShift.initial_cash ?? apiShift.initialCash ?? 0),
+  finalCash: apiShift.final_cash != null ? Number(apiShift.final_cash) : apiShift.finalCash,
+  status: apiShift.status || 'closed',
+});
 
 export function useShift(branchId: string): ShiftContextType {
-  const [shifts, setShifts] = useState<Shift[]>(getInitialShifts);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [openShift, setOpenShift] = useState<Shift | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Persist shifts to localStorage
+  const loadShifts = useCallback(async () => {
+    if (!branchId) return;
+    
+    setLoading(true);
+    try {
+      const [allShifts, openShiftData] = await Promise.all([
+        api.shifts.getAll({ branch_id: branchId }),
+        api.shifts.getOpen(branchId).catch(() => null),
+      ]);
+
+      setShifts(allShifts.map(normalizeShift));
+      setOpenShift(openShiftData ? normalizeShift(openShiftData) : null);
+    } catch (error) {
+      console.error('Error loading shifts:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [branchId]);
+
   useEffect(() => {
-    storage.set(SHIFTS_KEY, shifts);
-  }, [shifts]);
+    loadShifts();
+  }, [loadShifts]);
+
+  const hasOpenShift = !!openShift;
+
+  const openTurn = async (userId: string, initialCash: number, bId: string): Promise<Shift | null> => {
+    try {
+      const result = await api.shifts.open({
+        branch_id: bId,
+        user_id: userId,
+        initial_cash: initialCash,
+      });
+
+      const newShift = normalizeShift(result);
+      setOpenShift(newShift);
+      setShifts(prev => [newShift, ...prev]);
+      return newShift;
+    } catch (error: any) {
+      console.error('Error opening shift:', error);
+      toast.error(error.message || 'Error al abrir turno');
+      return null;
+    }
+  };
+
+  const closeTurn = async (shiftId: string, finalCash: number): Promise<boolean> => {
+    try {
+      await api.shifts.close(shiftId, finalCash);
+      
+      setShifts(prev => prev.map(s =>
+        s.id === shiftId
+          ? { ...s, endTime: new Date().toTimeString().slice(0, 5), finalCash, status: 'closed' as const }
+          : s
+      ));
+      setOpenShift(null);
+      return true;
+    } catch (error: any) {
+      console.error('Error closing shift:', error);
+      toast.error(error.message || 'Error al cerrar turno');
+      return false;
+    }
+  };
 
   const getShiftsForBranch = (bId: string) => {
     return shifts.filter(s => s.branchId === bId);
-  };
-
-  const openShift = shifts.find(s => s.branchId === branchId && s.status === 'open') || null;
-  const hasOpenShift = !!openShift;
-
-  const openTurn = (userId: string, initialCash: number, bId: string): Shift | null => {
-    // Check if there's already an open shift for this branch
-    const existingOpen = shifts.find(s => s.branchId === bId && s.status === 'open');
-    if (existingOpen) return null;
-
-    const user = stylists.find(s => s.id === userId);
-    if (!user) return null;
-
-    const now = new Date();
-    const newShift: Shift = {
-      id: `sh${Date.now()}`,
-      branchId: bId,
-      userId,
-      user,
-      date: now.toISOString().split('T')[0],
-      startTime: now.toTimeString().slice(0, 5),
-      initialCash,
-      status: 'open',
-    };
-
-    setShifts(prev => [newShift, ...prev]);
-    return newShift;
-  };
-
-  const closeTurn = (shiftId: string, finalCash: number): boolean => {
-    const shift = shifts.find(s => s.id === shiftId);
-    if (!shift || shift.status !== 'open') return false;
-
-    const now = new Date();
-    setShifts(prev => prev.map(s =>
-      s.id === shiftId
-        ? {
-            ...s,
-            endTime: now.toTimeString().slice(0, 5),
-            finalCash,
-            status: 'closed' as const,
-          }
-        : s
-    ));
-    return true;
   };
 
   return {
     shifts,
     openShift,
     hasOpenShift,
+    loading,
     openTurn,
     closeTurn,
     getShiftsForBranch,
+    refreshShifts: loadShifts,
   };
 }
