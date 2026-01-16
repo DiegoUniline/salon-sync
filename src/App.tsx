@@ -61,6 +61,11 @@ function AppRoutes() {
   return (
     <Layout>
       <Routes>
+        {/* Redirect from auth pages to home when authenticated */}
+        <Route path="/login" element={<Navigate to="/" replace />} />
+        <Route path="/signup" element={<Navigate to="/" replace />} />
+        <Route path="/pricing" element={<Navigate to="/" replace />} />
+        
         <Route
           path="/"
           element={
