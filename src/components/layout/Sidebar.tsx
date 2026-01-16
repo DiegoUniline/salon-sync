@@ -27,7 +27,7 @@ const navItems: { path: string; icon: typeof LayoutDashboard; label: string; mod
   { path: '/', icon: LayoutDashboard, label: 'Dashboard', moduleId: 'dashboard' },
   { path: '/agenda', icon: Calendar, label: 'Agenda', moduleId: 'agenda' },
   { path: '/citas', icon: CalendarCheck, label: 'Citas', moduleId: 'agenda' },
-  { path: '/pagos', icon: DollarSign, label: 'Pagos', moduleId: 'pagos' },
+  { path: '/pagos', icon: DollarSign, label: 'Pagos', moduleId: 'agenda' },
   { path: '/servicios', icon: Scissors, label: 'Servicios', moduleId: 'servicios' },
   { path: '/productos', icon: Package, label: 'Productos', moduleId: 'productos' },
   { path: '/inventario', icon: Warehouse, label: 'Inventario', moduleId: 'inventario' },
