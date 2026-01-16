@@ -36,6 +36,9 @@ export const auth = {
     authToken = data.token;
     localStorage.setItem("salon_token", data.token);
     localStorage.setItem("salon_user", JSON.stringify(data.user));
+    if (data.subscription) {
+      localStorage.setItem("salon_subscription", JSON.stringify(data.subscription));
+    }
     return data;
   },
 
@@ -44,9 +47,32 @@ export const auth = {
     authToken = null;
     localStorage.removeItem("salon_token");
     localStorage.removeItem("salon_user");
+    localStorage.removeItem("salon_subscription");
   },
 
   me: () => request("/auth/me"),
+
+  signup: async (data: {
+    account_name: string;
+    branch_name: string;
+    admin_name: string;
+    admin_email: string;
+    admin_password: string;
+    admin_phone?: string;
+    plan_id?: string;
+  }) => {
+    const result = await request("/auth/signup", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    authToken = result.token;
+    localStorage.setItem("salon_token", result.token);
+    localStorage.setItem("salon_user", JSON.stringify(result.user));
+    if (result.subscription) {
+      localStorage.setItem("salon_subscription", JSON.stringify(result.subscription));
+    }
+    return result;
+  },
 
   getUser: () => {
     const user = localStorage.getItem("salon_user");
@@ -54,6 +80,45 @@ export const auth = {
   },
 
   isAuthenticated: () => !!authToken,
+};
+
+// ============ PLANS (Público) ============
+export const plans = {
+  getAll: () => request("/plans"),
+  getById: (id: string) => request(`/plans/${id}`),
+};
+
+// ============ SUBSCRIPTIONS ============
+export const subscriptions = {
+  getCurrent: () => request("/subscriptions/current"),
+  getHistory: () => request("/subscriptions/history"),
+  getUsage: () => request("/subscriptions/usage"),
+  getPayments: () => request("/subscriptions/payments"),
+  addPayment: (data: any) =>
+    request("/subscriptions/payments", { method: "POST", body: JSON.stringify(data) }),
+  changePlan: (data: { plan_id: string; billing_cycle: string }) =>
+    request("/subscriptions/change-plan", { method: "POST", body: JSON.stringify(data) }),
+  activate: (data: { billing_cycle: string; payment_reference?: string }) =>
+    request("/subscriptions/activate", { method: "POST", body: JSON.stringify(data) }),
+  cancel: () => request("/subscriptions/cancel", { method: "POST" }),
+};
+
+// ============ ACCOUNTS (Super Admin) ============
+export const accounts = {
+  getAll: () => request("/accounts"),
+  getById: (id: string) => request(`/accounts/${id}`),
+  getCurrent: () => request("/accounts/current"),
+  getStats: () => request("/accounts/stats"),
+  create: (data: any) => request("/accounts", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: any) =>
+    request(`/accounts/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  delete: (id: string) => request(`/accounts/${id}`, { method: "DELETE" }),
+  getSubscription: (accountId: string) => request(`/accounts/${accountId}/subscription`),
+  updateSubscription: (accountId: string, data: any) =>
+    request(`/accounts/${accountId}/subscription`, { method: "PUT", body: JSON.stringify(data) }),
+  getPayments: (accountId: string) => request(`/accounts/${accountId}/payments`),
+  addPayment: (accountId: string, data: any) =>
+    request(`/accounts/${accountId}/payments`, { method: "POST", body: JSON.stringify(data) }),
 };
 
 // ============ BRANCHES ============
@@ -391,6 +456,9 @@ export const dashboard = {
 // Export all
 export const api = {
   auth,
+  plans,
+  subscriptions,
+  accounts,
   branches,
   users,
   clients,
