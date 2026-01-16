@@ -174,28 +174,43 @@ export default function SuperAdmin() {
               .map(([k]) => k.replace(/_/g, ' ')),
       }));
       
-      // Si las cuentas no tienen suscripción embebida, cargarlas por separado
-      const accountsWithSubs = await Promise.all(
-        (accountsData || []).map(async (account: Account) => {
-          if (account.subscription) {
-            console.log(`✅ Cuenta ${account.name} ya tiene suscripción embebida`);
-            return account;
-          }
-          try {
-            const subscription = await api.admin.getSubscription(account.id);
-            console.log(`✅ Suscripción cargada para ${account.name}:`, subscription);
-            return { ...account, subscription };
-          } catch (err) {
-            console.log(`ℹ️ Sin suscripción para ${account.name}`);
-            return account;
-          }
-        })
-      );
+      // Mapear las cuentas para normalizar la estructura de suscripción
+      // Tu API puede retornar la suscripción embebida o como campos separados
+      const normalizedAccounts = (accountsData || []).map((acc: any) => {
+        // Si ya tiene subscription como objeto, usarlo directamente
+        if (acc.subscription && typeof acc.subscription === 'object') {
+          return acc;
+        }
+        
+        // Si tiene los campos de suscripción a nivel raíz, crear el objeto subscription
+        if (acc.subscription_id || acc.plan_id || acc.subscription_status) {
+          return {
+            ...acc,
+            subscription: {
+              id: acc.subscription_id,
+              account_id: acc.id,
+              plan_id: acc.plan_id,
+              plan_name: acc.plan_name,
+              status: acc.subscription_status || 'trial',
+              trial_ends_at: acc.trial_ends_at,
+              ends_at: acc.ends_at,
+              starts_at: acc.starts_at,
+              billing_cycle: acc.billing_cycle || 'monthly',
+              current_users: acc.current_users,
+              current_branches: acc.current_branches,
+              max_users: acc.max_users,
+              max_branches: acc.max_branches,
+            }
+          };
+        }
+        
+        return acc;
+      });
       
-      console.log('✅ Cuentas con suscripciones:', accountsWithSubs);
+      console.log('✅ Cuentas normalizadas:', normalizedAccounts);
       
       setPlans(normalizedPlans);
-      setAccounts(accountsWithSubs);
+      setAccounts(normalizedAccounts);
     } catch (error) {
       console.error('❌ Error general cargando datos:', error);
       toast.error('Error al cargar datos');
@@ -240,15 +255,33 @@ export default function SuperAdmin() {
 
   // Account CRUD
   const handleSaveAccount = async () => {
+    // Validación antes de enviar
+    if (!accountForm.name?.trim()) {
+      toast.error('El nombre del negocio es requerido');
+      return;
+    }
+    if (!accountForm.email?.trim()) {
+      toast.error('El email es requerido');
+      return;
+    }
+    
     try {
-      console.log('💾 Guardando cuenta:', accountForm);
+      const dataToSend = {
+        name: accountForm.name.trim(),
+        email: accountForm.email.trim(),
+        phone: accountForm.phone?.trim() || null,
+        address: accountForm.address?.trim() || null,
+        active: accountForm.active ?? true,
+      };
+      
+      console.log('💾 Guardando cuenta:', dataToSend);
       
       if (editingAccount) {
-        const result = await api.admin.updateAccount(editingAccount.id, accountForm);
+        const result = await api.admin.updateAccount(editingAccount.id, dataToSend);
         console.log('✅ Cuenta actualizada:', result);
         toast.success('Cuenta actualizada');
       } else {
-        const result = await api.admin.createAccount(accountForm);
+        const result = await api.admin.createAccount(dataToSend);
         console.log('✅ Cuenta creada:', result);
         toast.success('Cuenta creada exitosamente');
       }
@@ -649,10 +682,10 @@ export default function SuperAdmin() {
                           {account.phone && <p className="text-sm text-muted-foreground">{account.phone}</p>}
                         </TableCell>
                         <TableCell>
-                          {plan ? (
+                          {sub ? (
                             <div className="space-y-1">
-                              <Badge variant="outline">{plan.name}</Badge>
-                              <p className="text-xs text-muted-foreground">${plan.price_monthly}/mes</p>
+                              <Badge variant="outline">{plan?.name || sub.plan_name || 'Plan'}</Badge>
+                              {plan && <p className="text-xs text-muted-foreground">${plan.price_monthly}/mes</p>}
                             </div>
                           ) : (
                             <Badge variant="secondary">Sin plan</Badge>
