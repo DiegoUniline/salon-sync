@@ -30,7 +30,8 @@ export default function Login() {
       setIsLoading(false);
     } else {
       // Force reload to ensure proper routing after auth
-      window.location.href = '/#/';
+      // Use import.meta.env.BASE_URL for GitHub Pages compatibility
+      window.location.href = `${import.meta.env.BASE_URL}#/`;
     }
   };
 
