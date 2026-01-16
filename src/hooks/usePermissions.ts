@@ -197,7 +197,11 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     if (isLoading) return true;
     if (!currentUser) return false;
 
-    if (currentUser.role === "admin") return true;
+    // Super admin y admin tienen acceso total
+    const userRole = currentUser.role?.toLowerCase();
+    if (userRole === "admin" || userRole === "superadmin" || userRole === "super_admin") {
+      return true;
+    }
 
     if (currentUser.permissions) {
       if (typeof currentUser.permissions === "string") {
