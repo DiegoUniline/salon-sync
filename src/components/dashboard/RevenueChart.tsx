@@ -4,9 +4,20 @@ interface RevenueChartProps {
   weeklyRevenue: Array<{ day: string; amount: number }>;
 }
 
-export function RevenueChart({ weeklyRevenue }: RevenueChartProps) {
-  const maxAmount = Math.max(...weeklyRevenue.map(d => d.amount), 1);
-  const total = weeklyRevenue.reduce((sum, d) => sum + d.amount, 0);
+export function RevenueChart({ weeklyRevenue = [] }: RevenueChartProps) {
+  // Ensure we have valid data
+  const safeRevenue = weeklyRevenue.length > 0 ? weeklyRevenue : [
+    { day: 'Lun', amount: 0 },
+    { day: 'Mar', amount: 0 },
+    { day: 'Mié', amount: 0 },
+    { day: 'Jue', amount: 0 },
+    { day: 'Vie', amount: 0 },
+    { day: 'Sáb', amount: 0 },
+    { day: 'Dom', amount: 0 },
+  ];
+  
+  const maxAmount = Math.max(...safeRevenue.map(d => d.amount), 1);
+  const total = safeRevenue.reduce((sum, d) => sum + d.amount, 0);
   
   // Calculate today's index (0 = Monday, 6 = Sunday)
   const today = new Date().getDay();
@@ -28,7 +39,7 @@ export function RevenueChart({ weeklyRevenue }: RevenueChartProps) {
       </div>
 
       <div className="flex items-end justify-between gap-2 h-48">
-        {weeklyRevenue.map((data, index) => {
+        {safeRevenue.map((data, index) => {
           const height = maxAmount > 0 ? (data.amount / maxAmount) * 100 : 0;
           const isToday = index === todayIndex;
 
