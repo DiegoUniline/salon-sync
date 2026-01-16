@@ -267,7 +267,7 @@ export default function SuperAdmin() {
     
     try {
       const dataToSend = {
-        name: accountForm.name.trim(),
+        account_name: accountForm.name.trim(),
         email: accountForm.email.trim(),
         phone: accountForm.phone?.trim() || null,
         address: accountForm.address?.trim() || null,
