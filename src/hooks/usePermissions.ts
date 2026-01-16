@@ -25,7 +25,8 @@ export type ModuleId =
   | "cortes"
   | "horarios"
   | "configuracion"
-  | "permisos";
+  | "permisos"
+  | "superadmin";
 
 export type ActionId = "view" | "create" | "edit" | "delete";
 

@@ -24,6 +24,7 @@ import Cortes from "./pages/Cortes";
 import Horarios from "./pages/Horarios";
 import Configuracion from "./pages/Configuracion";
 import Permisos from "./pages/Permisos";
+import SuperAdmin from "./pages/SuperAdmin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -54,6 +55,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute moduleId="dashboard">
               <Index />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/superadmin"
+          element={
+            <ProtectedRoute moduleId={"superadmin" as any}>
+              <SuperAdmin />
             </ProtectedRoute>
           }
         />
