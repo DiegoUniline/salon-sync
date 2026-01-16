@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -30,6 +31,7 @@ import {
   DollarSign,
   Scissors,
   Loader2,
+  Edit,
 } from 'lucide-react';
 import { AppointmentFormDialog } from '@/components/AppointmentFormDialog';
 
@@ -95,6 +97,7 @@ const statusLabels = {
 };
 
 export default function Agenda() {
+  const navigate = useNavigate();
   const { currentBranch } = useApp();
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -532,7 +535,7 @@ export default function Agenda() {
 
           <div className="flex-1 overflow-y-auto select-none">
             {timeSlots.map(time => (
-              <div key={time} className="grid grid-cols-8 border-t border-border/30" style={{ minHeight: '36px' }}>
+              <div key={time} className="grid grid-cols-8 border-t border-border/30" style={{ minHeight: '52px' }}>
                 <div className="w-12 text-[10px] text-muted-foreground py-1 text-right pr-2">{time}</div>
                 
                 {weekDates.map((date, i) => {
@@ -559,17 +562,22 @@ export default function Agenda() {
                         }
                       }}
                     >
-                      {appointment && (
-                        <div
-                          className="rounded px-1 py-0.5 text-[10px] truncate"
-                          style={{
-                            backgroundColor: `${getStylistColor(appointment.stylist_id)}25`,
-                            borderLeft: `2px solid ${getStylistColor(appointment.stylist_id)}`,
-                          }}
-                        >
-                          {appointment.client?.name?.split(' ')[0] || 'Cliente'}
-                        </div>
-                      )}
+                      {appointment && (() => {
+                        const clientName = (appointment as any).client_name || appointment.client?.name || 'Cliente';
+                        const serviceName = appointment.services?.[0]?.name || '';
+                        return (
+                          <div
+                            className="rounded px-1 py-0.5 text-[10px] truncate space-y-0.5"
+                            style={{
+                              backgroundColor: `${getStylistColor(appointment.stylist_id)}25`,
+                              borderLeft: `2px solid ${getStylistColor(appointment.stylist_id)}`,
+                            }}
+                          >
+                            <p className="font-medium truncate">{clientName}</p>
+                            {serviceName && <p className="truncate text-muted-foreground">{serviceName}</p>}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -611,15 +619,19 @@ export default function Agenda() {
                     {date?.getDate()}
                   </p>
                   <div className="space-y-0.5">
-                    {dayAppointments.slice(0, 2).map(apt => (
-                      <div
-                        key={apt.id}
-                        className="text-[9px] px-1 rounded truncate"
-                        style={{ backgroundColor: `${getStylistColor(apt.stylist_id)}20`, borderLeft: `2px solid ${getStylistColor(apt.stylist_id)}` }}
-                      >
-                        {apt.time} {apt.client?.name?.split(' ')[0] || 'Cliente'}
-                      </div>
-                    ))}
+                    {dayAppointments.slice(0, 2).map(apt => {
+                      const clientName = (apt as any).client_name || apt.client?.name || 'Cliente';
+                      const timeStr = (apt.time || '').slice(0, 5);
+                      return (
+                        <div
+                          key={apt.id}
+                          className="text-[9px] px-1 rounded truncate"
+                          style={{ backgroundColor: `${getStylistColor(apt.stylist_id)}20`, borderLeft: `2px solid ${getStylistColor(apt.stylist_id)}` }}
+                        >
+                          {timeStr} {clientName.split(' ')[0]}
+                        </div>
+                      );
+                    })}
                     {dayAppointments.length > 2 && (
                       <p className="text-[9px] text-muted-foreground">+{dayAppointments.length - 2}</p>
                     )}
@@ -698,6 +710,19 @@ export default function Agenda() {
                     {selectedAppointment.total}
                   </div>
                 </div>
+
+                {selectedAppointment.status !== 'completed' && selectedAppointment.status !== 'cancelled' && (
+                  <Button 
+                    className="w-full mt-3 gap-2" 
+                    onClick={() => {
+                      navigate(`/citas?edit=${selectedAppointment.id}`);
+                      setSelectedAppointment(null);
+                    }}
+                  >
+                    <Edit className="h-4 w-4" />
+                    Editar Cita
+                  </Button>
+                )}
               </div>
             </>
               );
