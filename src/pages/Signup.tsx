@@ -101,13 +101,12 @@ export default function Signup() {
         plan_id: form.plan_id,
       });
 
-      await refreshCurrentUser();
-      
       toast.success('¡Cuenta creada exitosamente!', {
         description: 'Tu periodo de prueba de 14 días ha comenzado.',
       });
 
-      navigate('/');
+      // Force reload to ensure auth context picks up new session
+      window.location.href = '/#/';
     } catch (err: any) {
       setError(err.message || 'Error al crear la cuenta');
     } finally {
@@ -270,7 +269,7 @@ export default function Signup() {
                           <div className="flex items-center gap-2">
                             <span>{plan.name}</span>
                             <span className="text-muted-foreground">
-                              - ${plan.price_monthly.toLocaleString()}/mes
+                              - ${Number(plan.price_monthly).toLocaleString()}/mes
                             </span>
                           </div>
                         </SelectItem>
@@ -305,7 +304,7 @@ export default function Signup() {
                 <CardContent className="space-y-4">
                   <div>
                     <div className="text-3xl font-bold">
-                      ${selectedPlan.price_monthly.toLocaleString()}
+                      ${Number(selectedPlan.price_monthly).toLocaleString()}
                       <span className="text-sm font-normal text-muted-foreground">/mes</span>
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
