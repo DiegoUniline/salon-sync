@@ -23,10 +23,12 @@ import {
   ChevronRight,
   LogOut,
   Store,
+  Crown,
 } from 'lucide-react';
 
 const navItems: { path: string; icon: typeof LayoutDashboard; label: string; moduleId: ModuleId }[] = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard', moduleId: 'dashboard' },
+  { path: '/superadmin', icon: Crown, label: 'Super Admin', moduleId: 'superadmin' },
   { path: '/agenda', icon: Calendar, label: 'Agenda', moduleId: 'agenda' },
   { path: '/citas', icon: CalendarCheck, label: 'Citas', moduleId: 'agenda' },
   { path: '/pagos', icon: DollarSign, label: 'Pagos', moduleId: 'agenda' },

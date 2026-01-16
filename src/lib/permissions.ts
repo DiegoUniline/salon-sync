@@ -14,6 +14,7 @@ export const modules = [
   { id: 'horarios', name: 'Horarios', icon: '📆' },
   { id: 'configuracion', name: 'Configuración', icon: '⚙️' },
   { id: 'permisos', name: 'Permisos', icon: '🔐' },
+  { id: 'superadmin', name: 'Super Admin', icon: '👑' },
 ] as const;
 
 // Type derived from modules array
@@ -74,6 +75,7 @@ const defaultPermissions: Record<ModuleId, ModulePermissions> = {
   horarios: { view: false, create: false, edit: false, delete: false },
   configuracion: { view: false, create: false, edit: false, delete: false },
   permisos: { view: false, create: false, edit: false, delete: false },
+  superadmin: { view: false, create: false, edit: false, delete: false },
 };
 
 // Permisos completos (todos habilitados)
@@ -92,10 +94,38 @@ const fullPermissions: Record<ModuleId, ModulePermissions> = {
   horarios: { view: true, create: true, edit: true, delete: true },
   configuracion: { view: true, create: true, edit: true, delete: true },
   permisos: { view: true, create: true, edit: true, delete: true },
+  superadmin: { view: false, create: false, edit: false, delete: false },
+};
+
+// Permisos de Super Admin (acceso total incluyendo panel de admin)
+const superAdminPermissions: Record<ModuleId, ModulePermissions> = {
+  dashboard: { view: true, create: true, edit: true, delete: true },
+  agenda: { view: true, create: true, edit: true, delete: true },
+  pagos: { view: true, create: true, edit: true, delete: true },
+  ventas: { view: true, create: true, edit: true, delete: true },
+  gastos: { view: true, create: true, edit: true, delete: true },
+  compras: { view: true, create: true, edit: true, delete: true },
+  inventario: { view: true, create: true, edit: true, delete: true },
+  servicios: { view: true, create: true, edit: true, delete: true },
+  productos: { view: true, create: true, edit: true, delete: true },
+  turnos: { view: true, create: true, edit: true, delete: true },
+  cortes: { view: true, create: true, edit: true, delete: true },
+  horarios: { view: true, create: true, edit: true, delete: true },
+  configuracion: { view: true, create: true, edit: true, delete: true },
+  permisos: { view: true, create: true, edit: true, delete: true },
+  superadmin: { view: true, create: true, edit: true, delete: true },
 };
 
 // Roles predefinidos del sistema
 export const defaultRoles: Role[] = [
+  {
+    id: 'superadmin',
+    name: 'Super Admin',
+    description: 'Acceso total al sistema incluyendo gestión de cuentas y suscripciones',
+    color: '#FFD700',
+    isSystem: true,
+    permissions: superAdminPermissions,
+  },
   {
     id: 'admin',
     name: 'Administrador',
@@ -113,6 +143,7 @@ export const defaultRoles: Role[] = [
     permissions: {
       ...fullPermissions,
       permisos: { view: false, create: false, edit: false, delete: false },
+      superadmin: { view: false, create: false, edit: false, delete: false },
     },
   },
   {
@@ -136,6 +167,7 @@ export const defaultRoles: Role[] = [
       horarios: { view: true, create: false, edit: false, delete: false },
       configuracion: { view: false, create: false, edit: false, delete: false },
       permisos: { view: false, create: false, edit: false, delete: false },
+      superadmin: { view: false, create: false, edit: false, delete: false },
     },
   },
   {
@@ -159,6 +191,7 @@ export const defaultRoles: Role[] = [
       horarios: { view: true, create: false, edit: false, delete: false },
       configuracion: { view: false, create: false, edit: false, delete: false },
       permisos: { view: false, create: false, edit: false, delete: false },
+      superadmin: { view: false, create: false, edit: false, delete: false },
     },
   },
 ];
@@ -202,6 +235,7 @@ export const getUsersWithRoles = (): UserWithRole[] => {
   }
   // Usuarios por defecto con contraseñas
   return [
+    { id: 'u0', name: 'Diego León', email: 'diego.leon@uniline.mx', password: 'superadmin123', roleId: 'superadmin', branchId: 'b1', active: true },
     { id: 'u1', name: 'María García', email: 'maria@salon.com', password: 'admin123', roleId: 'admin', branchId: 'b1', active: true },
     { id: 'u2', name: 'Carlos López', email: 'carlos@salon.com', password: '123456', roleId: 'manager', branchId: 'b1', active: true },
     { id: 'u3', name: 'Ana Martínez', email: 'ana@salon.com', password: '123456', roleId: 'receptionist', branchId: 'b1', active: true },
