@@ -42,31 +42,62 @@ export default function Dashboard() {
     day: 'numeric',
   });
 
+  // Helper to get day name from date
+  const getDayName = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    return days[date.getDay()];
+  };
+
+  // Helper to build full week with API data
+  const buildWeeklyRevenue = (apiData: Array<{ date: string; total: string }> | undefined) => {
+    const days = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    const weekData = days.map(day => ({ day, amount: 0 }));
+    
+    if (apiData && Array.isArray(apiData)) {
+      apiData.forEach(item => {
+        const dayName = getDayName(item.date);
+        const dayIndex = days.indexOf(dayName);
+        if (dayIndex !== -1) {
+          weekData[dayIndex].amount = parseFloat(item.total) || 0;
+        }
+      });
+    }
+    
+    return weekData;
+  };
+
   useEffect(() => {
     const loadStats = async () => {
       setLoading(true);
       setError(null);
       try {
         const data = await api.dashboard.get(currentBranch.id);
-        // Ensure all required fields have defaults
+        
+        // Transform API response to expected format
+        const todayData = data.today || {};
+        const appointments = todayData.appointments || {};
+        
+        // Transform topServices/topProducts - API returns revenue as string
+        const transformItems = (items: any[] | undefined) => {
+          if (!items || !Array.isArray(items)) return [];
+          return items.map(item => ({
+            name: item.name || '',
+            count: parseInt(item.count) || 0,
+            revenue: parseFloat(item.revenue) || 0,
+          }));
+        };
+        
         setStats({
-          todaySales: data.todaySales ?? 0,
-          todayAppointments: data.todayAppointments ?? 0,
-          completedAppointments: data.completedAppointments ?? 0,
-          pendingAppointments: data.pendingAppointments ?? 0,
-          inProgressAppointments: data.inProgressAppointments ?? 0,
-          topServices: data.topServices ?? [],
-          topProducts: data.topProducts ?? [],
-          weeklyRevenue: data.weeklyRevenue ?? [
-            { day: 'Lun', amount: 0 },
-            { day: 'Mar', amount: 0 },
-            { day: 'Mié', amount: 0 },
-            { day: 'Jue', amount: 0 },
-            { day: 'Vie', amount: 0 },
-            { day: 'Sáb', amount: 0 },
-            { day: 'Dom', amount: 0 },
-          ],
-          pendingBalance: data.pendingBalance ?? 0,
+          todaySales: parseFloat(todayData.sales) || 0,
+          todayAppointments: parseInt(appointments.total) || 0,
+          completedAppointments: parseInt(appointments.completed) || 0,
+          pendingAppointments: parseInt(appointments.pending) || 0,
+          inProgressAppointments: parseInt(appointments.inProgress) || 0,
+          topServices: transformItems(data.topServices),
+          topProducts: transformItems(data.topProducts),
+          weeklyRevenue: buildWeeklyRevenue(data.weeklyRevenue),
+          pendingBalance: parseFloat(data.pendingBalance) || 0,
         });
       } catch (err) {
         console.error('Error loading dashboard:', err);
