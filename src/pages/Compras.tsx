@@ -1,15 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { usePermissions } from '@/hooks/usePermissions';
-import { 
-  purchases as mockPurchases,
-  products,
-  type Purchase,
-} from '@/lib/mockData';
+import api from '@/lib/api';
 import { ShiftRequiredAlert } from '@/components/ShiftRequiredAlert';
 import { useShift } from '@/hooks/useShift';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { AnimatedContainer, AnimatedCard, AnimatedList, AnimatedListItem, PageTransition } from '@/components/ui/animated-container';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,9 +39,37 @@ import {
   Trash2,
   Eye,
   ShoppingCart,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { motion } from 'framer-motion';
+
+interface Product {
+  id: string;
+  name: string;
+  sku: string;
+  cost: number;
+  price: number;
+  stock: number;
+}
+
+interface PurchaseItem {
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  unit_cost: number;
+}
+
+interface Purchase {
+  id: string;
+  branch_id: string;
+  shift_id?: string;
+  date: string;
+  supplier: string;
+  items: PurchaseItem[];
+  total: number;
+  payment_method: string;
+  notes?: string;
+}
 
 const paymentIcons = {
   cash: Banknote,
@@ -63,9 +86,12 @@ const paymentLabels = {
 export default function Compras() {
   const { currentBranch } = useApp();
   const { canCreate, canDelete } = usePermissions();
-  const { hasOpenShift } = useShift(currentBranch.id);
+  const { hasOpenShift, openShift, loading: shiftLoading } = useShift(currentBranch?.id || '');
   const isMobile = useIsMobile();
-  const [purchases, setPurchases] = useState<Purchase[]>(mockPurchases);
+  
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [viewingPurchase, setViewingPurchase] = useState<Purchase | null>(null);
@@ -79,7 +105,41 @@ export default function Compras() {
     { id: 'pay-1', method: 'transfer', amount: 0 }
   ]);
 
+  // Load data
+  useEffect(() => {
+    const loadData = async () => {
+      if (!currentBranch?.id) return;
+      setLoading(true);
+      try {
+        const [purchasesData, productsData] = await Promise.all([
+          api.purchases.getAll({ branch_id: currentBranch.id }),
+          api.products.getAll(),
+        ]);
+        setPurchases(purchasesData.map((p: any) => ({
+          ...p,
+          branch_id: p.branch_id,
+          payment_method: p.payment_method || p.paymentMethod,
+        })));
+        setProducts(productsData);
+      } catch (error) {
+        console.error('Error loading data:', error);
+        toast.error('Error al cargar datos');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [currentBranch?.id]);
+
   // Require open shift for purchases
+  if (shiftLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   if (!hasOpenShift) {
     return (
       <div className="space-y-6">
@@ -93,12 +153,12 @@ export default function Compras() {
   }
 
   const filteredPurchases = purchases.filter(p => {
-    const matchesBranch = p.branchId === currentBranch.id;
+    const matchesBranch = p.branch_id === currentBranch?.id;
     const matchesSearch = p.supplier.toLowerCase().includes(search.toLowerCase());
     return matchesBranch && matchesSearch;
   });
 
-  const totalCompras = filteredPurchases.reduce((sum, p) => sum + p.total, 0);
+  const totalCompras = filteredPurchases.reduce((sum, p) => sum + Number(p.total), 0);
 
   const calculateTotal = () => {
     return lines.reduce((sum, line) => sum + ((line.quantity || 0) * (line.unitCost || 0)), 0);
@@ -178,7 +238,7 @@ export default function Compras() {
     setLines(prev => prev.filter(line => line.id !== lineId));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!supplier) {
       toast.error('Ingresa el proveedor');
       return;
@@ -196,33 +256,46 @@ export default function Compras() {
       return;
     }
 
-    const newPurchase: Purchase = {
-      id: `pu${Date.now()}`,
-      branchId: currentBranch.id,
-      date,
-      supplier,
-      items: lines.filter(l => l.productId).map(line => ({
-        product: products.find(p => p.id === line.productId)!,
-        quantity: line.quantity,
-        unitCost: line.unitCost,
-      })),
-      total,
-      paymentMethod: payments.length > 1 ? 'transfer' : payments[0].method,
-      notes,
-    };
+    try {
+      const purchaseData = {
+        branch_id: currentBranch?.id,
+        shift_id: openShift?.id,
+        date,
+        supplier,
+        items: lines.filter(l => l.productId).map(line => ({
+          product_id: line.productId,
+          product_name: line.productName,
+          quantity: line.quantity,
+          unit_cost: line.unitCost,
+        })),
+        total,
+        payment_method: payments.length > 1 ? 'transfer' : payments[0].method,
+        notes: notes || null,
+      };
 
-    setPurchases(prev => [newPurchase, ...prev]);
-    toast.success('Compra registrada correctamente');
-    setIsDialogOpen(false);
-    resetForm();
+      const newPurchase = await api.purchases.create(purchaseData);
+      setPurchases(prev => [{ ...purchaseData, id: newPurchase.id } as Purchase, ...prev]);
+      
+      toast.success('Compra registrada correctamente');
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error('Error creating purchase:', error);
+      toast.error('Error al registrar compra');
+    }
   };
 
-  const deletePurchase = (id: string) => {
-    setPurchases(prev => prev.filter(p => p.id !== id));
-    toast.success('Compra eliminada');
+  const deletePurchase = async (id: string) => {
+    try {
+      await api.purchases.delete(id);
+      setPurchases(prev => prev.filter(p => p.id !== id));
+      toast.success('Compra eliminada');
+    } catch (error) {
+      console.error('Error deleting purchase:', error);
+      toast.error('Error al eliminar compra');
+    }
   };
 
-  // Update payments when total changes
   const total = calculateTotal();
 
   return (
@@ -372,8 +445,12 @@ export default function Compras() {
         </div>
       </div>
 
-      {/* Table / Mobile Cards */}
-      {isMobile ? (
+      {/* Purchases List */}
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : isMobile ? (
         <div className="space-y-3">
           {filteredPurchases.length === 0 ? (
             <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
@@ -383,7 +460,7 @@ export default function Compras() {
             filteredPurchases
               .sort((a, b) => b.date.localeCompare(a.date))
               .map((purchase) => {
-                const PaymentIcon = paymentIcons[purchase.paymentMethod];
+                const PaymentIcon = paymentIcons[purchase.payment_method as keyof typeof paymentIcons] || ArrowRightLeft;
                 return (
                   <div key={purchase.id} className="glass-card rounded-xl p-4 space-y-3">
                     <div className="flex items-start justify-between">
@@ -394,18 +471,18 @@ export default function Compras() {
                           {new Date(purchase.date).toLocaleDateString('es-MX')}
                         </div>
                       </div>
-                      <p className="text-lg font-bold text-primary">${purchase.total.toLocaleString()}</p>
+                      <p className="text-lg font-bold text-primary">${Number(purchase.total).toLocaleString()}</p>
                     </div>
                     
                     <div className="flex flex-wrap gap-1">
-                      {purchase.items.slice(0, 3).map((item, i) => (
+                      {purchase.items?.slice(0, 3).map((item, i) => (
                         <Badge key={i} variant="secondary" className="text-xs">
-                          {item.product.name} x{item.quantity}
+                          {item.product_name} x{item.quantity}
                         </Badge>
                       ))}
-                      {purchase.items.length > 3 && (
+                      {(purchase.items?.length || 0) > 3 && (
                         <Badge variant="outline" className="text-xs">
-                          +{purchase.items.length - 3}
+                          +{(purchase.items?.length || 0) - 3}
                         </Badge>
                       )}
                     </div>
@@ -413,7 +490,7 @@ export default function Compras() {
                     <div className="flex items-center justify-between pt-2 border-t">
                       <div className="flex items-center gap-2 text-sm">
                         <PaymentIcon className="h-4 w-4 text-muted-foreground" />
-                        <span>{paymentLabels[purchase.paymentMethod]}</span>
+                        <span>{paymentLabels[purchase.payment_method as keyof typeof paymentLabels] || purchase.payment_method}</span>
                       </div>
                       <div className="flex gap-1">
                         <Button 
@@ -424,14 +501,16 @@ export default function Compras() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => deletePurchase(purchase.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canDelete('compras') && (
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => deletePurchase(purchase.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -463,7 +542,7 @@ export default function Compras() {
                 filteredPurchases
                   .sort((a, b) => b.date.localeCompare(a.date))
                   .map((purchase) => {
-                    const PaymentIcon = paymentIcons[purchase.paymentMethod];
+                    const PaymentIcon = paymentIcons[purchase.payment_method as keyof typeof paymentIcons] || ArrowRightLeft;
                     return (
                       <TableRow key={purchase.id}>
                         <TableCell>
@@ -475,14 +554,14 @@ export default function Compras() {
                         <TableCell className="font-medium">{purchase.supplier}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {purchase.items.slice(0, 2).map((item, i) => (
+                            {purchase.items?.slice(0, 2).map((item, i) => (
                               <Badge key={i} variant="secondary" className="text-xs">
-                                {item.product.name} x{item.quantity}
+                                {item.product_name} x{item.quantity}
                               </Badge>
                             ))}
-                            {purchase.items.length > 2 && (
+                            {(purchase.items?.length || 0) > 2 && (
                               <Badge variant="outline" className="text-xs">
-                                +{purchase.items.length - 2}
+                                +{(purchase.items?.length || 0) - 2}
                               </Badge>
                             )}
                           </div>
@@ -490,14 +569,12 @@ export default function Compras() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <PaymentIcon className="h-4 w-4 text-muted-foreground" />
-                            <span>{paymentLabels[purchase.paymentMethod]}</span>
+                            {paymentLabels[purchase.payment_method as keyof typeof paymentLabels] || purchase.payment_method}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right font-semibold">
-                          ${purchase.total.toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-end gap-1">
+                        <TableCell className="text-right font-bold">${Number(purchase.total).toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
                             <Button 
                               size="icon" 
                               variant="ghost" 
@@ -506,14 +583,16 @@ export default function Compras() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
-                              className="h-8 w-8 text-destructive"
-                              onClick={() => deletePurchase(purchase.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {canDelete('compras') && (
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="h-8 w-8 text-destructive"
+                                onClick={() => deletePurchase(purchase.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -525,7 +604,7 @@ export default function Compras() {
         </div>
       )}
 
-      {/* View Dialog */}
+      {/* View Purchase Dialog */}
       <Dialog open={!!viewingPurchase} onOpenChange={() => setViewingPurchase(null)}>
         <DialogContent>
           <DialogHeader>
@@ -533,42 +612,48 @@ export default function Compras() {
           </DialogHeader>
           {viewingPurchase && (
             <div className="space-y-4">
-              <div className="grid gap-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Proveedor:</span>
-                  <span className="font-medium">{viewingPurchase.supplier}</span>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Proveedor</p>
+                  <p className="font-medium">{viewingPurchase.supplier}</p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Fecha:</span>
-                  <span>{new Date(viewingPurchase.date).toLocaleDateString('es-MX')}</span>
+                <div>
+                  <p className="text-sm text-muted-foreground">Fecha</p>
+                  <p className="font-medium">{new Date(viewingPurchase.date).toLocaleDateString('es-MX')}</p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Método de pago:</span>
-                  <span>{paymentLabels[viewingPurchase.paymentMethod]}</span>
+                <div>
+                  <p className="text-sm text-muted-foreground">Método de Pago</p>
+                  <p className="font-medium">{paymentLabels[viewingPurchase.payment_method as keyof typeof paymentLabels] || viewingPurchase.payment_method}</p>
                 </div>
               </div>
               
-              <div className="border-t pt-4">
-                <p className="font-medium mb-2">Productos:</p>
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Productos</p>
                 <div className="space-y-2">
-                  {viewingPurchase.items.map((item, i) => (
-                    <div key={i} className="flex justify-between text-sm">
-                      <span>{item.product.name} x{item.quantity}</span>
-                      <span className="font-medium">${(item.quantity * item.unitCost).toLocaleString()}</span>
+                  {viewingPurchase.items?.map((item, index) => (
+                    <div key={index} className="flex justify-between items-center p-2 bg-secondary/30 rounded">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                        <span>{item.product_name}</span>
+                        <span className="text-muted-foreground">x{item.quantity}</span>
+                      </div>
+                      <span className="font-medium">
+                        ${(item.quantity * item.unit_cost).toLocaleString()}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
               
-              <div className="flex justify-between p-3 bg-primary/10 rounded-lg font-semibold">
-                <span>Total</span>
-                <span>${viewingPurchase.total.toLocaleString()}</span>
+              <div className="flex justify-between items-center pt-4 border-t">
+                <span className="text-lg font-medium">Total</span>
+                <span className="text-2xl font-bold">${Number(viewingPurchase.total).toLocaleString()}</span>
               </div>
               
               {viewingPurchase.notes && (
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Notas: </span>
-                  {viewingPurchase.notes}
+                <div className="pt-2 border-t">
+                  <p className="text-sm text-muted-foreground">Notas</p>
+                  <p>{viewingPurchase.notes}</p>
                 </div>
               )}
             </div>
