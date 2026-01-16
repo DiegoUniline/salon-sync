@@ -69,6 +69,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     const loadStats = async () => {
+      // Wait for currentBranch to be available
+      if (!currentBranch) {
+        return;
+      }
+
       setLoading(true);
       setError(null);
       try {
@@ -107,7 +112,7 @@ export default function Dashboard() {
       }
     };
     loadStats();
-  }, [currentBranch.id]);
+  }, [currentBranch?.id]);
 
   if (loading) {
     return (
