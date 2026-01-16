@@ -89,7 +89,7 @@ interface ShiftSummary {
 
 export default function Cortes() {
   const { currentBranch } = useApp();
-  const { shifts, getShiftsForBranch, loading: shiftsLoading } = useShift(currentBranch.id);
+  const { shifts, getShiftsForBranch, loading: shiftsLoading } = useShift(currentBranch?.id || '');
   const isMobile = useIsMobile();
   const [cashCuts, setCashCuts] = useState<CashCut[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,7 +125,7 @@ export default function Cortes() {
     loadCashCuts();
   }, [currentBranch?.id]);
 
-  const allShifts = getShiftsForBranch(currentBranch.id);
+  const allShifts = getShiftsForBranch(currentBranch?.id || '');
   const closedShifts = allShifts.filter(s => s.status === 'closed');
   const cutShiftIds = new Set(cashCuts.map(c => c.shift_id));
   const pendingShifts = closedShifts.filter(s => !cutShiftIds.has(s.id));

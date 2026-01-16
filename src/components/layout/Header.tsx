@@ -60,7 +60,7 @@ export function Header() {
         {/* Right side */}
         <div className="flex items-center gap-2 md:gap-3">
           {/* Branch selector - compact on mobile */}
-          <Select value={currentBranch.id} onValueChange={setCurrentBranchId}>
+          <Select value={currentBranch?.id || ''} onValueChange={setCurrentBranchId}>
             <SelectTrigger className="w-auto md:w-[180px] bg-secondary/50 border-0">
               <Store className="h-4 w-4 md:mr-2 text-muted-foreground" />
               <span className="hidden md:inline"><SelectValue /></span>

@@ -83,7 +83,7 @@ interface UserOption {
 
 export default function Turnos() {
   const { currentBranch } = useApp();
-  const { shifts, openShift, hasOpenShift, openTurn, closeTurn, getShiftsForBranch, loading: shiftsLoading } = useShift(currentBranch.id);
+  const { shifts, openShift, hasOpenShift, openTurn, closeTurn, getShiftsForBranch, loading: shiftsLoading } = useShift(currentBranch?.id || '');
   const [isOpenDialogOpen, setIsOpenDialogOpen] = useState(false);
   const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
   const [users, setUsers] = useState<UserOption[]>([]);
@@ -111,13 +111,13 @@ export default function Turnos() {
     totalDifference: number;
   } | null>(null);
 
-  const filteredShifts = getShiftsForBranch(currentBranch.id);
+  const filteredShifts = getShiftsForBranch(currentBranch?.id || '');
 
   // Load users for the select
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        const data = await api.users.getAll({ branch_id: currentBranch.id });
+        const data = await api.users.getAll({ branch_id: currentBranch?.id });
         setUsers(data.map((u: any) => ({
           id: u.id,
           name: u.name,
