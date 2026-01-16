@@ -130,10 +130,24 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Calculate subscription status
-  const isSubscriptionExpired = subscription?.status === 'expired' || 
-    (subscription?.days_remaining !== undefined && subscription.days_remaining < 0);
+  const calculateDaysRemaining = (sub: Subscription | null): number | null => {
+    if (!sub) return null;
+    if (sub.days_remaining !== undefined) return sub.days_remaining;
+    
+    const endDate = sub.trial_ends_at || sub.ends_at;
+    if (!endDate) return null;
+    
+    const now = new Date();
+    const end = new Date(endDate);
+    const diffTime = end.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const daysRemaining = calculateDaysRemaining(subscription);
   
-  const daysRemaining = subscription?.days_remaining ?? null;
+  const isSubscriptionExpired = subscription?.status === 'expired' || 
+    (daysRemaining !== null && daysRemaining < 0);
 
   useEffect(() => {
     const init = async () => {
