@@ -2,6 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { type ModuleId } from '@/lib/permissions';
 import {
   LayoutDashboard,
@@ -20,6 +21,7 @@ import {
   Shield,
   ChevronLeft,
   ChevronRight,
+  LogOut,
   Store,
 } from 'lucide-react';
 
@@ -44,7 +46,7 @@ const navItems: { path: string; icon: typeof LayoutDashboard; label: string; mod
 export function Sidebar() {
   const location = useLocation();
   const { sidebarCollapsed, setSidebarCollapsed } = useApp();
-  const { canView, currentUser, currentRole } = usePermissions();
+  const { canView, currentUser, currentRole, logout } = usePermissions();
 
   // Filter nav items based on permissions
   const visibleItems = navItems.filter(item => canView(item.moduleId));
@@ -108,10 +110,10 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      {/* User/Role indicator */}
+      {/* User/Role indicator and Logout */}
       <div className={cn(
-        'border-t border-sidebar-border p-3',
-        sidebarCollapsed && 'flex justify-center'
+        'border-t border-sidebar-border p-3 space-y-2',
+        sidebarCollapsed && 'flex flex-col items-center'
       )}>
         <div className={cn(
           'flex items-center gap-2 text-sm text-sidebar-foreground/70',
@@ -134,6 +136,22 @@ export function Sidebar() {
             </>
           )}
         </div>
+        
+        {currentUser && (
+          <Button
+            variant="ghost"
+            size={sidebarCollapsed ? "icon" : "sm"}
+            onClick={logout}
+            className={cn(
+              'text-destructive hover:text-destructive hover:bg-destructive/10',
+              sidebarCollapsed ? 'h-9 w-9' : 'w-full justify-start'
+            )}
+            title={sidebarCollapsed ? 'Cerrar sesión' : undefined}
+          >
+            <LogOut className="h-4 w-4" />
+            {!sidebarCollapsed && <span className="ml-2">Cerrar sesión</span>}
+          </Button>
+        )}
       </div>
     </aside>
   );
