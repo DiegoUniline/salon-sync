@@ -454,9 +454,30 @@ export function AppointmentEditorDialog({
     const totalPaid = payments.reduce((sum, p) => sum + normalizeAmount(p.amount), 0);
     const round = (n: number) => Math.round(n * 100) / 100;
 
-    if (round(totalPaid) !== round(total)) {
-      toast.error("La suma de los pagos no coincide con el total");
+    // Validate that at least the total is covered
+    if (round(totalPaid) < round(total)) {
+      toast.error("Los pagos no cubren el total de la cita");
       return;
+    }
+
+    // Adjust payments to only send the exact total (handle change in cash payments)
+    const paymentsToSend: { method: string; amount: number; reference: string | null }[] = [];
+    let remainingTotal = round(total);
+
+    for (const p of payments) {
+      const paidAmount = normalizeAmount(p.amount);
+      if (paidAmount <= 0) continue;
+      
+      const amountToSend = Math.min(paidAmount, remainingTotal);
+      if (amountToSend > 0) {
+        paymentsToSend.push({
+          method: p.method,
+          amount: round(amountToSend),
+          reference: p.method !== "cash" ? (p.reference || null) : null,
+        });
+        remainingTotal = round(remainingTotal - amountToSend);
+      }
+      if (remainingTotal <= 0) break;
     }
 
     const appointmentData = {
@@ -477,11 +498,7 @@ export function AppointmentEditorDialog({
         price: l.price,
         discount: l.discount || 0,
       })),
-      payments: payments.map((p) => ({
-        method: p.method,
-        amount: normalizeAmount(p.amount),
-        reference: p.reference || null,
-      })),
+      payments: paymentsToSend,
       subtotal,
       discount: generalDiscountAmount,
       discount_percent: generalDiscount,
