@@ -3,10 +3,12 @@ import { useApp } from "@/contexts/AppContext";
 import { useSearchParams } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useShift } from "@/hooks/useShift";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 import api from "@/lib/api";
 import { TicketPrinter, type TicketData } from "@/components/TicketPrinter";
 import { AppointmentDetailView } from "@/components/AppointmentDetailView";
 import { EditableCell } from "@/components/EditableCell";
+import { AdminAuthModal } from "@/components/AdminAuthModal";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +34,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
   Plus,
@@ -47,6 +59,7 @@ import {
   Layers,
   Eye,
   DollarSign,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence } from "framer-motion";
@@ -155,6 +168,14 @@ export default function Citas() {
   const { currentBranch } = useApp();
   const { canCreate, canDelete } = usePermissions();
   const { hasOpenShift } = useShift(currentBranch?.id || "");
+  const {
+    isStatusRestricted,
+    withAuth,
+    authModalOpen,
+    authDescription,
+    closeAuthModal,
+    executeAuthorized,
+  } = useAdminAuth();
   const [searchParams] = useSearchParams();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -179,6 +200,10 @@ export default function Citas() {
   // Ticket state
   const [showTicket, setShowTicket] = useState(false);
   const [ticketData, setTicketData] = useState<TicketData | null>(null);
+
+  // Delete confirmation state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [appointmentToDelete, setAppointmentToDelete] = useState<Appointment | null>(null);
 
   const paymentLabels: Record<string, string> = {
     cash: "Efectivo",
@@ -340,24 +365,50 @@ export default function Citas() {
   };
 
   const updateStatus = async (id: string, status: Appointment["status"]) => {
-    try {
-      await api.appointments.updateStatus(id, status);
-      setAppointments((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
-      toast.success(`Cita marcada como ${statusLabels[status].toLowerCase()}`);
-    } catch (error) {
-      toast.error("Error al actualizar estado");
+    const appointment = appointments.find((a) => a.id === id);
+    
+    const doUpdate = async () => {
+      try {
+        await api.appointments.updateStatus(id, status);
+        setAppointments((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+        toast.success(`Cita marcada como ${statusLabels[status].toLowerCase()}`);
+      } catch (error) {
+        toast.error("Error al actualizar estado");
+      }
+    };
+
+    // If changing FROM completed status, require auth
+    if (appointment?.status === "completed" && status !== "completed") {
+      withAuth("change_status_from_completed", appointment.status, doUpdate, 
+        `Cambiar estado de cita completada a "${statusLabels[status]}"`);
+    } else {
+      doUpdate();
     }
   };
 
   const updateAppointmentField = async (id: string, field: string, value: string) => {
-    try {
-      await api.appointments.update(id, { [field]: value });
-      setAppointments((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, [field]: value } : a))
-      );
-      toast.success("Cita actualizada");
-    } catch (error) {
-      toast.error("Error al actualizar cita");
+    const appointment = appointments.find((a) => a.id === id);
+    
+    const doUpdate = async () => {
+      try {
+        await api.appointments.update(id, { [field]: value });
+        setAppointments((prev) =>
+          prev.map((a) => (a.id === id ? { ...a, [field]: value } : a))
+        );
+        toast.success("Cita actualizada");
+      } catch (error) {
+        toast.error("Error al actualizar cita");
+      }
+    };
+
+    // If editing completed/cancelled appointment, require auth
+    if (isStatusRestricted(appointment?.status || "")) {
+      const action = appointment?.status === "completed" 
+        ? "edit_completed_appointment" 
+        : "edit_cancelled_appointment";
+      withAuth(action, appointment?.status, doUpdate, `Editar cita ${statusLabels[appointment?.status || "scheduled"].toLowerCase()}`);
+    } else {
+      doUpdate();
     }
   };
 
@@ -396,14 +447,29 @@ export default function Citas() {
     setShowTicket(true);
   };
 
-  const deleteAppointment = async (id: string) => {
-    try {
-      await api.appointments.delete(id);
-      setAppointments((prev) => prev.filter((a) => a.id !== id));
-      toast.success("Cita eliminada");
-    } catch (error) {
-      toast.error("Error al eliminar cita");
-    }
+  const confirmDeleteAppointment = (appointment: Appointment) => {
+    setAppointmentToDelete(appointment);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteAppointment = () => {
+    if (!appointmentToDelete) return;
+    
+    const doDelete = async () => {
+      try {
+        await api.appointments.delete(appointmentToDelete.id);
+        setAppointments((prev) => prev.filter((a) => a.id !== appointmentToDelete.id));
+        toast.success("Cita eliminada");
+        setDeleteDialogOpen(false);
+        setAppointmentToDelete(null);
+      } catch (error) {
+        toast.error("Error al eliminar cita");
+      }
+    };
+
+    // Always require auth for delete
+    withAuth("delete_appointment", appointmentToDelete.status, doDelete, 
+      `Eliminar cita de ${appointmentToDelete.client_name}`);
   };
 
   const getStylistColor = (stylistId: string) =>
@@ -422,11 +488,12 @@ export default function Citas() {
   const renderAppointmentRow = (appointment: Appointment) => {
     const totalPaid = getTotalPaid(appointment);
     const balance = getBalance(appointment);
+    const isRestricted = isStatusRestricted(appointment.status);
 
     return (
       <TableRow
         key={appointment.id}
-        className="hover:bg-muted/50 transition-colors"
+        className={cn("hover:bg-muted/50 transition-colors", isRestricted && "bg-muted/20")}
       >
         <TableCell>
           <EditableCell
@@ -499,9 +566,14 @@ export default function Citas() {
             options={statusOptions}
             onSave={(value) => updateStatus(appointment.id, value as Appointment["status"])}
             displayValue={
-              <Badge className={cn("border", statusColors[appointment.status])}>
-                {statusLabels[appointment.status]}
-              </Badge>
+              <div className="flex items-center gap-1" title={isRestricted ? "Requiere autorización para editar" : undefined}>
+                {isRestricted && (
+                  <Lock className="h-3 w-3 text-muted-foreground" />
+                )}
+                <Badge className={cn("border", statusColors[appointment.status])}>
+                  {statusLabels[appointment.status]}
+                </Badge>
+              </div>
             }
           />
         </TableCell>
@@ -590,7 +662,7 @@ export default function Citas() {
               size="icon"
               variant="ghost"
               className="h-8 w-8 text-destructive"
-              onClick={() => deleteAppointment(appointment.id)}
+              onClick={() => confirmDeleteAppointment(appointment)}
               title="Eliminar"
             >
               <Trash2 className="h-4 w-4" />
@@ -600,6 +672,7 @@ export default function Citas() {
       </TableRow>
     );
   };
+
 
   const renderTable = (appointmentsToRender: Appointment[]) => (
     <Table>
@@ -887,6 +960,41 @@ export default function Citas() {
           <TicketPrinter open={showTicket} onOpenChange={setShowTicket} data={ticketData} />
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar cita?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Se eliminará la cita de{" "}
+              <span className="font-medium text-foreground">
+                {appointmentToDelete?.client_name}
+              </span>{" "}
+              del {appointmentToDelete?.date.split("T")[0].split("-").reverse().join("/")}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setAppointmentToDelete(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAppointment}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Admin Auth Modal */}
+      <AdminAuthModal
+        open={authModalOpen}
+        onOpenChange={closeAuthModal}
+        actionDescription={authDescription}
+        onAuthorized={executeAuthorized}
+      />
 
       {/* Full-screen Appointment Detail View */}
       <AnimatePresence>

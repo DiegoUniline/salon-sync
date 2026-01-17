@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useApp } from "@/contexts/AppContext";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import {
   MultiPaymentSelector,
   type Payment,
 } from "@/components/MultiPaymentSelector";
+import { AdminAuthModal } from "@/components/AdminAuthModal";
 import {
   Clock,
   User,
@@ -41,6 +43,7 @@ import {
   ArrowLeft,
   Printer,
   AlertTriangle,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -157,6 +160,14 @@ export function AppointmentDetailView({
   onSave,
 }: AppointmentDetailViewProps) {
   const { currentBranch } = useApp();
+  const {
+    isStatusRestricted,
+    withAuth,
+    authModalOpen,
+    authDescription,
+    closeAuthModal,
+    executeAuthorized,
+  } = useAdminAuth();
 
   const [clients, setClients] = useState<Client[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -395,7 +406,7 @@ export function AppointmentDetailView({
     setProductLines((prev) => prev.filter((line) => line.id !== lineId));
   };
 
-  const handleSubmit = async () => {
+  const doSave = async () => {
     let finalClientId = clientId;
 
     if (clientTab === "new") {
@@ -497,6 +508,18 @@ export function AppointmentDetailView({
       toast.error("Error al guardar la cita");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSubmit = () => {
+    // If editing a completed/cancelled appointment, require authorization
+    if (appointment && isStatusRestricted(appointment.status)) {
+      const action = appointment.status === "completed" 
+        ? "edit_completed_appointment" 
+        : "edit_cancelled_appointment";
+      withAuth(action, appointment.status, doSave, `Editar cita ${statusLabels[appointment.status].toLowerCase()}`);
+    } else {
+      doSave();
     }
   };
 
@@ -943,6 +966,14 @@ export function AppointmentDetailView({
           </div>
         </div>
       </div>
+
+      {/* Admin Auth Modal */}
+      <AdminAuthModal
+        open={authModalOpen}
+        onOpenChange={closeAuthModal}
+        actionDescription={authDescription}
+        onAuthorized={executeAuthorized}
+      />
     </motion.div>
   );
 }
