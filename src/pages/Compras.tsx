@@ -235,7 +235,7 @@ export default function Compras() {
           subtotal: line.quantity * line.unitCost,
         })),
         total,
-        payment_method: payments.length > 1 ? 'transfer' : payments[0].method,
+        payment_method: Array.isArray(payments) && payments.length > 1 ? 'transfer' : (Array.isArray(payments) && payments[0]?.method) || 'transfer',
         notes: notes || null,
       };
 
