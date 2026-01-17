@@ -309,6 +309,7 @@ function SearchCell({
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
+  const isSelectingRef = useRef(false);
 
   const displayValue = line[col.key] || '';
   const isEditing = showDropdown || !displayValue;
