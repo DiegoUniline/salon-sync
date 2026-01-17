@@ -440,7 +440,10 @@ function SearchCell({
                 'px-3 py-2 cursor-pointer transition-colors',
                 idx === highlightedIndex ? 'bg-primary/10' : 'hover:bg-muted/50'
               )}
-              onMouseDown={() => handleSelect(item)}
+              onMouseDown={(e) => {
+                e.preventDefault(); // Prevent blur from firing before selection completes
+                handleSelect(item);
+              }}
               onMouseEnter={() => setHighlightedIndex(idx)}
             >
               <p className="font-medium text-sm">{item.label}</p>
