@@ -36,29 +36,64 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(true);
 
-  useEffect(() => {
-    const loadBranches = async () => {
-      // Only load branches if user is authenticated
-      const token = localStorage.getItem("salon_token");
-      if (!token) {
-        setLoadingBranches(false);
-        return;
-      }
+  // Function to load branches - exposed for external triggering
+  const loadBranches = async () => {
+    const token = localStorage.getItem("salon_token");
+    const savedUser = localStorage.getItem("salon_current_user");
+    
+    // Only load branches if user is authenticated (has both token and user data)
+    if (!token || !savedUser) {
+      setBranches([]);
+      setLoadingBranches(false);
+      return;
+    }
 
-      try {
-        const data = await getBranches();
-        setBranches(data);
-        if (!currentBranchId && data.length > 0) {
-          setCurrentBranchId(data[0].id);
-        }
-      } catch (error) {
+    try {
+      const data = await getBranches();
+      setBranches(data);
+      if (!currentBranchId && data.length > 0) {
+        setCurrentBranchId(data[0].id);
+      }
+    } catch (error: any) {
+      // If 401, token is invalid - don't log error, just clear branches
+      if (error?.status === 401 || error?.message?.includes('401')) {
+        setBranches([]);
+      } else {
         console.error("Error cargando sucursales", error);
-      } finally {
+      }
+    } finally {
+      setLoadingBranches(false);
+    }
+  };
+
+  // Listen for storage changes (login/logout from other tabs or same tab)
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const token = localStorage.getItem("salon_token");
+      if (token) {
+        loadBranches();
+      } else {
+        setBranches([]);
         setLoadingBranches(false);
       }
     };
 
-    loadBranches();
+    // Initial load with a small delay to let auth initialize first
+    const timeoutId = setTimeout(() => {
+      loadBranches();
+    }, 100);
+
+    // Listen for storage events
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Custom event for same-tab login
+    window.addEventListener('auth-state-change', handleStorageChange);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('auth-state-change', handleStorageChange);
+    };
   }, []);
 
   const [currentBranchId, setCurrentBranchId] = useState(() =>
