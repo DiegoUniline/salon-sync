@@ -64,7 +64,7 @@ interface Purchase {
   shift_id?: string;
   date: string;
   supplier: string;
-  items: PurchaseItem[];
+  lines: PurchaseItem[];
   total: number;
   payment_method: string;
   notes?: string;
@@ -227,7 +227,7 @@ export default function Compras() {
         shift_id: openShift?.id,
         date,
         supplier,
-        items: validLines.map(line => ({
+        lines: validLines.map(line => ({
           product_id: line.productId,
           product_name: line.productName,
           quantity: line.quantity,
@@ -449,14 +449,14 @@ export default function Compras() {
                     </div>
                     
                     <div className="flex flex-wrap gap-1">
-                      {purchase.items?.slice(0, 3).map((item, i) => (
+                      {purchase.lines?.slice(0, 3).map((item, i) => (
                         <Badge key={i} variant="secondary" className="text-xs">
                           {item.product_name} x{item.quantity}
                         </Badge>
                       ))}
-                      {(purchase.items?.length || 0) > 3 && (
+                      {(purchase.lines?.length || 0) > 3 && (
                         <Badge variant="outline" className="text-xs">
-                          +{(purchase.items?.length || 0) - 3}
+                          +{(purchase.lines?.length || 0) - 3}
                         </Badge>
                       )}
                     </div>
@@ -528,14 +528,14 @@ export default function Compras() {
                         <TableCell className="font-medium">{purchase.supplier}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {purchase.items?.slice(0, 2).map((item, i) => (
+                            {purchase.lines?.slice(0, 2).map((item, i) => (
                               <Badge key={i} variant="secondary" className="text-xs">
                                 {item.product_name} x{item.quantity}
                               </Badge>
                             ))}
-                            {(purchase.items?.length || 0) > 2 && (
+                            {(purchase.lines?.length || 0) > 2 && (
                               <Badge variant="outline" className="text-xs">
-                                +{(purchase.items?.length || 0) - 2}
+                                +{(purchase.lines?.length || 0) - 2}
                               </Badge>
                             )}
                           </div>
@@ -604,7 +604,7 @@ export default function Compras() {
               <div>
                 <p className="text-sm text-muted-foreground mb-2">Productos</p>
                 <div className="space-y-2">
-                  {viewingPurchase.items?.map((item, index) => (
+                  {viewingPurchase.lines?.map((item, index) => (
                     <div key={index} className="flex justify-between items-center p-2 bg-secondary/30 rounded">
                       <div className="flex items-center gap-2">
                         <Package className="h-4 w-4 text-muted-foreground" />
