@@ -42,7 +42,7 @@ export default function Login() {
         {/* Logo */}
         <div className="text-center">
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl gradient-bg shadow-lg mb-4">
-            <Scissors className="h-8 w-8 text-white" />
+            <Scissors className="h-8 w-8 text-primary-foreground" />
           </div>
           <h1 className="text-3xl font-bold">SalonPro</h1>
           <p className="text-muted-foreground mt-1">Sistema de Gestión</p>
