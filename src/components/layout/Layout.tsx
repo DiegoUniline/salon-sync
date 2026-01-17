@@ -6,6 +6,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { cn } from '@/lib/utils';
 import { TrialBanner } from '@/components/TrialBanner';
 import { SubscriptionBlockedModal } from '@/components/SubscriptionBlockedModal';
+import { WelcomeTour } from '@/components/WelcomeTour';
 
 interface LayoutProps {
   children: ReactNode;
@@ -13,10 +14,13 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const { sidebarCollapsed } = useApp();
-  const { subscription, isSubscriptionExpired, daysRemaining } = usePermissions();
+  const { subscription, isSubscriptionExpired, daysRemaining, currentUser } = usePermissions();
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Welcome tour for first-time users */}
+      <WelcomeTour userName={currentUser?.name?.split(' ')[0]} />
+      
       {/* Subscription blocked modal */}
       <SubscriptionBlockedModal open={isSubscriptionExpired} />
       
