@@ -62,7 +62,7 @@ export function MobileNav() {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="md:hidden h-10 w-10">
-          <Menu className="h-5 w-5" />
+          <Menu className="h-5 w-5 text-foreground" />
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="w-[280px] p-0">
@@ -109,9 +109,9 @@ export function MobileNav() {
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 )}
               >
-                <item.icon className="h-5 w-5 shrink-0" />
+                <item.icon className="h-5 w-5 shrink-0 text-current" />
                 <span className="flex-1">{item.label}</span>
-                {isActive && <ChevronRight className="h-4 w-4" />}
+                {isActive && <ChevronRight className="h-4 w-4 text-current" />}
               </NavLink>
             );
           })}
@@ -127,7 +127,7 @@ export function MobileNav() {
               setOpen(false);
             }}
           >
-            <LogOut className="h-4 w-4 mr-3" />
+            <LogOut className="h-4 w-4 mr-3 text-destructive" />
             Cerrar sesión
           </Button>
         </div>

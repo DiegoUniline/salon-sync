@@ -83,16 +83,16 @@ export function Header() {
             onClick={toggleTheme}
             className="h-9 w-9"
           >
-            {theme === 'light' ? (
-              <Moon className="h-4 w-4" />
+          {theme === 'light' ? (
+              <Moon className="h-4 w-4 text-foreground" />
             ) : (
-              <Sun className="h-4 w-4" />
+              <Sun className="h-4 w-4 text-foreground" />
             )}
           </Button>
 
           {/* Notifications - hidden on small mobile */}
           <Button variant="ghost" size="icon" className="h-9 w-9 relative hidden sm:flex">
-            <Bell className="h-4 w-4" />
+            <Bell className="h-4 w-4 text-foreground" />
             <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />
           </Button>
 
