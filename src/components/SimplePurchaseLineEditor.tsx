@@ -48,7 +48,9 @@ export function SimplePurchaseLineEditor({
 }: SimplePurchaseLineEditorProps) {
   const [searchTerms, setSearchTerms] = useState<Record<string, string>>({});
   const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>({});
+  const [highlightedIndex, setHighlightedIndex] = useState<Record<string, number>>({});
   const inputRefs = useRef<LineInputRefs>({});
+  const dropdownRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Ensure there's always an empty line at the end
   useEffect(() => {
@@ -78,13 +80,25 @@ export function SimplePurchaseLineEditor({
       refs.cost.focus();
       refs.cost.select();
     } else if (currentField === 'cost') {
-      // Move to next line's product field or create new line
+      // Move to next line's product field
       const nextLine = lines[lineIndex + 1];
       if (nextLine && inputRefs.current[nextLine.id]?.product) {
-        inputRefs.current[nextLine.id].product?.focus();
+        setTimeout(() => {
+          inputRefs.current[nextLine.id]?.product?.focus();
+        }, 50);
       }
     }
   }, [lines]);
+
+  const getFilteredProducts = useCallback((lineId: string) => {
+    const searchTerm = (searchTerms[lineId] || '').toLowerCase();
+    if (!searchTerm) return products;
+    
+    return products.filter(p => 
+      p.name.toLowerCase().includes(searchTerm) ||
+      p.sku.toLowerCase().includes(searchTerm)
+    );
+  }, [products, searchTerms]);
 
   const handleProductSelect = (lineId: string, product: ProductOption) => {
     const quantity = lines.find(l => l.id === lineId)?.quantity || 1;
@@ -97,6 +111,7 @@ export function SimplePurchaseLineEditor({
     });
     setSearchTerms(prev => ({ ...prev, [lineId]: product.name }));
     setOpenDropdowns(prev => ({ ...prev, [lineId]: false }));
+    setHighlightedIndex(prev => ({ ...prev, [lineId]: 0 }));
     
     // Auto-focus quantity after selecting product
     setTimeout(() => {
@@ -124,23 +139,81 @@ export function SimplePurchaseLineEditor({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, lineId: string, field: 'product' | 'quantity' | 'cost') => {
-    if (e.key === 'Tab' && !e.shiftKey) {
-      if (field === 'cost') {
-        // On last field, let natural tab behavior work to next line
-        return;
-      }
-    }
-    
-    if (e.key === 'Enter') {
+  const handleProductKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, lineId: string) => {
+    const filteredProducts = getFilteredProducts(lineId);
+    const currentIndex = highlightedIndex[lineId] || 0;
+    const isOpen = openDropdowns[lineId];
+
+    if (e.key === 'ArrowDown') {
       e.preventDefault();
-      focusNextField(lineId, field);
+      if (!isOpen) {
+        setOpenDropdowns(prev => ({ ...prev, [lineId]: true }));
+      }
+      const newIndex = Math.min(currentIndex + 1, filteredProducts.length - 1);
+      setHighlightedIndex(prev => ({ ...prev, [lineId]: newIndex }));
+      // Scroll highlighted item into view
+      const dropdown = dropdownRefs.current[lineId];
+      if (dropdown) {
+        const items = dropdown.querySelectorAll('[data-product-item]');
+        items[newIndex]?.scrollIntoView({ block: 'nearest' });
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const newIndex = Math.max(currentIndex - 1, 0);
+      setHighlightedIndex(prev => ({ ...prev, [lineId]: newIndex }));
+      const dropdown = dropdownRefs.current[lineId];
+      if (dropdown) {
+        const items = dropdown.querySelectorAll('[data-product-item]');
+        items[newIndex]?.scrollIntoView({ block: 'nearest' });
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (isOpen && filteredProducts.length > 0) {
+        const product = filteredProducts[currentIndex];
+        if (product) {
+          handleProductSelect(lineId, product);
+        }
+      }
+    } else if (e.key === 'Tab') {
+      // If dropdown is open and there's a highlighted product, select it
+      if (isOpen && filteredProducts.length > 0) {
+        const product = filteredProducts[currentIndex];
+        if (product) {
+          e.preventDefault();
+          handleProductSelect(lineId, product);
+        }
+      }
+    } else if (e.key === 'Escape') {
+      setOpenDropdowns(prev => ({ ...prev, [lineId]: false }));
+    }
+  };
+
+  const handleFieldKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, lineId: string, field: 'quantity' | 'cost') => {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+      }
+      
+      if (field === 'quantity') {
+        // Move to cost field
+        const refs = inputRefs.current[lineId];
+        if (refs?.cost) {
+          if (e.key === 'Enter') {
+            refs.cost.focus();
+            refs.cost.select();
+          }
+        }
+      } else if (field === 'cost' && e.key === 'Enter') {
+        // Move to next line's product field
+        focusNextField(lineId, 'cost');
+      }
     }
   };
 
   const handleSearchChange = (lineId: string, value: string) => {
     setSearchTerms(prev => ({ ...prev, [lineId]: value }));
     setOpenDropdowns(prev => ({ ...prev, [lineId]: true }));
+    setHighlightedIndex(prev => ({ ...prev, [lineId]: 0 }));
     
     // If clearing the search, also clear the product selection
     if (!value) {
@@ -153,16 +226,6 @@ export function SimplePurchaseLineEditor({
     }
   };
 
-  const getFilteredProducts = (lineId: string) => {
-    const searchTerm = (searchTerms[lineId] || '').toLowerCase();
-    if (!searchTerm) return products;
-    
-    return products.filter(p => 
-      p.name.toLowerCase().includes(searchTerm) ||
-      p.sku.toLowerCase().includes(searchTerm)
-    );
-  };
-
   const handleRemoveLine = (lineId: string) => {
     // Don't remove if it's the only line and it's empty
     if (lines.length === 1) return;
@@ -173,7 +236,7 @@ export function SimplePurchaseLineEditor({
     <div className="space-y-3">
       {/* Header */}
       <div className="hidden sm:grid sm:grid-cols-[2fr,100px,120px,100px,40px] gap-2 text-sm font-medium text-muted-foreground px-1">
-        <span>Producto (escribe para buscar)</span>
+        <span>Producto (↑↓ navegar, Enter seleccionar)</span>
         <span className="text-center">Cantidad</span>
         <span className="text-center">Costo Unit.</span>
         <span className="text-right">Subtotal</span>
@@ -182,9 +245,10 @@ export function SimplePurchaseLineEditor({
 
       {/* Lines */}
       <div className="space-y-2">
-        {lines.map((line, index) => {
+        {lines.map((line) => {
           const filteredProducts = getFilteredProducts(line.id);
           const isEmptyLine = !line.productId;
+          const currentHighlight = highlightedIndex[line.id] || 0;
           
           return (
             <div
@@ -197,31 +261,29 @@ export function SimplePurchaseLineEditor({
               <div className="w-full">
                 <Popover 
                   open={openDropdowns[line.id] && filteredProducts.length > 0} 
-                  onOpenChange={(open) => setOpenDropdowns(prev => ({ ...prev, [line.id]: open }))}
+                  onOpenChange={(open) => {
+                    setOpenDropdowns(prev => ({ ...prev, [line.id]: open }));
+                    if (open) {
+                      setHighlightedIndex(prev => ({ ...prev, [line.id]: 0 }));
+                    }
+                  }}
                 >
                   <PopoverTrigger asChild>
                     <Input
                       ref={(el) => setInputRef(line.id, 'product', el)}
                       type="text"
-                      placeholder={isEmptyLine ? "Escribe para agregar producto..." : "Buscar producto..."}
+                      placeholder={isEmptyLine ? "Escribe para agregar..." : "Buscar producto..."}
                       value={searchTerms[line.id] ?? line.productName ?? ''}
                       onChange={(e) => handleSearchChange(line.id, e.target.value)}
                       onFocus={() => {
                         if (!line.productId) {
                           setOpenDropdowns(prev => ({ ...prev, [line.id]: true }));
+                          setHighlightedIndex(prev => ({ ...prev, [line.id]: 0 }));
                         }
                       }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'ArrowDown' && openDropdowns[line.id]) {
-                          e.preventDefault();
-                          // Focus first item in dropdown
-                        } else if (e.key === 'Escape') {
-                          setOpenDropdowns(prev => ({ ...prev, [line.id]: false }));
-                        } else {
-                          handleKeyDown(e, line.id, 'product');
-                        }
-                      }}
+                      onKeyDown={(e) => handleProductKeyDown(e, line.id)}
                       className="w-full bg-background"
+                      autoComplete="off"
                     />
                   </PopoverTrigger>
                   <PopoverContent 
@@ -229,15 +291,26 @@ export function SimplePurchaseLineEditor({
                     align="start"
                     onOpenAutoFocus={(e) => e.preventDefault()}
                   >
-                    <div className="max-h-[200px] overflow-y-auto">
-                      {filteredProducts.map((product) => (
+                    <div 
+                      ref={(el) => { dropdownRefs.current[line.id] = el; }}
+                      className="max-h-[200px] overflow-y-auto"
+                    >
+                      {filteredProducts.map((product, idx) => (
                         <div
                           key={product.id}
-                          className="px-3 py-2 cursor-pointer hover:bg-accent transition-colors border-b last:border-b-0"
+                          data-product-item
+                          className={`px-3 py-2 cursor-pointer transition-colors border-b last:border-b-0 ${
+                            idx === currentHighlight 
+                              ? 'bg-primary text-primary-foreground' 
+                              : 'hover:bg-accent'
+                          }`}
                           onClick={() => handleProductSelect(line.id, product)}
+                          onMouseEnter={() => setHighlightedIndex(prev => ({ ...prev, [line.id]: idx }))}
                         >
                           <div className="font-medium">{product.name}</div>
-                          <div className="text-xs text-muted-foreground flex justify-between">
+                          <div className={`text-xs flex justify-between ${
+                            idx === currentHighlight ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                          }`}>
                             <span>SKU: {product.sku}</span>
                             <span>Stock: {product.stock}</span>
                             <span className="font-medium">${product.cost?.toLocaleString()}</span>
@@ -263,7 +336,7 @@ export function SimplePurchaseLineEditor({
                   min={1}
                   value={line.quantity || ''}
                   onChange={(e) => handleQuantityChange(line.id, parseInt(e.target.value) || 1)}
-                  onKeyDown={(e) => handleKeyDown(e, line.id, 'quantity')}
+                  onKeyDown={(e) => handleFieldKeyDown(e, line.id, 'quantity')}
                   onFocus={(e) => e.target.select()}
                   className="w-full text-center bg-background"
                   disabled={!line.productId}
@@ -281,7 +354,7 @@ export function SimplePurchaseLineEditor({
                   step="0.01"
                   value={line.unitCost || ''}
                   onChange={(e) => handleCostChange(line.id, parseFloat(e.target.value) || 0)}
-                  onKeyDown={(e) => handleKeyDown(e, line.id, 'cost')}
+                  onKeyDown={(e) => handleFieldKeyDown(e, line.id, 'cost')}
                   onFocus={(e) => e.target.select()}
                   className="w-full text-center bg-background"
                   disabled={!line.productId}
