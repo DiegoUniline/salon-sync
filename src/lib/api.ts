@@ -128,7 +128,6 @@ export const accounts = {
 
 // ============ ADMIN (Super Admin) ============
 export const admin = {
-  // Cuentas
   getAccounts: () => request("/admin/accounts"),
   getAccountById: (id: string) => request(`/admin/accounts/${id}`),
   createAccount: (data: any) =>
@@ -137,8 +136,6 @@ export const admin = {
     request(`/admin/accounts/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteAccount: (id: string) =>
     request(`/admin/accounts/${id}`, { method: "DELETE" }),
-  
-  // Suscripciones
   getSubscription: (accountId: string) =>
     request(`/admin/accounts/${accountId}/subscription`),
   updateSubscription: (accountId: string, data: any) =>
@@ -151,8 +148,6 @@ export const admin = {
       method: "POST",
       body: JSON.stringify(data || {}),
     }),
-  
-  // Pagos
   getAccountPayments: (accountId: string) =>
     request(`/admin/accounts/${accountId}/payments`),
   addPayment: (accountId: string, data: any) =>
@@ -161,8 +156,6 @@ export const admin = {
       body: JSON.stringify(data),
     }),
   getAllPayments: () => request("/admin/payments"),
-  
-  // Estadísticas
   getStats: () => request("/admin/stats"),
 };
 
@@ -179,11 +172,7 @@ export const branches = {
 
 // ============ USERS ============
 export const users = {
-  getAll: (params?: {
-    branch_id?: string;
-    role?: string;
-    active?: boolean;
-  }) => {
+  getAll: (params?: { branch_id?: string; role?: string; active?: boolean }) => {
     const query = new URLSearchParams(params as any).toString();
     return request(`/users${query ? `?${query}` : ""}`);
   },
@@ -230,11 +219,7 @@ export const services = {
 
 // ============ PRODUCTS ============
 export const products = {
-  getAll: (params?: {
-    category?: string;
-    active?: boolean;
-    low_stock?: boolean;
-  }) => {
+  getAll: (params?: { category?: string; active?: boolean; low_stock?: boolean }) => {
     const query = new URLSearchParams(params as any).toString();
     return request(`/products${query ? `?${query}` : ""}`);
   },
@@ -269,10 +254,7 @@ export const appointments = {
   create: (data: any) =>
     request("/appointments", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: any) =>
-    request(`/appointments/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    }),
+    request(`/appointments/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   updateStatus: (id: string, status: string) =>
     request(`/appointments/${id}/status`, {
       method: "PATCH",
@@ -311,11 +293,7 @@ export const expenses = {
     return request(`/expenses${query ? `?${query}` : ""}`);
   },
   getCategories: () => request("/expenses/categories"),
-  getSummary: (params?: {
-    branch_id?: string;
-    start_date?: string;
-    end_date?: string;
-  }) => {
+  getSummary: (params?: { branch_id?: string; start_date?: string; end_date?: string }) => {
     const query = new URLSearchParams(params as any).toString();
     return request(`/expenses/summary${query ? `?${query}` : ""}`);
   },
@@ -327,13 +305,34 @@ export const expenses = {
   delete: (id: string) => request(`/expenses/${id}`, { method: "DELETE" }),
 };
 
-// ============ PURCHASES ============
+// ============ SUPPLIERS (PROVEEDORES) ============
+export const suppliers = {
+  getAll: (params?: { active?: boolean; search?: string }) => {
+    const query = new URLSearchParams(params as any).toString();
+    return request(`/suppliers${query ? `?${query}` : ""}`);
+  },
+  getById: (id: string) => request(`/suppliers/${id}`),
+  create: (data: any) =>
+    request("/suppliers", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: any) =>
+    request(`/suppliers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  delete: (id: string) => request(`/suppliers/${id}`, { method: "DELETE" }),
+  getStatement: (id: string, params?: { start_date?: string; end_date?: string }) => {
+    const query = new URLSearchParams(params as any).toString();
+    return request(`/suppliers/${id}/statement${query ? `?${query}` : ""}`);
+  },
+  getPending: (id: string) => request(`/suppliers/${id}/pending`),
+};
+
+// ============ PURCHASES (COMPRAS) ============
 export const purchases = {
   getAll: (params?: {
     branch_id?: string;
     date?: string;
     start_date?: string;
     end_date?: string;
+    status?: string;
+    supplier_id?: string;
   }) => {
     const query = new URLSearchParams(params as any).toString();
     return request(`/purchases${query ? `?${query}` : ""}`);
@@ -341,6 +340,10 @@ export const purchases = {
   getById: (id: string) => request(`/purchases/${id}`),
   create: (data: any) =>
     request("/purchases", { method: "POST", body: JSON.stringify(data) }),
+  addPayment: (id: string, data: any) =>
+    request(`/purchases/${id}/payments`, { method: "POST", body: JSON.stringify(data) }),
+  cancel: (id: string) =>
+    request(`/purchases/${id}/cancel`, { method: "PATCH" }),
   delete: (id: string) => request(`/purchases/${id}`, { method: "DELETE" }),
 };
 
@@ -366,10 +369,7 @@ export const inventory = {
   addOut: (data: any) =>
     request("/inventory/out", { method: "POST", body: JSON.stringify(data) }),
   adjust: (data: any) =>
-    request("/inventory/adjustment", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    request("/inventory/adjustment", { method: "POST", body: JSON.stringify(data) }),
 };
 
 // ============ SHIFTS ============
@@ -399,11 +399,7 @@ export const shifts = {
 
 // ============ CASH CUTS ============
 export const cashCuts = {
-  getAll: (params?: {
-    branch_id?: string;
-    start_date?: string;
-    end_date?: string;
-  }) => {
+  getAll: (params?: { branch_id?: string; start_date?: string; end_date?: string }) => {
     const query = new URLSearchParams(params as any).toString();
     return request(`/cash-cuts${query ? `?${query}` : ""}`);
   },
@@ -426,10 +422,7 @@ export const roles = {
   delete: (id: string) => request(`/roles/${id}`, { method: "DELETE" }),
   getUsersList: () => request("/roles/users/list"),
   assignRole: (data: any) =>
-    request("/roles/users/assign", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    request("/roles/users/assign", { method: "POST", body: JSON.stringify(data) }),
   removeRole: (user_id: string) =>
     request(`/roles/users/${user_id}/role`, { method: "DELETE" }),
 };
@@ -443,35 +436,20 @@ export const schedules = {
       body: JSON.stringify({ schedule }),
     }),
   getStylist: (stylist_id: string, branch_id?: string) =>
-    request(
-      `/schedules/stylist/${stylist_id}${
-        branch_id ? `?branch_id=${branch_id}` : ""
-      }`
-    ),
+    request(`/schedules/stylist/${stylist_id}${branch_id ? `?branch_id=${branch_id}` : ""}`),
   updateStylist: (stylist_id: string, data: any) =>
     request(`/schedules/stylist/${stylist_id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
-  getBlocked: (params?: {
-    type?: string;
-    target_id?: string;
-    start_date?: string;
-    end_date?: string;
-  }) => {
+  getBlocked: (params?: { type?: string; target_id?: string; start_date?: string; end_date?: string }) => {
     const query = new URLSearchParams(params as any).toString();
     return request(`/schedules/blocked${query ? `?${query}` : ""}`);
   },
   createBlocked: (data: any) =>
-    request("/schedules/blocked", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    request("/schedules/blocked", { method: "POST", body: JSON.stringify(data) }),
   updateBlocked: (id: string, data: any) =>
-    request(`/schedules/blocked/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    }),
+    request(`/schedules/blocked/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteBlocked: (id: string) =>
     request(`/schedules/blocked/${id}`, { method: "DELETE" }),
 };
@@ -513,6 +491,7 @@ export const api = {
   appointments,
   sales,
   expenses,
+  suppliers,
   purchases,
   inventory,
   shifts,
