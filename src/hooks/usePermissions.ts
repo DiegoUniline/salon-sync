@@ -164,38 +164,48 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      // Has token, verify it's still valid
-      if (token && savedUser) {
-        try {
-          const userData = await api.auth.me();
-
-          if (
-            userData.permissions &&
-            typeof userData.permissions === "string"
-          ) {
-            userData.permissions = JSON.parse(userData.permissions);
-          }
-
-          setCurrentUser(userData);
-          localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userData));
-
-          // Get subscription info
-          if (userData.subscription) {
-            setSubscription(userData.subscription);
-            localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(userData.subscription));
-          }
-
-          await refreshData();
-        } catch (error) {
-          // Token invalid or expired, clear everything and redirect to login
-          console.log('Session expired or invalid, clearing...');
-          localStorage.removeItem(TOKEN_KEY);
-          localStorage.removeItem(CURRENT_USER_KEY);
-          localStorage.removeItem(SUBSCRIPTION_KEY);
-          setCurrentUser(null);
-          setSubscription(null);
-        }
+      // Has token but no saved user - invalid state, clear and redirect
+      if (!savedUser) {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(CURRENT_USER_KEY);
+        localStorage.removeItem(SUBSCRIPTION_KEY);
+        setCurrentUser(null);
+        setSubscription(null);
+        setIsLoading(false);
+        return;
       }
+      
+      // Has token and saved user, verify token is still valid
+      try {
+        const userData = await api.auth.me();
+
+        if (
+          userData.permissions &&
+          typeof userData.permissions === "string"
+        ) {
+          userData.permissions = JSON.parse(userData.permissions);
+        }
+
+        setCurrentUser(userData);
+        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userData));
+
+        // Get subscription info
+        if (userData.subscription) {
+          setSubscription(userData.subscription);
+          localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(userData.subscription));
+        }
+
+        await refreshData();
+      } catch (error) {
+        // Token invalid or expired, clear everything and redirect to login
+        console.log('Session expired or invalid, clearing...');
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(CURRENT_USER_KEY);
+        localStorage.removeItem(SUBSCRIPTION_KEY);
+        setCurrentUser(null);
+        setSubscription(null);
+      }
+      
       setIsLoading(false);
     };
     init();
@@ -266,6 +276,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(data.subscription));
       }
       
+      // Dispatch event to notify AppContext to load branches
+      window.dispatchEvent(new Event('auth-state-change'));
+      
       await refreshData();
       return { success: true };
     } catch (err: any) {
@@ -285,6 +298,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(CURRENT_USER_KEY);
     localStorage.removeItem(SUBSCRIPTION_KEY);
+    
+    // Dispatch event to notify AppContext
+    window.dispatchEvent(new Event('auth-state-change'));
   };
 
   const currentRole = currentUser?.permissions
