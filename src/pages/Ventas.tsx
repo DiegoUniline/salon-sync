@@ -287,6 +287,7 @@ export default function Ventas() {
         client_name: clientName || 'Cliente mostrador',
       };
 
+      console.log('[Ventas] Enviando venta con shift_id:', openShift?.id, saleData);
       const newSale = await api.sales.create(saleData);
       // Reload sales to get proper structure
       const updatedSales = await api.sales.getAll({ branch_id: currentBranch?.id });
