@@ -115,6 +115,7 @@ export default function Compras() {
           api.purchases.getAll({ branch_id: currentBranch.id }),
           api.products.getAll(),
         ]);
+        console.log('[Compras] Productos cargados:', productsData.length, productsData);
         setPurchases(purchasesData.map((p: any) => ({
           ...p,
           branch_id: p.branch_id,
@@ -187,6 +188,7 @@ export default function Compras() {
         data: p,
       })),
       onSelect: (item, lineId) => {
+        console.log('[Compras] Producto seleccionado:', item, 'para línea:', lineId);
         setLines(prev => prev.map(line =>
           line.id === lineId 
             ? { ...line, productId: item.id, productName: item.label, unitCost: item.data.cost }
@@ -273,6 +275,7 @@ export default function Compras() {
         notes: notes || null,
       };
 
+      console.log('[Compras] Enviando compra con shift_id:', openShift?.id, purchaseData);
       const newPurchase = await api.purchases.create(purchaseData);
       setPurchases(prev => [{ ...purchaseData, id: newPurchase.id } as Purchase, ...prev]);
       
@@ -374,6 +377,24 @@ export default function Compras() {
                   placeholder="Notas adicionales..."
                   rows={2}
                 />
+              </div>
+
+              {/* Validation feedback */}
+              {(!supplier || lines.filter(l => l.productId).length === 0) && (
+                <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-sm space-y-1">
+                  <p className="font-medium text-destructive">Para registrar la compra necesitas:</p>
+                  {!supplier && <p className="text-destructive/80">• Ingresar el nombre del proveedor</p>}
+                  {lines.filter(l => l.productId).length === 0 && (
+                    <p className="text-destructive/80">• Agregar al menos un producto (selecciónalo del buscador)</p>
+                  )}
+                </div>
+              )}
+
+              {/* Debug info (temporal) */}
+              <div className="text-xs text-muted-foreground bg-secondary/30 p-2 rounded">
+                <p>🔧 Debug: Turno activo: {openShift?.id ? `✅ ${openShift.id.slice(0,8)}...` : '❌ Sin turno'}</p>
+                <p>🔧 Debug: Productos disponibles: {products.length}</p>
+                <p>🔧 Debug: Líneas con productId: {lines.filter(l => l.productId).length} / {lines.length}</p>
               </div>
 
               <div className="flex justify-end gap-3">
