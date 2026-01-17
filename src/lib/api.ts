@@ -77,6 +77,18 @@ export const auth = {
     return result;
   },
 
+  verifyAdmin: async (email: string, password: string): Promise<{ success: boolean; admin_name?: string; error?: string }> => {
+    try {
+      const data = await request("/auth/verify-admin", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      return { success: true, admin_name: data.admin_name };
+    } catch (err: any) {
+      return { success: false, error: err.message || "Credenciales inválidas" };
+    }
+  },
+
   getUser: () => {
     const user = localStorage.getItem("salon_user");
     return user ? JSON.parse(user) : null;
