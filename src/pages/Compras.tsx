@@ -294,7 +294,7 @@ export default function Compras() {
         total,
         payment_type: paymentType,
         due_date: paymentType === 'credit' ? dueDate : null,
-        payments: paymentType === 'cash' ? payments.filter(p => p.amount > 0) : [],
+        payments: paymentType === 'cash' ? payments.filter(p => Number(p.amount) > 0) : [],
         notes: notes || null,
       };
 
