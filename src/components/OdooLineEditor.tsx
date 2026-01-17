@@ -351,34 +351,38 @@ function SearchCell({
     return -1;
   };
 
-  // Modificar handleSelect para setear el flag:
-const handleSelect = (item: any) => {
-  isSelectingRef.current = true;
-  
-  if (col.onSelect) {
-    col.onSelect(item, line.id);
-  } else {
-    onUpdateLine(line.id, col.key, item.label);
-  }
-  setShowDropdown(false);
-  setLocalQuery('');
-  
-  // Move to next editable column
-  const nextEditableIndex = getNextEditableColIndex(colIndex);
-  if (nextEditableIndex >= 0) {
-    const key = getCellKey(line.id, columns[nextEditableIndex].key);
-    setTimeout(() => {
-      const input = inputRefs.current.get(key);
-      if (input) {
-        input.focus();
-        input.select();
-      }
+  const handleSelect = useCallback((item: any) => {
+    console.log('handleSelect called with:', item);
+    isSelectingRef.current = true;
+    
+    // Close dropdown immediately
+    setShowDropdown(false);
+    setLocalQuery('');
+    
+    // Execute selection callback
+    if (col.onSelect) {
+      console.log('Calling col.onSelect for line:', line.id);
+      col.onSelect(item, line.id);
+    } else {
+      onUpdateLine(line.id, col.key, item.label);
+    }
+    
+    // Move to next editable column after a short delay
+    const nextEditableIndex = getNextEditableColIndex(colIndex);
+    if (nextEditableIndex >= 0) {
+      const key = getCellKey(line.id, columns[nextEditableIndex].key);
+      requestAnimationFrame(() => {
+        const input = inputRefs.current.get(key);
+        if (input) {
+          input.focus();
+          input.select();
+        }
+        isSelectingRef.current = false;
+      });
+    } else {
       isSelectingRef.current = false;
-    }, 10);
-  } else {
-    isSelectingRef.current = false;
-  }
-};
+    }
+  }, [col, line.id, colIndex, columns, getCellKey, inputRefs, onUpdateLine, setShowDropdown]);
 
   const handleLocalKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown' && showDropdown) {
@@ -421,7 +425,14 @@ const handleSelect = (item: any) => {
           updateDropdownPosition();
         }}
         onBlur={() => {
-          setTimeout(() => setShowDropdown(false), 150);
+          // Only close dropdown if not currently selecting
+          if (!isSelectingRef.current) {
+            setTimeout(() => {
+              if (!isSelectingRef.current) {
+                setShowDropdown(false);
+              }
+            }, 200);
+          }
         }}
         onKeyDown={handleLocalKeyDown}
         placeholder={col.placeholder || 'Buscar...'}
@@ -446,10 +457,11 @@ const handleSelect = (item: any) => {
                 idx === highlightedIndex ? 'bg-primary/10' : 'hover:bg-muted/50'
               )}
               onMouseDown={(e) => {
-                // Prevent input blur BEFORE handling selection
                 e.preventDefault();
                 e.stopPropagation();
-                // Execute selection immediately
+              }}
+              onClick={() => {
+                console.log('Item clicked:', item);
                 handleSelect(item);
               }}
               onMouseEnter={() => setHighlightedIndex(idx)}
