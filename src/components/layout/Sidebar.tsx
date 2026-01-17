@@ -65,7 +65,7 @@ export function Sidebar() {
       <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
         <div className={cn('flex items-center gap-3 overflow-hidden', sidebarCollapsed && 'justify-center')}>
           <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-bg">
-            <Scissors className="h-5 w-5 text-white" />
+            <Scissors className="h-5 w-5 text-primary-foreground" />
           </div>
           {!sidebarCollapsed && (
             <span className="font-semibold text-sidebar-foreground whitespace-nowrap">

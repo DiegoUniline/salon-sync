@@ -44,7 +44,7 @@ export function WelcomeTour({ userName }: WelcomeTourProps) {
                 onClick={handleSkip}
                 className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
               >
-                <X className="h-5 w-5 text-white" />
+                <X className="h-5 w-5 text-primary-foreground" />
               </button>
               
               <motion.div
@@ -53,14 +53,14 @@ export function WelcomeTour({ userName }: WelcomeTourProps) {
                 transition={{ delay: 0.2, type: 'spring' }}
                 className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center mb-4"
               >
-                <Sparkles className="h-8 w-8 text-white" />
+                <Sparkles className="h-8 w-8 text-primary-foreground" />
               </motion.div>
               
               <motion.h1
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="text-2xl md:text-3xl font-bold text-white"
+                className="text-2xl md:text-3xl font-bold text-primary-foreground"
               >
                 ¡Bienvenido{userName ? `, ${userName}` : ''}! 🎉
               </motion.h1>

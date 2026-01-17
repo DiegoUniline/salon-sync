@@ -69,7 +69,7 @@ export function MobileNav() {
         <SheetHeader className="p-4 border-b">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl gradient-bg flex items-center justify-center">
-              <Scissors className="h-5 w-5 text-white" />
+              <Scissors className="h-5 w-5 text-primary-foreground" />
             </div>
             <SheetTitle className="text-lg font-bold">SalonPro</SheetTitle>
           </div>
