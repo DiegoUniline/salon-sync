@@ -351,9 +351,12 @@ function SearchCell({
   };
 
   const handleSelect = (item: any) => {
-    onUpdateLine(line.id, col.key, item.label);
+    // Only call onSelect if defined (it sets all values including productId, productName, unitCost)
+    // Otherwise fallback to onUpdateLine
     if (col.onSelect) {
       col.onSelect(item, line.id);
+    } else {
+      onUpdateLine(line.id, col.key, item.label);
     }
     setShowDropdown(false);
     setLocalQuery('');

@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -313,6 +314,9 @@ export default function Cortes() {
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Generar Corte de Caja</DialogTitle>
+              <DialogDescription>
+                Selecciona un turno cerrado para generar su corte de caja.
+              </DialogDescription>
             </DialogHeader>
             
             <div className="space-y-4 py-4">

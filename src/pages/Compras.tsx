@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -322,6 +323,9 @@ export default function Compras() {
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Registrar Compra</DialogTitle>
+              <DialogDescription>
+                Registra una nueva compra de productos a un proveedor.
+              </DialogDescription>
             </DialogHeader>
             
             <div className="space-y-6 py-4">
