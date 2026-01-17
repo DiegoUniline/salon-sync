@@ -437,18 +437,19 @@ function SearchCell({
             <div
               key={item.id}
               className={cn(
-                'px-3 py-2 cursor-pointer transition-colors',
+                'px-3 py-2 cursor-pointer transition-colors select-none',
                 idx === highlightedIndex ? 'bg-primary/10' : 'hover:bg-muted/50'
               )}
-              onMouseDown={(e) => {
-                e.preventDefault(); // Prevent blur from firing before selection completes
-                handleSelect(item);
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
               }}
+              onClick={() => handleSelect(item)}
               onMouseEnter={() => setHighlightedIndex(idx)}
             >
-              <p className="font-medium text-sm">{item.label}</p>
+              <p className="font-medium text-sm pointer-events-none">{item.label}</p>
               {item.subLabel && (
-                <p className="text-xs text-muted-foreground">{item.subLabel}</p>
+                <p className="text-xs text-muted-foreground pointer-events-none">{item.subLabel}</p>
               )}
             </div>
           ))}
