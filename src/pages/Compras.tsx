@@ -232,6 +232,7 @@ export default function Compras() {
           product_name: line.productName,
           quantity: line.quantity,
           unit_cost: line.unitCost,
+          subtotal: line.quantity * line.unitCost,
         })),
         total,
         payment_method: payments.length > 1 ? 'transfer' : payments[0].method,
