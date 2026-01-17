@@ -104,7 +104,7 @@ export function Sidebar() {
                   )}
                   title={sidebarCollapsed ? label : undefined}
                 >
-                  <Icon className={cn('h-5 w-5 flex-shrink-0', isActive && 'text-sidebar-primary-foreground')} />
+                  <Icon className={cn('h-5 w-5 flex-shrink-0 text-sidebar-foreground', isActive && 'text-sidebar-primary-foreground')} />
                   {!sidebarCollapsed && <span>{label}</span>}
                 </NavLink>
               </li>
@@ -134,7 +134,7 @@ export function Sidebar() {
             </>
           ) : (
             <>
-              <Store className="h-4 w-4 flex-shrink-0" />
+              <Store className="h-4 w-4 flex-shrink-0 text-sidebar-foreground" />
               {!sidebarCollapsed && <span className="truncate">Sin usuario</span>}
             </>
           )}
@@ -151,7 +151,7 @@ export function Sidebar() {
             )}
             title={sidebarCollapsed ? 'Cerrar sesión' : undefined}
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-4 w-4 text-destructive" />
             {!sidebarCollapsed && <span className="ml-2">Cerrar sesión</span>}
           </Button>
         )}
