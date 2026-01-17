@@ -295,3 +295,45 @@
   .stagger-4 { animation-delay: 0.4s; }
   .stagger-5 { animation-delay: 0.5s; }
 }
+
+/* Driver.js Tour Styles */
+.driver-popover.salon-tour-popover {
+  @apply bg-card border border-border shadow-xl;
+  border-radius: var(--radius);
+}
+
+.driver-popover.salon-tour-popover .driver-popover-title {
+  @apply text-foreground font-semibold text-base;
+}
+
+.driver-popover.salon-tour-popover .driver-popover-description {
+  @apply text-muted-foreground text-sm;
+}
+
+.driver-popover.salon-tour-popover .driver-popover-progress-text {
+  @apply text-muted-foreground text-xs;
+}
+
+.driver-popover.salon-tour-popover .driver-popover-prev-btn,
+.driver-popover.salon-tour-popover .driver-popover-next-btn {
+  @apply bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-sm font-medium transition-colors;
+}
+
+.driver-popover.salon-tour-popover .driver-popover-prev-btn {
+  @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
+}
+
+.driver-popover.salon-tour-popover .driver-popover-close-btn {
+  @apply text-muted-foreground hover:text-foreground;
+}
+
+.driver-popover.salon-tour-popover .driver-popover-arrow-side-left,
+.driver-popover.salon-tour-popover .driver-popover-arrow-side-right,
+.driver-popover.salon-tour-popover .driver-popover-arrow-side-top,
+.driver-popover.salon-tour-popover .driver-popover-arrow-side-bottom {
+  @apply border-border;
+}
+
+.driver-popover.salon-tour-popover .driver-popover-arrow {
+  @apply bg-card;
+}

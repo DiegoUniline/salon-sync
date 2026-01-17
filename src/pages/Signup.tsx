@@ -31,6 +31,7 @@ export default function Signup() {
   const [plansLoading, setPlansLoading] = useState(true);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [emailError, setEmailError] = useState('');
 
   const [form, setForm] = useState({
     account_name: '',
@@ -207,11 +208,28 @@ export default function Signup() {
                             id="admin_email"
                             type="email"
                             placeholder="tu@email.com"
-                            className="pl-10"
+                            className={`pl-10 ${emailError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
                             value={form.admin_email}
-                            onChange={(e) => setForm({ ...form, admin_email: e.target.value })}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setForm({ ...form, admin_email: value });
+                              // Real-time email validation
+                              if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                                setEmailError('Email inválido (ej: usuario@dominio.com)');
+                              } else {
+                                setEmailError('');
+                              }
+                            }}
+                            onBlur={() => {
+                              if (form.admin_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.admin_email)) {
+                                setEmailError('Email inválido (ej: usuario@dominio.com)');
+                              }
+                            }}
                           />
                         </div>
+                        {emailError && (
+                          <p className="text-xs text-destructive">{emailError}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="admin_phone">Teléfono</Label>

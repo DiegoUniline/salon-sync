@@ -7,6 +7,7 @@ import { RevenueChart } from '@/components/dashboard/RevenueChart';
 import { TopItemsList } from '@/components/dashboard/TopItemsList';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { AnimatedContainer, PageTransition } from '@/components/ui/animated-container';
+import { HelpButton } from '@/components/HelpButton';
 import { motion } from 'framer-motion';
 import {
   DollarSign,
@@ -139,9 +140,12 @@ export default function Dashboard() {
     <PageTransition className="space-y-6">
       {/* Header */}
       <AnimatedContainer variant="fadeInUp" delay={0}>
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground capitalize">{today}</p>
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-bold">Dashboard</h1>
+            <p className="text-muted-foreground capitalize">{today}</p>
+          </div>
+          <HelpButton moduleId="dashboard" />
         </div>
       </AnimatedContainer>
 
@@ -151,7 +155,7 @@ export default function Dashboard() {
       </AnimatedContainer>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div data-tour="stats-cards" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

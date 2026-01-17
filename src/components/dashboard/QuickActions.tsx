@@ -49,7 +49,7 @@ const actions = [
 
 export function QuickActions() {
   return (
-    <div className="glass-card rounded-xl p-4 md:p-5">
+    <div data-tour="quick-actions" className="glass-card rounded-xl p-4 md:p-5">
       <h3 className="text-lg font-semibold mb-3 md:mb-4">Acciones Rápidas</h3>
       
       <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 md:gap-3">
