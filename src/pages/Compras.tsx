@@ -26,7 +26,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { OdooLineEditor, type LineItem, type ColumnConfig } from '@/components/OdooLineEditor';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { SimplePurchaseLineEditor, type PurchaseLine, type ProductOption } from '@/components/SimplePurchaseLineEditor';
 import { MultiPaymentSelector, type Payment } from '@/components/MultiPaymentSelector';
 import {
   Plus,
@@ -43,15 +50,6 @@ import {
   Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-
-interface Product {
-  id: string;
-  name: string;
-  sku: string;
-  cost: number;
-  price: number;
-  stock: number;
-}
 
 interface PurchaseItem {
   product_id: string;
@@ -91,7 +89,7 @@ export default function Compras() {
   const isMobile = useIsMobile();
   
   const [purchases, setPurchases] = useState<Purchase[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -101,7 +99,7 @@ export default function Compras() {
   const [supplier, setSupplier] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
-  const [lines, setLines] = useState<LineItem[]>([]);
+  const [lines, setLines] = useState<PurchaseLine[]>([]);
   const [payments, setPayments] = useState<Payment[]>([
     { id: 'pay-1', method: 'transfer', amount: 0 }
   ]);
@@ -116,13 +114,18 @@ export default function Compras() {
           api.purchases.getAll({ branch_id: currentBranch.id }),
           api.products.getAll(),
         ]);
-        console.log('[Compras] Productos cargados:', productsData.length, productsData);
         setPurchases(purchasesData.map((p: any) => ({
           ...p,
           branch_id: p.branch_id,
           payment_method: p.payment_method || p.paymentMethod,
         })));
-        setProducts(productsData);
+        setProducts(productsData.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          sku: p.sku || '',
+          cost: parseFloat(p.cost) || 0,
+          stock: p.stock || 0,
+        })));
       } catch (error) {
         console.error('Error loading data:', error);
         toast.error('Error al cargar datos');
@@ -163,7 +166,7 @@ export default function Compras() {
   const totalCompras = filteredPurchases.reduce((sum, p) => sum + Number(p.total), 0);
 
   const calculateTotal = () => {
-    return lines.reduce((sum, line) => sum + ((line.quantity || 0) * (line.unitCost || 0)), 0);
+    return lines.reduce((sum, line) => sum + line.subtotal, 0);
   };
 
   const resetForm = () => {
@@ -174,70 +177,24 @@ export default function Compras() {
     setPayments([{ id: 'pay-1', method: 'transfer', amount: 0 }]);
   };
 
-  // Line columns config
-  const lineColumns: ColumnConfig[] = [
-    {
-      key: 'productName',
-      label: 'Producto',
-      type: 'search',
-      placeholder: 'Buscar producto...',
-      width: 'flex-[2]',
-      searchItems: products.map(p => ({
-        id: p.id,
-        label: p.name,
-        subLabel: `SKU: ${p.sku} | Stock: ${p.stock}`,
-        data: p,
-      })),
-      onSelect: (item, lineId) => {
-        console.log('[Compras] Producto seleccionado:', item);
-        console.log('[Compras] item.id:', item.id, 'item.data:', item.data);
-        const cost = parseFloat(item.data?.cost) || 0;
-        console.log('[Compras] Cost parseado:', cost);
-        setLines(prev => prev.map(line =>
-          line.id === lineId 
-            ? { ...line, productId: item.id, productName: item.label, unitCost: cost }
-            : line
-        ));
-      },
-    },
-    {
-      key: 'quantity',
-      label: 'Cantidad',
-      type: 'number',
-      width: 'w-24',
-      min: 1,
-    },
-    {
-      key: 'unitCost',
-      label: 'Costo Unit.',
-      type: 'number',
-      width: 'w-28',
-      min: 0,
-    },
-    {
-      key: 'subtotal',
-      label: 'Subtotal',
-      type: 'number',
-      width: 'w-28',
-      readOnly: true,
-      format: (value) => `$${(value || 0).toLocaleString()}`,
-    },
-  ];
-
   const addLine = () => {
     setLines(prev => [
       ...prev,
-      { id: `line-${Date.now()}`, productId: '', productName: '', quantity: 1, unitCost: 0, subtotal: 0 }
+      { 
+        id: `line-${Date.now()}`, 
+        productId: '', 
+        productName: '', 
+        quantity: 1, 
+        unitCost: 0, 
+        subtotal: 0 
+      }
     ]);
   };
 
-  const updateLine = (lineId: string, key: string, value: any) => {
-    setLines(prev => prev.map(line => {
-      if (line.id !== lineId) return line;
-      const updated = { ...line, [key]: value };
-      updated.subtotal = (updated.quantity || 0) * (updated.unitCost || 0);
-      return updated;
-    }));
+  const updateLine = (lineId: string, updates: Partial<PurchaseLine>) => {
+    setLines(prev => prev.map(line => 
+      line.id === lineId ? { ...line, ...updates } : line
+    ));
   };
 
   const removeLine = (lineId: string) => {
@@ -249,7 +206,9 @@ export default function Compras() {
       toast.error('Ingresa el proveedor');
       return;
     }
-    if (lines.filter(l => l.productId).length === 0) {
+    
+    const validLines = lines.filter(l => l.productId);
+    if (validLines.length === 0) {
       toast.error('Agrega al menos un producto');
       return;
     }
@@ -268,7 +227,7 @@ export default function Compras() {
         shift_id: openShift?.id,
         date,
         supplier,
-        items: lines.filter(l => l.productId).map(line => ({
+        items: validLines.map(line => ({
           product_id: line.productId,
           product_name: line.productName,
           quantity: line.quantity,
@@ -279,7 +238,6 @@ export default function Compras() {
         notes: notes || null,
       };
 
-      console.log('[Compras] Enviando compra con shift_id:', openShift?.id, purchaseData);
       const newPurchase = await api.purchases.create(purchaseData);
       setPurchases(prev => [{ ...purchaseData, id: newPurchase.id } as Purchase, ...prev]);
       
@@ -304,6 +262,7 @@ export default function Compras() {
   };
 
   const total = calculateTotal();
+  const validLinesCount = lines.filter(l => l.productId).length;
 
   return (
     <div className="space-y-6">
@@ -349,22 +308,16 @@ export default function Compras() {
                 </div>
               </div>
 
-              {/* Products - Odoo style */}
+              {/* Products - Simple version */}
               <div className="space-y-2">
                 <Label className="text-base font-semibold">Productos</Label>
-                <p className="text-sm text-muted-foreground">
-                  Usa Tab para moverte entre campos. Al final de la última línea, Tab agrega una nueva.
-                </p>
-                <OdooLineEditor
+                <SimplePurchaseLineEditor
                   lines={lines}
-                  columns={lineColumns}
+                  products={products}
+                  onAddLine={addLine}
                   onUpdateLine={updateLine}
                   onRemoveLine={removeLine}
-                  onAddLine={addLine}
-                  showTotal
-                  totalLabel="Total de la Compra"
-                  totalValue={total}
-                  emptyMessage="Haz clic o presiona Tab para agregar productos"
+                  total={total}
                 />
               </div>
 
@@ -387,22 +340,15 @@ export default function Compras() {
               </div>
 
               {/* Validation feedback */}
-              {(!supplier || lines.filter(l => l.productId).length === 0) && (
+              {(!supplier || validLinesCount === 0) && (
                 <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-sm space-y-1">
                   <p className="font-medium text-destructive">Para registrar la compra necesitas:</p>
                   {!supplier && <p className="text-destructive/80">• Ingresar el nombre del proveedor</p>}
-                  {lines.filter(l => l.productId).length === 0 && (
-                    <p className="text-destructive/80">• Agregar al menos un producto (selecciónalo del buscador)</p>
+                  {validLinesCount === 0 && (
+                    <p className="text-destructive/80">• Agregar al menos un producto</p>
                   )}
                 </div>
               )}
-
-              {/* Debug info (temporal) */}
-              <div className="text-xs text-muted-foreground bg-secondary/30 p-2 rounded">
-                <p>🔧 Debug: Turno activo: {openShift?.id ? `✅ ${openShift.id.slice(0,8)}...` : '❌ Sin turno'}</p>
-                <p>🔧 Debug: Productos disponibles: {products.length}</p>
-                <p>🔧 Debug: Líneas con productId: {lines.filter(l => l.productId).length} / {lines.length}</p>
-              </div>
 
               <div className="flex justify-end gap-3">
                 <Button variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>
@@ -411,7 +357,7 @@ export default function Compras() {
                 <Button 
                   className="gradient-bg border-0"
                   onClick={handleSubmit}
-                  disabled={!supplier || lines.filter(l => l.productId).length === 0}
+                  disabled={!supplier || validLinesCount === 0}
                 >
                   Registrar Compra
                 </Button>
