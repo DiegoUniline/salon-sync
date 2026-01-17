@@ -188,10 +188,13 @@ export default function Compras() {
         data: p,
       })),
       onSelect: (item, lineId) => {
-        console.log('[Compras] Producto seleccionado:', item, 'para línea:', lineId);
+        console.log('[Compras] Producto seleccionado:', item);
+        console.log('[Compras] item.id:', item.id, 'item.data:', item.data);
+        const cost = parseFloat(item.data?.cost) || 0;
+        console.log('[Compras] Cost parseado:', cost);
         setLines(prev => prev.map(line =>
           line.id === lineId 
-            ? { ...line, productId: item.id, productName: item.label, unitCost: item.data.cost }
+            ? { ...line, productId: item.id, productName: item.label, unitCost: cost }
             : line
         ));
       },
