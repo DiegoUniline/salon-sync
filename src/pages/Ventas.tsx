@@ -264,6 +264,17 @@ export default function Ventas() {
       return;
     }
 
+    // Validar que todos los items tengan precio válido
+    const invalidItems = cart.filter(c => {
+      const price = 'price' in c.item ? Number(c.item.price) : 0;
+      return isNaN(price) || price <= 0;
+    });
+
+    if (invalidItems.length > 0) {
+      toast.error(`Los siguientes items no tienen precio válido: ${invalidItems.map(i => i.item.name).join(', ')}`);
+      return;
+    }
+
     const now = new Date();
     const folio = `V${Date.now().toString().slice(-6)}`;
     
@@ -274,13 +285,17 @@ export default function Ventas() {
         date: now.toISOString().split('T')[0],
         time: now.toTimeString().slice(0, 5),
         type: 'direct',
-        items: cart.map(c => ({
-          item_type: c.type,
-          item_id: c.item.id,
-          name: c.item.name,
-          quantity: c.quantity,
-          price: 'price' in c.item ? c.item.price : 0,
-        })),
+        items: cart.map(c => {
+          const price = 'price' in c.item ? Number(c.item.price) : 0;
+          return {
+            item_type: c.type,
+            item_id: c.item.id,
+            name: c.item.name,
+            quantity: c.quantity,
+            price: price,
+            subtotal: price * c.quantity,
+          };
+        }),
         payment_method: paymentMethod,
         payments: paymentMethod === 'mixed' ? mixedPayments : [{ method: paymentMethod, amount: cartTotal }],
         total: cartTotal,
@@ -335,9 +350,26 @@ export default function Ventas() {
       setPaymentMethod('cash');
       setMixedPayments([]);
       setIsPOSOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating sale:', error);
-      toast.error('Error al registrar venta');
+      
+      // Extraer mensaje específico del error
+      const errorMessage = error?.message || error?.response?.data?.message || 'Error desconocido';
+      
+      // Mostrar errores específicos según el tipo
+      if (errorMessage.toLowerCase().includes('subtotal')) {
+        toast.error('Error: Falta calcular el subtotal de los productos');
+      } else if (errorMessage.toLowerCase().includes('shift') || errorMessage.toLowerCase().includes('turno')) {
+        toast.error('Error: No hay un turno abierto para registrar la venta');
+      } else if (errorMessage.toLowerCase().includes('stock')) {
+        toast.error('Error: Stock insuficiente para uno o más productos');
+      } else if (errorMessage.toLowerCase().includes('branch') || errorMessage.toLowerCase().includes('sucursal')) {
+        toast.error('Error: No se ha seleccionado una sucursal');
+      } else if (errorMessage.toLowerCase().includes('payment') || errorMessage.toLowerCase().includes('pago')) {
+        toast.error('Error: Problema con el método de pago');
+      } else {
+        toast.error(`Error al registrar venta: ${errorMessage}`);
+      }
     }
   };
 
