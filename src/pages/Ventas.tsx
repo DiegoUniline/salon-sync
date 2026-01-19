@@ -199,10 +199,27 @@ export default function Ventas() {
   });
 
   const today = new Date().toISOString().split('T')[0];
-  const todaySales = filteredSales.filter(s => s.date === today);
-  const totalToday = todaySales.reduce((sum, s) => sum + Number(s.total), 0);
-  const cashToday = todaySales.filter(s => s.payment_method === 'cash').reduce((sum, s) => sum + Number(s.total), 0);
-  const cardToday = todaySales.filter(s => s.payment_method === 'card').reduce((sum, s) => sum + Number(s.total), 0);
+  const todaySales = filteredSales.filter(s => {
+    // Manejar diferentes formatos de fecha de la API
+    const saleDate = typeof s.date === 'string' ? s.date.split('T')[0] : '';
+    return saleDate === today;
+  });
+  const totalToday = todaySales.reduce((sum, s) => sum + Number(s.total || 0), 0);
+  
+  // Obtener método de pago: puede ser s.payment_method o del array s.payments
+  const getPaymentMethod = (sale: any): string => {
+    if (sale.payment_method) return sale.payment_method;
+    if (sale.payments && sale.payments.length > 0) {
+      // Si hay múltiples pagos con diferentes métodos, es "mixed"
+      const methods: string[] = sale.payments.map((p: any) => p.method as string);
+      const uniqueMethods = [...new Set(methods)];
+      return uniqueMethods.length > 1 ? 'mixed' : (uniqueMethods[0] || 'cash');
+    }
+    return 'cash';
+  };
+  
+  const cashToday = todaySales.filter(s => getPaymentMethod(s) === 'cash').reduce((sum, s) => sum + Number(s.total || 0), 0);
+  const cardToday = todaySales.filter(s => getPaymentMethod(s) === 'card').reduce((sum, s) => sum + Number(s.total || 0), 0);
 
   const cartTotal = cart.reduce((sum, item) => {
     if (!item || !item.item) return sum;
