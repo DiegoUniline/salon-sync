@@ -636,32 +636,32 @@ export default function Cortes() {
                     </div>
                     <Badge className={cn(
                       "border",
-                      cut.difference === 0
+                      (cut.difference || 0) === 0
                         ? "bg-success/20 text-success border-success/30"
-                        : cut.difference > 0
+                        : (cut.difference || 0) > 0
                           ? "bg-info/20 text-info border-info/30"
                           : "bg-destructive/20 text-destructive border-destructive/30"
                     )}>
-                      {cut.difference >= 0 ? '+' : ''}${cut.difference.toLocaleString()}
+                      {(cut.difference || 0) >= 0 ? '+' : ''}${(cut.difference || 0).toLocaleString()}
                     </Badge>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
                       <p className="text-muted-foreground">Ventas</p>
-                      <p className="font-semibold text-success">${cut.total_sales.toLocaleString()}</p>
+                      <p className="font-semibold text-success">${(cut.total_sales || 0).toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Gastos</p>
-                      <p className="font-semibold text-destructive">${cut.total_expenses.toLocaleString()}</p>
+                      <p className="font-semibold text-destructive">${(cut.total_expenses || 0).toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Esperado</p>
-                      <p className="font-semibold">${cut.expected_cash.toLocaleString()}</p>
+                      <p className="font-semibold">${(cut.expected_cash || 0).toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Real</p>
-                      <p className="font-semibold">${cut.final_cash.toLocaleString()}</p>
+                      <p className="font-semibold">${(cut.final_cash || 0).toLocaleString()}</p>
                     </div>
                   </div>
                   
@@ -722,27 +722,27 @@ export default function Cortes() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-medium text-success">
-                        ${cut.total_sales.toLocaleString()}
+                        ${(cut.total_sales || 0).toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right font-medium text-destructive">
-                        ${cut.total_expenses.toLocaleString()}
+                        ${(cut.total_expenses || 0).toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right">
-                        ${cut.expected_cash.toLocaleString()}
+                        ${(cut.expected_cash || 0).toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        ${cut.final_cash.toLocaleString()}
+                        ${(cut.final_cash || 0).toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right">
                         <Badge className={cn(
                           "border",
-                          cut.difference === 0
+                          (cut.difference || 0) === 0
                             ? "bg-success/20 text-success border-success/30"
-                            : cut.difference > 0
+                            : (cut.difference || 0) > 0
                               ? "bg-info/20 text-info border-info/30"
                               : "bg-destructive/20 text-destructive border-destructive/30"
                         )}>
-                          {cut.difference >= 0 ? '+' : ''}${cut.difference.toLocaleString()}
+                          {(cut.difference || 0) >= 0 ? '+' : ''}${(cut.difference || 0).toLocaleString()}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -822,44 +822,44 @@ export default function Cortes() {
               <div className="border-t pt-4 space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Efectivo inicial:</span>
-                  <span>${viewingCut.initial_cash.toLocaleString()}</span>
+                  <span>${(viewingCut.initial_cash || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-success">
                   <span>Total ventas:</span>
-                  <span>+${viewingCut.total_sales.toLocaleString()}</span>
+                  <span>+${(viewingCut.total_sales || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-destructive">
                   <span>Total gastos:</span>
-                  <span>-${viewingCut.total_expenses.toLocaleString()}</span>
+                  <span>-${(viewingCut.total_expenses || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between font-medium pt-2 border-t">
                   <span>Efectivo esperado:</span>
-                  <span>${viewingCut.expected_cash.toLocaleString()}</span>
+                  <span>${(viewingCut.expected_cash || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between font-medium">
                   <span>Efectivo real:</span>
-                  <span>${viewingCut.final_cash.toLocaleString()}</span>
+                  <span>${(viewingCut.final_cash || 0).toLocaleString()}</span>
                 </div>
               </div>
 
               <div className={cn(
                 "p-3 rounded-lg flex items-center justify-between",
-                viewingCut.difference === 0
+                (viewingCut.difference || 0) === 0
                   ? "bg-success/10"
-                  : viewingCut.difference > 0
+                  : (viewingCut.difference || 0) > 0
                     ? "bg-info/10"
                     : "bg-destructive/10"
               )}>
                 <span className="font-medium">Diferencia:</span>
                 <span className={cn(
                   "text-lg font-bold",
-                  viewingCut.difference === 0
+                  (viewingCut.difference || 0) === 0
                     ? "text-success"
-                    : viewingCut.difference > 0
+                    : (viewingCut.difference || 0) > 0
                       ? "text-info"
                       : "text-destructive"
                 )}>
-                  {viewingCut.difference >= 0 ? '+' : ''}${viewingCut.difference.toLocaleString()}
+                  {(viewingCut.difference || 0) >= 0 ? '+' : ''}${(viewingCut.difference || 0).toLocaleString()}
                 </span>
               </div>
             </div>
