@@ -275,7 +275,7 @@ export default function Ventas() {
         time: now.toTimeString().slice(0, 5),
         type: 'direct',
         items: cart.map(c => ({
-          type: c.type,
+          item_type: c.type,
           item_id: c.item.id,
           name: c.item.name,
           quantity: c.quantity,
