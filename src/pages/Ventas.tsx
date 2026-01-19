@@ -266,12 +266,13 @@ export default function Ventas() {
 
     // Validar que todos los items tengan precio válido
     const invalidItems = cart.filter(c => {
-      const price = 'price' in c.item ? Number(c.item.price) : 0;
+      if (!c.item) return true;
+      const price = c.item && 'price' in c.item ? Number(c.item.price) : 0;
       return isNaN(price) || price <= 0;
     });
 
     if (invalidItems.length > 0) {
-      toast.error(`Los siguientes items no tienen precio válido: ${invalidItems.map(i => i.item.name).join(', ')}`);
+      toast.error(`Los siguientes items no tienen precio válido: ${invalidItems.map(i => i.item?.name || 'Item desconocido').join(', ')}`);
       return;
     }
 
@@ -285,8 +286,8 @@ export default function Ventas() {
         date: now.toISOString().split('T')[0],
         time: now.toTimeString().slice(0, 5),
         type: 'direct',
-        items: cart.map(c => {
-          const price = 'price' in c.item ? Number(c.item.price) : 0;
+        items: cart.filter(c => c.item).map(c => {
+          const price = c.item && 'price' in c.item ? Number(c.item.price) : 0;
           return {
             item_type: c.type,
             item_id: c.item.id,
