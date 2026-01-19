@@ -205,8 +205,9 @@ export default function Ventas() {
   const cardToday = todaySales.filter(s => s.payment_method === 'card').reduce((sum, s) => sum + Number(s.total), 0);
 
   const cartTotal = cart.reduce((sum, item) => {
-    const price = 'price' in item.item ? item.item.price : 0;
-    return sum + (Number(price) * item.quantity);
+    if (!item || !item.item) return sum;
+    const price = item.item && 'price' in item.item ? Number(item.item.price) : 0;
+    return sum + (price * item.quantity);
   }, 0);
 
   const addToCart = (type: 'product' | 'service', item: Product | Service) => {
@@ -314,17 +315,17 @@ export default function Ventas() {
       })));
       
       // Prepare ticket data
-      const serviceItems = cart.filter(c => c.type === 'service').map(c => ({
-        name: c.item.name,
-        quantity: c.quantity,
-        price: 'price' in c.item ? Number(c.item.price) : 0,
-      }));
-      
-      const productItems = cart.filter(c => c.type === 'product').map(c => ({
-        name: c.item.name,
-        quantity: c.quantity,
-        price: 'price' in c.item ? Number(c.item.price) : 0,
-      }));
+    const serviceItems = cart.filter(c => c.type === 'service' && c.item).map(c => ({
+      name: c.item?.name || 'Servicio',
+      quantity: c.quantity,
+      price: c.item && 'price' in c.item ? Number(c.item.price) : 0,
+    }));
+
+    const productItems = cart.filter(c => c.type === 'product' && c.item).map(c => ({
+      name: c.item?.name || 'Producto',
+      quantity: c.quantity,
+      price: c.item && 'price' in c.item ? Number(c.item.price) : 0,
+    }));
       
       setTicketData({
         folio,
@@ -506,12 +507,12 @@ export default function Ventas() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {cart.map((item) => (
-                        <div key={`${item.type}-${item.item.id}`} className="flex items-center gap-2 p-2 bg-secondary/30 rounded-lg">
+                      {cart.filter(c => c && c.item).map((item) => (
+                        <div key={`${item.type}-${item.item?.id || 'unknown'}`} className="flex items-center gap-2 p-2 bg-secondary/30 rounded-lg">
                           <div className="flex-1">
-                            <p className="font-medium text-sm">{item.item.name}</p>
+                            <p className="font-medium text-sm">{item.item?.name || 'Item'}</p>
                             <p className="text-xs text-muted-foreground">
-                              ${Number('price' in item.item ? item.item.price : 0).toLocaleString()} c/u
+                              ${Number(item.item && 'price' in item.item ? item.item.price : 0).toLocaleString()} c/u
                             </p>
                           </div>
                           <div className="flex items-center gap-1">
@@ -519,7 +520,7 @@ export default function Ventas() {
                               size="icon" 
                               variant="outline" 
                               className="h-7 w-7"
-                              onClick={() => updateCartQuantity(item.type, item.item.id, -1)}
+                              onClick={() => item.item && updateCartQuantity(item.type, item.item.id, -1)}
                             >
                               <Minus className="h-3 w-3" />
                             </Button>
@@ -528,19 +529,19 @@ export default function Ventas() {
                               size="icon" 
                               variant="outline" 
                               className="h-7 w-7"
-                              onClick={() => updateCartQuantity(item.type, item.item.id, 1)}
+                              onClick={() => item.item && updateCartQuantity(item.type, item.item.id, 1)}
                             >
                               <Plus className="h-3 w-3" />
                             </Button>
                           </div>
                           <span className="w-20 text-right font-bold">
-                            ${(Number('price' in item.item ? item.item.price : 0) * item.quantity).toLocaleString()}
+                            ${(Number(item.item && 'price' in item.item ? item.item.price : 0) * item.quantity).toLocaleString()}
                           </span>
                           <Button 
                             size="icon" 
                             variant="ghost" 
                             className="h-7 w-7 text-destructive"
-                            onClick={() => removeFromCart(item.type, item.item.id)}
+                            onClick={() => item.item && removeFromCart(item.type, item.item.id)}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -887,22 +888,30 @@ export default function Ventas() {
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">Items</p>
                   <div className="space-y-2">
-                    {viewingSale.items.map((item, index) => (
-                      <div key={index} className="flex justify-between items-center p-2 bg-secondary/30 rounded">
-                        <div className="flex items-center gap-2">
-                          {item.type === 'product' ? (
-                            <Package className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <Scissors className="h-4 w-4 text-muted-foreground" />
-                          )}
-                          <span>{item.item?.name || 'Item'}</span>
-                          <span className="text-muted-foreground">x{item.quantity}</span>
+                    {viewingSale.items.map((item: any, index: number) => {
+                      const itemPrice = typeof item.price === 'number' 
+                        ? item.price 
+                        : (item.item && 'price' in item.item ? Number(item.item.price) : 0);
+                      const itemName = item.name || item.item?.name || 'Item';
+                      const itemType = item.type || item.item_type || 'product';
+                      
+                      return (
+                        <div key={index} className="flex justify-between items-center p-2 bg-secondary/30 rounded">
+                          <div className="flex items-center gap-2">
+                            {itemType === 'product' ? (
+                              <Package className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <Scissors className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <span>{itemName}</span>
+                            <span className="text-muted-foreground">x{item.quantity}</span>
+                          </div>
+                          <span className="font-medium">
+                            ${(itemPrice * item.quantity).toLocaleString()}
+                          </span>
                         </div>
-                        <span className="font-medium">
-                          ${(Number('price' in item.item ? item.item.price : 0) * item.quantity).toLocaleString()}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
