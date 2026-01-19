@@ -331,7 +331,7 @@ export default function Cortes() {
                   <option value="">Selecciona un turno</option>
                   {pendingShifts.map(shift => (
                     <option key={shift.id} value={shift.id}>
-                      {new Date(shift.date).toLocaleDateString('es-MX')} - {shift.user.name}
+                      {new Date(shift.date).toLocaleDateString('es-MX')} - {shift.user?.name || 'Usuario'}
                     </option>
                   ))}
                 </select>
@@ -354,7 +354,7 @@ export default function Cortes() {
                         <div className="flex items-center gap-3 mb-3">
                           <User className="h-5 w-5 text-primary" />
                           <div>
-                            <p className="font-medium">{shift.user.name}</p>
+                            <p className="font-medium">{shift.user?.name || 'Usuario'}</p>
                             <p className="text-sm text-muted-foreground">
                               {new Date(shift.date).toLocaleDateString('es-MX', { 
                                 weekday: 'long', 
@@ -367,7 +367,7 @@ export default function Cortes() {
                         <div className="flex items-center gap-2 text-sm">
                           <Banknote className="h-4 w-4 text-muted-foreground" />
                           <span className="text-muted-foreground">Caja inicial:</span>
-                          <span className="font-medium">${shift.initialCash.toLocaleString()}</span>
+                          <span className="font-medium">${(shift.initialCash || 0).toLocaleString()}</span>
                         </div>
                       </div>
                     );
