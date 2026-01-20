@@ -243,8 +243,9 @@ export default function Products() {
       key: 'sku',
       label: 'SKU',
       type: 'text',
-      placeholder: 'SKU-001',
+      placeholder: 'Automático',
       width: 'w-28',
+      readOnly: true,
     },
     {
       key: 'cost',
@@ -429,9 +430,9 @@ export default function Products() {
                   <div className="space-y-2">
                     <Label>SKU</Label>
                     <Input
-                      value={formData.sku}
-                      onChange={(e) => setFormData(prev => ({ ...prev, sku: e.target.value }))}
-                      placeholder="SKU-001"
+                      value={editingProduct ? formData.sku : 'Automático'}
+                      disabled
+                      className="bg-muted"
                     />
                   </div>
                 </div>
