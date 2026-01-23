@@ -19,6 +19,7 @@ export type ModuleId =
   | "ventas"
   | "gastos"
   | "compras"
+  | "proveedores"
   | "inventario"
   | "servicios"
   | "productos"
