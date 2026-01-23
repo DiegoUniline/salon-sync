@@ -282,6 +282,20 @@ export default function Ventas() {
       return;
     }
 
+    // Validar stock de productos
+    const itemsWithoutStock = cart.filter(c => {
+      if (c.type === 'product') {
+        const product = c.item as Product;
+        return product.stock < c.quantity;
+      }
+      return false;
+    });
+
+    if (itemsWithoutStock.length > 0) {
+      toast.error(`Stock insuficiente para: ${itemsWithoutStock.map(i => `${i.item.name} (disponible: ${(i.item as Product).stock})`).join(', ')}`);
+      return;
+    }
+
     // Validar que todos los items tengan precio válido
     const invalidItems = cart.filter(c => {
       if (!c.item) return true;
@@ -936,6 +950,48 @@ export default function Ventas() {
               <div className="flex justify-between items-center pt-4 border-t">
                 <span className="text-lg font-medium">Total</span>
                 <span className="text-2xl font-bold">${Number(viewingSale.total).toLocaleString()}</span>
+              </div>
+              
+              <div className="flex justify-end pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    // Reconstruct ticket data from saved sale
+                    const saleItems = viewingSale.items || [];
+                    const serviceItems = saleItems.filter((i: any) => (i.type || i.item_type) === 'service').map((i: any) => ({
+                      name: i.name || i.item?.name || 'Servicio',
+                      quantity: i.quantity,
+                      price: typeof i.price === 'number' ? i.price : Number(i.item?.price || 0),
+                    }));
+                    const productItems = saleItems.filter((i: any) => (i.type || i.item_type) === 'product').map((i: any) => ({
+                      name: i.name || i.item?.name || 'Producto',
+                      quantity: i.quantity,
+                      price: typeof i.price === 'number' ? i.price : Number(i.item?.price || 0),
+                    }));
+                    
+                    setTicketData({
+                      folio: viewingSale.id.slice(-6).toUpperCase(),
+                      date: new Date(viewingSale.date),
+                      clientName: viewingSale.client_name || 'Cliente',
+                      services: serviceItems,
+                      products: productItems,
+                      subtotal: Number(viewingSale.total),
+                      discount: 0,
+                      total: Number(viewingSale.total),
+                      paymentMethod: paymentLabels[viewingSale.payment_method as keyof typeof paymentLabels] || viewingSale.payment_method,
+                      payments: viewingSale.payments?.map((p: any) => ({
+                        method: paymentLabels[p.method as keyof typeof paymentLabels] || p.method,
+                        amount: p.amount
+                      })),
+                    });
+                    setShowTicket(true);
+                    setViewingSale(null);
+                  }}
+                  className="gap-2"
+                >
+                  <Receipt className="h-4 w-4" />
+                  Ver Ticket
+                </Button>
               </div>
             </div>
           )}

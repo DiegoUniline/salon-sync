@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  moduleId: ModuleId;
+  moduleId: string;
 }
 
 export function ProtectedRoute({ children, moduleId }: ProtectedRouteProps) {
@@ -23,7 +23,7 @@ export function ProtectedRoute({ children, moduleId }: ProtectedRouteProps) {
     return <>{children}</>;
   }
 
-  if (!canView(moduleId)) {
+  if (!canView(moduleId as ModuleId)) {
     if (canView("dashboard")) {
       return <Navigate to="/" replace />;
     }

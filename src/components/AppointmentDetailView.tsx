@@ -418,7 +418,7 @@ export function AppointmentDetailView({
         const newClient = await api.clients.create({
           name: newClientName,
           phone: newClientPhone,
-          email: newClientEmail,
+          email: newClientEmail || undefined, // Solo enviar si tiene valor
         });
         finalClientId = newClient.id;
         setClients((prev) => [...prev, newClient]);
@@ -475,6 +475,7 @@ export function AppointmentDetailView({
       date,
       time,
       duration: totalDuration,
+      notes, // Include notes in the payload
       services: validServices.map((l) => ({
         service_id: l.serviceId,
         price: l.price,

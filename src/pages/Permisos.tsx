@@ -245,39 +245,51 @@ export default function Permisos() {
   };
 
   const togglePermission = (moduleId: ModuleId, action: keyof ModulePermissions) => {
-    setRoleForm(prev => ({
-      ...prev,
-      permissions: {
-        ...prev.permissions,
-        [moduleId]: {
-          ...prev.permissions[moduleId],
-          [action]: !prev.permissions[moduleId][action],
+    try {
+      setRoleForm(prev => ({
+        ...prev,
+        permissions: {
+          ...prev.permissions,
+          [moduleId]: {
+            ...(prev.permissions[moduleId] || { view: false, create: false, edit: false, delete: false }),
+            [action]: !prev.permissions[moduleId]?.[action],
+          },
         },
-      },
-    }));
+      }));
+    } catch (error) {
+      console.error('Error toggling permission:', error);
+    }
   };
 
   const toggleAllModulePermissions = (moduleId: ModuleId, enabled: boolean) => {
-    setRoleForm(prev => ({
-      ...prev,
-      permissions: {
-        ...prev.permissions,
-        [moduleId]: {
-          view: enabled,
-          create: enabled,
-          edit: enabled,
-          delete: enabled,
+    try {
+      setRoleForm(prev => ({
+        ...prev,
+        permissions: {
+          ...prev.permissions,
+          [moduleId]: {
+            view: enabled,
+            create: enabled,
+            edit: enabled,
+            delete: enabled,
+          },
         },
-      },
-    }));
+      }));
+    } catch (error) {
+      console.error('Error toggling all module permissions:', error);
+    }
   };
 
   const toggleAllPermissions = (enabled: boolean) => {
-    const newPermissions = createEmptyPermissions();
-    modules.forEach(m => {
-      newPermissions[m.id] = { view: enabled, create: enabled, edit: enabled, delete: enabled };
-    });
-    setRoleForm(prev => ({ ...prev, permissions: newPermissions }));
+    try {
+      const newPermissions = createEmptyPermissions();
+      modules.forEach(m => {
+        newPermissions[m.id] = { view: enabled, create: enabled, edit: enabled, delete: enabled };
+      });
+      setRoleForm(prev => ({ ...prev, permissions: newPermissions }));
+    } catch (error) {
+      console.error('Error toggling all permissions:', error);
+    }
   };
 
   // User handlers

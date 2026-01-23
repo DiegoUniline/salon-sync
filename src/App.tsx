@@ -6,6 +6,7 @@ import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppProvider } from "@/contexts/AppContext";
 import { PermissionsProvider, usePermissions } from "@/hooks/usePermissions";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Layout } from "@/components/layout/Layout";
 
 // Pages
@@ -191,7 +192,9 @@ function AppRoutes() {
           path="/permisos"
           element={
             <ProtectedRoute moduleId="permisos">
-              <Permisos />
+              <ErrorBoundary>
+                <Permisos />
+              </ErrorBoundary>
             </ProtectedRoute>
           }
         />
