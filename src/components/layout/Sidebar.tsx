@@ -36,6 +36,7 @@ const navItems: { path: string; icon: typeof LayoutDashboard; label: string; mod
   { path: '/productos', icon: Package, label: 'Productos', moduleId: 'productos' },
   { path: '/inventario', icon: Warehouse, label: 'Inventario', moduleId: 'inventario' },
   { path: '/compras', icon: ShoppingCart, label: 'Compras', moduleId: 'compras' },
+  { path: '/proveedores', icon: Store, label: 'Proveedores', moduleId: 'proveedores' },
   { path: '/gastos', icon: Receipt, label: 'Gastos', moduleId: 'gastos' },
   { path: '/ventas', icon: DollarSign, label: 'Ventas', moduleId: 'ventas' },
   { path: '/turnos', icon: Clock, label: 'Turnos', moduleId: 'turnos' },

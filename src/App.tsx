@@ -28,6 +28,7 @@ import Cortes from "./pages/Cortes";
 import Horarios from "./pages/Horarios";
 import Configuracion from "./pages/Configuracion";
 import Permisos from "./pages/Permisos";
+import Proveedores from "./pages/Proveedores";
 import SuperAdmin from "./pages/SuperAdmin";
 import NotFound from "./pages/NotFound";
 
@@ -191,6 +192,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute moduleId="permisos">
               <Permisos />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/proveedores"
+          element={
+            <ProtectedRoute moduleId="proveedores">
+              <Proveedores />
             </ProtectedRoute>
           }
         />

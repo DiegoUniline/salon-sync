@@ -1,6 +1,5 @@
 import { useApp } from '@/contexts/AppContext';
 import { usePermissions } from '@/hooks/usePermissions';
-import { branches } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 import { MobileNav } from './MobileNav';
 import {
@@ -32,7 +31,7 @@ import {
 } from 'lucide-react';
 
 export function Header() {
-  const { currentBranch, setCurrentBranchId, theme, toggleTheme, sidebarCollapsed } = useApp();
+  const { currentBranch, branches, setCurrentBranchId, theme, toggleTheme, sidebarCollapsed, isLoadingBranches } = useApp();
   const { currentUser, currentRole, users, roles, setCurrentUserId, logout } = usePermissions();
 
   return (
@@ -61,10 +60,14 @@ export function Header() {
         <div className="flex items-center gap-2 md:gap-3">
           {/* Branch selector - compact on mobile */}
           <div data-tour="branch-selector">
-            <Select value={currentBranch?.id || ''} onValueChange={setCurrentBranchId}>
+            <Select 
+              value={currentBranch?.id || ''} 
+              onValueChange={setCurrentBranchId}
+              disabled={isLoadingBranches || branches.length === 0}
+            >
               <SelectTrigger className="w-auto md:w-[180px] bg-secondary/50 border-0">
                 <Store className="h-4 w-4 md:mr-2 text-muted-foreground" />
-                <span className="hidden md:inline"><SelectValue /></span>
+                <span className="hidden md:inline"><SelectValue placeholder={isLoadingBranches ? "Cargando..." : "Seleccionar"} /></span>
               </SelectTrigger>
               <SelectContent>
                 {branches.map(branch => (
