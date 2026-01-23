@@ -62,19 +62,30 @@ export function Header() {
           <div data-tour="branch-selector">
             <Select 
               value={currentBranch?.id || ''} 
-              onValueChange={setCurrentBranchId}
-              disabled={isLoadingBranches || branches.length === 0}
+              onValueChange={(value) => {
+                console.log('Branch selected:', value);
+                setCurrentBranchId(value);
+              }}
+              disabled={isLoadingBranches}
             >
               <SelectTrigger className="w-auto md:w-[180px] bg-secondary/50 border-0">
                 <Store className="h-4 w-4 md:mr-2 text-muted-foreground" />
-                <span className="hidden md:inline"><SelectValue placeholder={isLoadingBranches ? "Cargando..." : "Seleccionar"} /></span>
+                <span className="hidden md:inline">
+                  <SelectValue placeholder={isLoadingBranches ? "Cargando..." : (branches.length === 0 ? "Sin sucursales" : "Seleccionar")} />
+                </span>
               </SelectTrigger>
               <SelectContent>
-                {branches.map(branch => (
-                  <SelectItem key={branch.id} value={branch.id}>
-                    {branch.name}
-                  </SelectItem>
-                ))}
+                {branches.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground text-center">
+                    No hay sucursales disponibles
+                  </div>
+                ) : (
+                  branches.map(branch => (
+                    <SelectItem key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>

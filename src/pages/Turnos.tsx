@@ -304,11 +304,26 @@ export default function Turnos() {
   };
 
   const formatTime = (time: string) => {
+    if (!time) return '';
     const [hours, minutes] = time.split(':');
     const hour = parseInt(hours);
     const ampm = hour >= 12 ? 'PM' : 'AM';
     const formattedHour = hour % 12 || 12;
     return `${formattedHour}:${minutes} ${ampm}`;
+  };
+
+  // Format date without timezone conversion issues
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    // If it's just a date string (YYYY-MM-DD), parse it as local
+    if (dateStr.length === 10) {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return new Date(year, month - 1, day).toLocaleDateString('es-MX');
+    }
+    // For ISO strings, extract just the date part to avoid timezone shift
+    const datePart = dateStr.split('T')[0];
+    const [year, month, day] = datePart.split('-').map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString('es-MX');
   };
 
   if (shiftsLoading) {
@@ -450,7 +465,7 @@ export default function Turnos() {
                 <Calendar className="h-4 w-4" />
                 <span className="text-sm">Fecha</span>
               </div>
-              <p className="font-semibold">{new Date(openShift.date).toLocaleDateString('es-MX')}</p>
+              <p className="font-semibold">{formatDate(openShift.date)}</p>
             </div>
             <div className="p-4 bg-background/50 rounded-lg">
               <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -500,7 +515,7 @@ export default function Turnos() {
                         <p className="font-medium">{shift.user.name}</p>
                         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                           <Calendar className="h-3.5 w-3.5" />
-                          {new Date(shift.date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                          {formatDate(shift.date)}
                         </div>
                       </div>
                     </div>
@@ -566,7 +581,7 @@ export default function Turnos() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-muted-foreground" />
-                        {new Date(shift.date).toLocaleDateString('es-MX')}
+                        {formatDate(shift.date)}
                       </div>
                     </TableCell>
                     <TableCell>

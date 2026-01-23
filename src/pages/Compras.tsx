@@ -69,8 +69,22 @@ import {
   Receipt,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { differenceInDays, format } from 'date-fns';
+import { differenceInDays, format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+
+// Helper to format date strings without timezone conversion issues
+const formatDateLocal = (dateStr: string) => {
+  if (!dateStr) return '';
+  // If it's just a date string (YYYY-MM-DD), parse it as local time
+  if (dateStr.length === 10) {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString('es-MX');
+  }
+  // For ISO strings, extract just the date part to avoid timezone shift
+  const datePart = dateStr.split('T')[0];
+  const [year, month, day] = datePart.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString('es-MX');
+};
 
 interface Supplier {
   id: string;
@@ -1275,7 +1289,7 @@ export default function Compras() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Fecha</p>
-                  <p className="font-medium">{new Date(viewingPurchase.date).toLocaleDateString('es-MX')}</p>
+                  <p className="font-medium">{formatDateLocal(viewingPurchase.date)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Tipo</p>
@@ -1292,7 +1306,7 @@ export default function Compras() {
                 {viewingPurchase.due_date && (
                   <div>
                     <p className="text-sm text-muted-foreground">Vencimiento</p>
-                    <p className="font-medium">{new Date(viewingPurchase.due_date).toLocaleDateString('es-MX')}</p>
+                    <p className="font-medium">{formatDateLocal(viewingPurchase.due_date)}</p>
                   </div>
                 )}
               </div>
