@@ -215,6 +215,13 @@ export const services = {
   update: (id: string, data: any) =>
     request(`/services/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   delete: (id: string) => request(`/services/${id}`, { method: "DELETE" }),
+  // Category management
+  createCategory: (data: { name: string }) =>
+    request("/services/categories", { method: "POST", body: JSON.stringify(data) }),
+  updateCategory: (id: string, data: { name: string }) =>
+    request(`/services/categories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteCategory: (id: string) =>
+    request(`/services/categories/${id}`, { method: "DELETE" }),
 };
 
 // ============ PRODUCTS ============
@@ -235,6 +242,13 @@ export const products = {
       body: JSON.stringify({ stock }),
     }),
   delete: (id: string) => request(`/products/${id}`, { method: "DELETE" }),
+  // Category management
+  createCategory: (data: { name: string }) =>
+    request("/products/categories", { method: "POST", body: JSON.stringify(data) }),
+  updateCategory: (id: string, data: { name: string }) =>
+    request(`/products/categories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteCategory: (id: string) =>
+    request(`/products/categories/${id}`, { method: "DELETE" }),
 };
 
 // ============ APPOINTMENTS ============

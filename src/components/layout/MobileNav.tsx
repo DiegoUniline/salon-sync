@@ -44,6 +44,7 @@ const navItems: NavItem[] = [
   { path: '/ventas', icon: ShoppingCart, label: 'Ventas', moduleId: 'ventas' },
   { path: '/gastos', icon: Receipt, label: 'Gastos', moduleId: 'gastos' },
   { path: '/compras', icon: ShoppingBag, label: 'Compras', moduleId: 'compras' },
+  { path: '/proveedores', icon: ShoppingBag, label: 'Proveedores', moduleId: 'proveedores' as any },
   { path: '/horarios', icon: Clock, label: 'Horarios', moduleId: 'horarios' },
   { path: '/turnos', icon: CreditCard, label: 'Turnos', moduleId: 'turnos' },
   { path: '/cortes', icon: DollarSign, label: 'Cortes', moduleId: 'cortes' },
