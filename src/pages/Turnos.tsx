@@ -113,25 +113,35 @@ export default function Turnos() {
 
   const filteredShifts = getShiftsForBranch(currentBranch?.id || '');
 
-  // Load users for the select
+  // Load users for the select - fetch all and filter locally to avoid timing issues
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        const data = await api.users.getAll({ branch_id: currentBranch?.id });
-        setUsers(data.map((u: any) => ({
+        setUsersLoading(true);
+        // Fetch all users first, then filter by branch
+        const data = await api.users.getAll();
+        const allUsers = data.users || data || [];
+        
+        // Filter by current branch if available, otherwise show all
+        const filteredUsers = currentBranch?.id 
+          ? allUsers.filter((u: any) => !u.branch_id || u.branch_id === currentBranch.id)
+          : allUsers;
+        
+        setUsers(filteredUsers.map((u: any) => ({
           id: u.id,
-          name: u.name,
+          name: u.name || u.full_name,
           color: u.color || '#3B82F6',
         })));
       } catch (error) {
         console.error('Error loading users:', error);
+        toast.error('Error al cargar usuarios');
       } finally {
         setUsersLoading(false);
       }
     };
-    if (currentBranch?.id) {
-      loadUsers();
-    }
+    
+    // Always load users, even before branch is selected
+    loadUsers();
   }, [currentBranch?.id]);
 
   // Load shift summary when opening close dialog

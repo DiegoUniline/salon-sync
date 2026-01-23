@@ -1157,14 +1157,14 @@ export default function Configuracion() {
               <div className="space-y-2">
                 <Label>{terms.branch}</Label>
                 <Select 
-                  value={userForm.branch_id} 
-                  onValueChange={(v) => setUserForm(prev => ({ ...prev, branch_id: v }))}
+                  value={userForm.branch_id || 'all'} 
+                  onValueChange={(v) => setUserForm(prev => ({ ...prev, branch_id: v === 'all' ? '' : v }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Todas" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas</SelectItem>
+                    <SelectItem value="all">Todas</SelectItem>
                     {branches.map(b => (
                       <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
                     ))}

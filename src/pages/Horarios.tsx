@@ -160,8 +160,8 @@ export default function Horarios() {
       setLoading(true);
       const [branchesData, usersData, blockedData] = await Promise.all([
         api.branches.getAll(),
-        api.users.getAll({ role: 'stylist' }),
-        api.schedules.getBlocked(),
+        api.users.getAll(), // Fetch all users, filter locally
+        api.schedules.getBlocked().catch(() => []),
       ]);
       
       const branchesList = branchesData.branches || branchesData || [];
@@ -171,8 +171,16 @@ export default function Horarios() {
         setSelectedBranch(branchesList[0].id);
       }
       
+      // Filter for professional roles (stylists, nutritionists, doctors, specialists)
+      const professionalRoles = ['stylist', 'nutritionist', 'doctor', 'specialist', 'employee'];
       const usersList = usersData.users || usersData || [];
-      setStylists(usersList.map((u: any) => ({
+      const professionals = usersList.filter((u: any) => {
+        // Include if role is professional OR if role is not explicitly admin/receptionist
+        const role = u.role?.toLowerCase();
+        return professionalRoles.includes(role) || (!role || (role !== 'admin' && role !== 'receptionist'));
+      });
+      
+      setStylists(professionals.map((u: any) => ({
         id: u.id,
         name: u.name || u.full_name,
         full_name: u.full_name,
@@ -241,8 +249,9 @@ export default function Horarios() {
     return normalized;
   };
 
-  // Update branch schedule
+  // Update branch schedule with validation and revert on error
   const updateBranchSchedule = async (dayIndex: number, field: keyof DaySchedule, value: any) => {
+    const previousSchedule = { ...branchSchedule };
     const newSchedule = {
       ...branchSchedule,
       [dayIndex]: { ...branchSchedule[dayIndex], [field]: value }
@@ -250,10 +259,17 @@ export default function Horarios() {
     setBranchSchedule(newSchedule);
     
     try {
-      await api.schedules.updateBranch(selectedBranch, newSchedule);
-      toast.success('Horario actualizado');
+      const result = await api.schedules.updateBranch(selectedBranch, newSchedule);
+      if (result && result.success !== false) {
+        toast.success('Horario actualizado');
+      } else {
+        throw new Error(result?.error || 'Error al guardar');
+      }
     } catch (error: any) {
-      toast.error(error.message || 'Error al guardar');
+      console.error('Error updating branch schedule:', error);
+      toast.error(error.message || 'Error al guardar horario');
+      // Revert to previous state
+      setBranchSchedule(previousSchedule);
     }
   };
 
@@ -295,32 +311,53 @@ export default function Horarios() {
     }
   };
 
-  // Add blocked days
+  // Add blocked days with validation
   const addBlockedDays = async () => {
     if (!blockForm.dateRange?.from) {
       toast.error('Selecciona las fechas');
       return;
     }
-    if (!blockForm.reason) {
+    if (!blockForm.reason.trim()) {
       toast.error('Ingresa el motivo');
+      return;
+    }
+    // Validate target_id when required
+    if (blockForm.type !== 'all' && !blockForm.targetId) {
+      toast.error(`Selecciona ${blockForm.type === 'branch' ? 'la sucursal' : 'el profesional'}`);
       return;
     }
 
     try {
       setSaving(true);
-      await api.schedules.createBlocked({
+      const result = await api.schedules.createBlocked({
         type: blockForm.type,
         target_id: blockForm.type !== 'all' ? blockForm.targetId : null,
         start_date: format(blockForm.dateRange.from, 'yyyy-MM-dd'),
         end_date: format(blockForm.dateRange.to || blockForm.dateRange.from, 'yyyy-MM-dd'),
-        reason: blockForm.reason,
+        reason: blockForm.reason.trim(),
       });
       
-      toast.success('Días bloqueados agregados');
-      setIsBlockDialogOpen(false);
-      setBlockForm({ type: 'all', targetId: '', dateRange: undefined, reason: '' });
-      loadInitialData();
+      if (result && result.id) {
+        // Add locally without reloading everything
+        setBlockedDays(prev => [...prev, {
+          id: result.id,
+          type: blockForm.type,
+          target_id: blockForm.targetId || null,
+          targetId: blockForm.targetId || null,
+          start_date: format(blockForm.dateRange!.from!, 'yyyy-MM-dd'),
+          startDate: format(blockForm.dateRange!.from!, 'yyyy-MM-dd'),
+          end_date: format(blockForm.dateRange!.to || blockForm.dateRange!.from!, 'yyyy-MM-dd'),
+          endDate: format(blockForm.dateRange!.to || blockForm.dateRange!.from!, 'yyyy-MM-dd'),
+          reason: blockForm.reason.trim(),
+        }]);
+        toast.success('Días bloqueados agregados');
+        setIsBlockDialogOpen(false);
+        setBlockForm({ type: 'all', targetId: '', dateRange: undefined, reason: '' });
+      } else {
+        throw new Error('No se recibió confirmación del servidor');
+      }
     } catch (error: any) {
+      console.error('Error blocking days:', error);
       toast.error(error.message || 'Error al bloquear días');
     } finally {
       setSaving(false);
