@@ -24,6 +24,7 @@ import {
   X,
   ChevronRight,
   LogOut,
+  FolderOpen,
 } from 'lucide-react';
 import type { ModuleId } from '@/lib/permissions';
 
@@ -48,6 +49,7 @@ const navItems: NavItem[] = [
   { path: '/horarios', icon: Clock, label: 'Horarios', moduleId: 'horarios' },
   { path: '/turnos', icon: CreditCard, label: 'Turnos', moduleId: 'turnos' },
   { path: '/cortes', icon: DollarSign, label: 'Cortes', moduleId: 'cortes' },
+  { path: '/catalogos', icon: FolderOpen, label: 'Catálogos', moduleId: 'catalogos' as any },
   { path: '/permisos', icon: Users, label: 'Permisos', moduleId: 'permisos' },
   { path: '/configuracion', icon: Settings, label: 'Configuración', moduleId: 'configuracion' },
 ];
