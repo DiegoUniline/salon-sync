@@ -31,6 +31,7 @@ import Configuracion from "./pages/Configuracion";
 import Permisos from "./pages/Permisos";
 import Proveedores from "./pages/Proveedores";
 import SuperAdmin from "./pages/SuperAdmin";
+import Catalogos from "./pages/Catalogos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -195,6 +196,14 @@ function AppRoutes() {
               <ErrorBoundary>
                 <Permisos />
               </ErrorBoundary>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/catalogos"
+          element={
+            <ProtectedRoute moduleId="catalogos">
+              <Catalogos />
             </ProtectedRoute>
           }
         />

@@ -24,6 +24,7 @@ import {
   LogOut,
   Store,
   Crown,
+  FolderOpen,
 } from 'lucide-react';
 
 const navItems: { path: string; icon: typeof LayoutDashboard; label: string; moduleId: ModuleId }[] = [
@@ -42,6 +43,7 @@ const navItems: { path: string; icon: typeof LayoutDashboard; label: string; mod
   { path: '/turnos', icon: Clock, label: 'Turnos', moduleId: 'turnos' },
   { path: '/cortes', icon: FileText, label: 'Cortes', moduleId: 'cortes' },
   { path: '/horarios', icon: CalendarClock, label: 'Horarios', moduleId: 'horarios' },
+  { path: '/catalogos', icon: FolderOpen, label: 'Catálogos', moduleId: 'catalogos' },
   { path: '/permisos', icon: Shield, label: 'Permisos', moduleId: 'permisos' },
   { path: '/configuracion', icon: Settings, label: 'Configuración', moduleId: 'configuracion' },
 ];

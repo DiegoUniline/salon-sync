@@ -27,6 +27,7 @@ export type ModuleId =
   | "cortes"
   | "horarios"
   | "configuracion"
+  | "catalogos"
   | "permisos"
   | "superadmin";
 
