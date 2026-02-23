@@ -3,7 +3,7 @@ import { format, parseISO, eachDayOfInterval, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { api } from '@/lib/api';
+import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -211,8 +211,8 @@ export default function Horarios() {
   const loadBranchSchedule = async (branchId: string) => {
     try {
       const data = await api.schedules.getBranch(branchId);
-      if (data.schedule) {
-        setBranchSchedule(normalizeSchedule(data.schedule));
+      if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+        setBranchSchedule(normalizeSchedule(data));
       } else {
         setBranchSchedule({ ...defaultSchedule });
       }
@@ -224,9 +224,9 @@ export default function Horarios() {
 
   const loadStylistSchedule = async (stylistId: string, branchId: string) => {
     try {
-      const data = await api.schedules.getStylist(stylistId, branchId);
-      if (data.schedule) {
-        setStylistSchedule(normalizeSchedule(data.schedule));
+      const data = await api.schedules.getStylist(stylistId);
+      if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+        setStylistSchedule(normalizeSchedule(data));
       } else {
         setStylistSchedule({ ...defaultSchedule });
       }
