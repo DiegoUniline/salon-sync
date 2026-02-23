@@ -128,8 +128,8 @@ export function AppointmentFormDialog({
             api.users.getAll(),
           ]);
           setClients(clientsData);
-          setServices(servicesData);
-          setProducts(productsData);
+          setServices(servicesData as any);
+          setProducts(productsData as any);
           setStylists(usersData.filter((u: any) => u.role !== 'Recepcionista'));
         } catch (error) {
           console.error('Error loading data:', error);

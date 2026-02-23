@@ -144,7 +144,7 @@ export default function Cortes() {
 
       setSummaryLoading(true);
       try {
-        const data = await api.shifts.getSummary(selectedShiftId);
+        const data = await api.shifts.getSummary(selectedShiftId) as any;
         console.log('[Cortes] Shift Summary Raw para turno', selectedShiftId, ':', data);
         
         const salesByMethod: Record<PaymentMethod, number> = {

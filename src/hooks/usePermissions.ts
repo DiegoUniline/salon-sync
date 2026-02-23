@@ -6,10 +6,10 @@ import {
   createElement,
 } from "react";
 import type { ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import api from "@/lib/api";
 
 const CURRENT_USER_KEY = "salon_current_user";
-const TOKEN_KEY = "salon_token";
 const SUBSCRIPTION_KEY = "salon_subscription";
 
 export type ModuleId =
@@ -46,7 +46,7 @@ export interface Role {
   description: string;
   color: string;
   is_system: boolean;
-  permissions: Record<ModuleId, ModulePermissions>;
+  permissions: Record<string, any>;
 }
 
 export interface UserWithRole {
@@ -59,14 +59,14 @@ export interface UserWithRole {
   color?: string;
   avatar_url?: string;
   active: boolean;
-  permissions?: Record<ModuleId, ModulePermissions>;
+  permissions?: Record<string, any> | null;
 }
 
 export interface Subscription {
   plan: string;
   plan_id: string;
-  status: 'trial' | 'active' | 'past_due' | 'cancelled' | 'expired';
-  billing_cycle?: 'monthly' | 'yearly';
+  status: string;
+  billing_cycle?: string;
   trial_ends_at?: string;
   ends_at?: string;
   days_remaining?: number;
@@ -131,86 +131,108 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Calculate subscription status
   const calculateDaysRemaining = (sub: Subscription | null): number | null => {
     if (!sub) return null;
     if (sub.days_remaining !== undefined) return sub.days_remaining;
-    
     const endDate = sub.trial_ends_at || sub.ends_at;
     if (!endDate) return null;
-    
     const now = new Date();
     const end = new Date(endDate);
-    const diffTime = end.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    return Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   };
 
   const daysRemaining = calculateDaysRemaining(subscription);
-  
   const isSubscriptionExpired = subscription?.status === 'expired' || 
     (daysRemaining !== null && daysRemaining < 0);
 
   useEffect(() => {
-    const init = async () => {
-      const token = localStorage.getItem(TOKEN_KEY);
-      const savedUser = localStorage.getItem(CURRENT_USER_KEY);
-      
-      // No token = no session, redirect to login
-      if (!token) {
-        localStorage.removeItem(CURRENT_USER_KEY);
-        localStorage.removeItem(SUBSCRIPTION_KEY);
-        setCurrentUser(null);
-        setSubscription(null);
-        setIsLoading(false);
-        return;
-      }
-      
-      // Has token but no saved user - invalid state, clear and redirect
-      if (!savedUser) {
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(CURRENT_USER_KEY);
-        localStorage.removeItem(SUBSCRIPTION_KEY);
-        setCurrentUser(null);
-        setSubscription(null);
-        setIsLoading(false);
-        return;
-      }
-      
-      // Has token and saved user, verify token is still valid
-      try {
-        const userData = await api.auth.me();
-
-        if (
-          userData.permissions &&
-          typeof userData.permissions === "string"
-        ) {
-          userData.permissions = JSON.parse(userData.permissions);
+    // Listen for Supabase auth state changes
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          // Load user data
+          try {
+            const userData = await api.auth.me();
+            const user: UserWithRole = {
+              id: userData.id,
+              name: userData.name,
+              email: userData.email,
+              role: userData.role,
+              branch_id: userData.branch_id,
+              account_id: userData.account_id,
+              color: userData.color,
+              avatar_url: userData.avatar_url,
+              active: userData.active,
+              permissions: userData.permissions as any,
+            };
+            setCurrentUser(user);
+            localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+            
+            if (userData.subscription) {
+              setSubscription(userData.subscription);
+              localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(userData.subscription));
+            }
+            
+            await refreshData();
+          } catch (error) {
+            console.error('Error loading user after sign in:', error);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setCurrentUser(null);
+          setSubscription(null);
+          localStorage.removeItem(CURRENT_USER_KEY);
+          localStorage.removeItem(SUBSCRIPTION_KEY);
         }
+        setIsLoading(false);
+      }
+    );
 
-        setCurrentUser(userData);
-        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userData));
-
-        // Get subscription info
-        if (userData.subscription) {
-          setSubscription(userData.subscription);
-          localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(userData.subscription));
+    // Check initial session
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        try {
+          const userData = await api.auth.me();
+          const user: UserWithRole = {
+            id: userData.id,
+            name: userData.name,
+            email: userData.email,
+            role: userData.role,
+            branch_id: userData.branch_id,
+            account_id: userData.account_id,
+            color: userData.color,
+            avatar_url: userData.avatar_url,
+            active: userData.active,
+              permissions: userData.permissions as any,
+          };
+          setCurrentUser(user);
+          localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+          
+          if (userData.subscription) {
+            setSubscription(userData.subscription);
+            localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(userData.subscription));
+          }
+          
+          await refreshData();
+        } catch (error) {
+          console.error('Session expired:', error);
+          setCurrentUser(null);
+          localStorage.removeItem(CURRENT_USER_KEY);
+          localStorage.removeItem(SUBSCRIPTION_KEY);
         }
-
-        await refreshData();
-      } catch (error) {
-        // Token invalid or expired, clear everything and redirect to login
-        console.log('Session expired or invalid, clearing...');
-        localStorage.removeItem(TOKEN_KEY);
+      } else {
+        setCurrentUser(null);
         localStorage.removeItem(CURRENT_USER_KEY);
         localStorage.removeItem(SUBSCRIPTION_KEY);
-        setCurrentUser(null);
-        setSubscription(null);
       }
-      
       setIsLoading(false);
     };
-    init();
+    
+    checkSession();
+
+    return () => {
+      authSub.unsubscribe();
+    };
   }, []);
 
   const refreshData = async () => {
@@ -219,8 +241,8 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         api.users.getAll().catch(() => []),
         api.roles.getAll().catch(() => []),
       ]);
-      setUsers(usersData);
-      setRoles(rolesData);
+      setUsers(usersData as any);
+      setRoles(rolesData as any);
     } catch (error) {
       console.error("Error refreshing data:", error);
     }
@@ -229,11 +251,20 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const refreshCurrentUser = async () => {
     try {
       const userData = await api.auth.me();
-      if (userData.permissions && typeof userData.permissions === "string") {
-        userData.permissions = JSON.parse(userData.permissions);
-      }
-      setCurrentUser(userData);
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userData));
+      const user: UserWithRole = {
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        branch_id: userData.branch_id,
+        account_id: userData.account_id,
+        color: userData.color,
+        avatar_url: userData.avatar_url,
+        active: userData.active,
+        permissions: userData.permissions as any,
+      };
+      setCurrentUser(user);
+      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
       
       if (userData.subscription) {
         setSubscription(userData.subscription);
@@ -247,7 +278,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const refreshSubscription = async () => {
     try {
       const subData = await api.subscriptions.getCurrent();
-      setSubscription(subData);
+      setSubscription(subData as any);
       localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(subData));
     } catch (error) {
       console.error("Error refreshing subscription:", error);
@@ -261,26 +292,30 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (
-    email: string,
-    password: string
-  ): Promise<LoginResult> => {
+  const login = async (email: string, password: string): Promise<LoginResult> => {
     try {
       const data = await api.auth.login(email, password);
-      if (data.user.permissions && typeof data.user.permissions === "string") {
-        data.user.permissions = JSON.parse(data.user.permissions);
-      }
-      setCurrentUser(data.user);
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data.user));
+      const user: UserWithRole = {
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        role: data.user.role,
+        branch_id: data.user.branch_id,
+        account_id: data.user.account_id,
+        color: data.user.color,
+        avatar_url: data.user.avatar_url,
+        active: data.user.active,
+        permissions: data.user.permissions as any,
+      };
+      setCurrentUser(user);
+      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
       
       if (data.subscription) {
         setSubscription(data.subscription);
         localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(data.subscription));
       }
       
-      // Dispatch event to notify AppContext to load branches
       window.dispatchEvent(new Event('auth-state-change'));
-      
       await refreshData();
       return { success: true };
     } catch (err: any) {
@@ -297,11 +332,8 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     } catch {}
     setCurrentUser(null);
     setSubscription(null);
-    localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(CURRENT_USER_KEY);
     localStorage.removeItem(SUBSCRIPTION_KEY);
-    
-    // Dispatch event to notify AppContext
     window.dispatchEvent(new Event('auth-state-change'));
   };
 
@@ -324,22 +356,19 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     if (isLoading) return true;
     if (!currentUser) return false;
 
-    // Super admin y admin tienen acceso total
     const userRole = currentUser.role?.toLowerCase();
-    if (userRole === "admin" || userRole === "administrador" || userRole === "superadmin" || userRole === "super_admin" || userRole === "super admin") {
+    if (userRole === "admin" || userRole === "administrador" || userRole === "superadmin" || 
+        userRole === "super_admin" || userRole === "super admin" || userRole === "account_admin") {
       return true;
     }
 
     if (currentUser.permissions) {
-      if (typeof currentUser.permissions === "string") {
-        return false;
-      }
-
-      return currentUser.permissions[moduleId]?.[action] === true;
+      if (typeof currentUser.permissions === "string") return false;
+      return (currentUser.permissions as any)[moduleId]?.[action] === true;
     }
 
     if (currentRole) {
-      return currentRole.permissions[moduleId]?.[action] ?? false;
+      return (currentRole.permissions as any)[moduleId]?.[action] ?? false;
     }
 
     return false;

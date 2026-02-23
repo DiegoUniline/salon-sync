@@ -169,7 +169,7 @@ export default function Agenda() {
           : selectedDate.toISOString().split('T')[0];
 
         const data = await api.appointments.getAll({ start_date: startDate, end_date: endDate });
-        setAppointments(data);
+        setAppointments(data as any);
       } catch (error) {
         console.error('Error loading appointments:', error);
       }
@@ -346,7 +346,7 @@ export default function Agenda() {
         : selectedDate.toISOString().split('T')[0];
 
       const data = await api.appointments.getAll({ start_date: startDate, end_date: endDate });
-      setAppointments(data);
+      setAppointments(data as any);
     } catch (error) {
       console.error('Error reloading appointments:', error);
     }

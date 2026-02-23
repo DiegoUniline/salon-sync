@@ -220,7 +220,7 @@ export default function Compras() {
           cost: parseFloat(p.cost) || 0,
           stock: p.stock || 0,
         })));
-        setSuppliers(suppliersData);
+        setSuppliers(suppliersData as any);
       } catch (error) {
         console.error('Error loading data:', error);
         toast.error('Error al cargar datos');
@@ -244,8 +244,8 @@ export default function Compras() {
       const purchasesWithPayments = purchases.filter(p => p.paid_amount > 0);
       const paymentsPromises = purchasesWithPayments.map(async (purchase) => {
         try {
-          const detail = await api.purchases.getById(purchase.id);
-          return (detail.payments || []).map((pay: any) => ({
+          const detail = await api.purchases.getById(purchase.id) as any;
+          return ((detail.purchase_payments || detail.payments || []) as any[]).map((pay: any) => ({
             ...pay,
             supplier: purchase.supplier,
             purchase_id: purchase.id,

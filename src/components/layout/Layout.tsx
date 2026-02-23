@@ -28,7 +28,7 @@ export function Layout({ children }: LayoutProps) {
       {subscription && daysRemaining !== null && !isSubscriptionExpired && (
         <TrialBanner 
           daysRemaining={daysRemaining} 
-          status={subscription.status} 
+          status={subscription.status as any} 
           planName={subscription.plan}
         />
       )}

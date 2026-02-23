@@ -196,8 +196,8 @@ export function AppointmentEditorDialog({
           api.users.getAll(),
         ]);
         setClients(clientsData);
-        setServices(servicesData);
-        setProducts(productsData);
+        setServices(servicesData as any);
+        setProducts(productsData as any);
         setStylists((usersData as Stylist[]).filter((u) => u.role !== "receptionist"));
       } catch (error) {
         console.error("Error loading data:", error);

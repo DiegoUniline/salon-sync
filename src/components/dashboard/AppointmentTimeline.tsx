@@ -34,7 +34,7 @@ export function AppointmentTimeline() {
       try {
         const today = new Date().toISOString().split('T')[0];
         const data = await api.appointments.getAll({ start_date: today, end_date: today });
-        setAppointments(data);
+        setAppointments(data as any);
       } catch (error) {
         console.error('Error loading appointments:', error);
       } finally {

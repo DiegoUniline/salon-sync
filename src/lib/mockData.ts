@@ -2,32 +2,44 @@
 export interface Branch {
   id: string;
   name: string;
-  address: string;
-  phone: string;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  account_id?: string;
+  is_active?: boolean;
 }
 
 export interface Service {
   id: string;
   name: string;
-  category: string;
-  duration: number;
+  category?: string;
+  category_id?: string | null;
+  duration?: number;
+  duration_minutes?: number | null;
   price: number;
   commission?: number;
-  active: boolean;
-  allowConcurrent?: boolean; // Permite múltiples citas simultáneas para este servicio
-  maxConcurrent?: number; // Máximo de citas simultáneas (default: 1)
+  active?: boolean;
+  is_active?: boolean | null;
+  description?: string | null;
+  account_id?: string;
+  allowConcurrent?: boolean;
+  maxConcurrent?: number;
 }
 
 export interface Product {
   id: string;
   name: string;
-  category: string;
+  category?: string;
+  category_id?: string | null;
   price: number;
-  cost: number;
-  sku: string;
-  stock: number;
-  minStock: number;
-  active: boolean;
+  cost?: number;
+  sku?: string | null;
+  stock?: number | null;
+  minStock?: number;
+  active?: boolean;
+  is_active?: boolean | null;
+  description?: string | null;
+  account_id?: string;
 }
 
 export interface Client {
@@ -48,19 +60,30 @@ export interface Stylist {
 
 export interface Appointment {
   id: string;
-  clientId: string;
-  client: Client;
-  stylistId: string;
-  stylist: Stylist;
-  branchId: string;
-  date: string;
-  time: string;
-  services: Service[];
+  clientId?: string;
+  client_id?: string | null;
+  client?: Client | any;
+  stylistId?: string;
+  employee_id?: string | null;
+  stylist?: Stylist | any;
+  branchId?: string;
+  branch_id?: string;
+  date?: string;
+  time?: string;
+  scheduled_at?: string;
+  services?: Service[] | any;
+  service_id?: string | null;
   products?: { product: Product; quantity: number }[];
-  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
-  paymentMethod?: 'cash' | 'card' | 'transfer' | 'mixed';
-  total: number;
-  notes?: string;
+  status?: string;
+  paymentMethod?: string;
+  payment_method?: string;
+  total?: number;
+  total_amount?: number | null;
+  duration_minutes?: number | null;
+  notes?: string | null;
+  clients?: any;
+  profiles?: any;
+  [key: string]: any;
 }
 
 export interface Sale {
