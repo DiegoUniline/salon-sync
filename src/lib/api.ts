@@ -983,7 +983,7 @@ export const shifts = {
     return data;
   },
   getOpen: async (branch_id: string) => {
-    const { data, error } = await supabase.from("shifts").select("*, profiles!shifts_user_id_fkey(full_name)").eq("branch_id", branch_id).eq("status", "open");
+    const { data, error } = await supabase.from("shifts").select("*, profiles!shifts_user_id_fkey(full_name)").eq("branch_id", branch_id).eq("status", "open").limit(1).maybeSingle();
     if (error) throw error;
     return data;
   },
@@ -1098,8 +1098,8 @@ export const schedules = {
       .select("*")
       .eq("type", "branch")
       .eq("target_id", branch_id)
-      .single();
-    if (error && error.code !== "PGRST116") throw error;
+      .maybeSingle();
+    if (error) throw error;
     return data?.schedule || {};
   },
   updateBranch: async (branch_id: string, schedule: any) => {
@@ -1130,14 +1130,14 @@ export const schedules = {
       return data;
     }
   },
-  getStylist: async (stylist_id: string) => {
+  getStylist: async (stylist_id: string, _branch_id?: string) => {
     const { data, error } = await supabase
       .from("schedules")
       .select("*")
       .eq("type", "employee")
       .eq("target_id", stylist_id)
-      .single();
-    if (error && error.code !== "PGRST116") throw error;
+      .maybeSingle();
+    if (error) throw error;
     return data?.schedule || {};
   },
   updateStylist: async (stylist_id: string, scheduleData: any) => {

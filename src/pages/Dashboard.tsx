@@ -80,30 +80,15 @@ export default function Dashboard() {
       try {
         const data = await api.dashboard.get(currentBranch.id);
         
-        // Transform API response to expected format
-        const todayData = data.today || {};
-        const appointments = todayData.appointments || {};
-        
-        // Transform topServices/topProducts - API returns revenue as string
-        const transformItems = (items: any[] | undefined) => {
-          if (!items || !Array.isArray(items)) return [];
-          return items.map(item => ({
-            name: item.name || '',
-            count: parseInt(item.count) || 0,
-            revenue: parseFloat(item.revenue) || 0,
-          }));
-        };
-        
         setStats({
-          todaySales: parseFloat(todayData.sales) || 0,
-          todayAppointments: parseInt(appointments.total) || 0,
-          completedAppointments: parseInt(appointments.completed) || 0,
-          pendingAppointments: parseInt(appointments.pending) || 0,
-          inProgressAppointments: parseInt(appointments.inProgress) || 0,
-          topServices: transformItems(data.topServices),
-          topProducts: transformItems(data.topProducts),
-          weeklyRevenue: buildWeeklyRevenue(data.weeklyRevenue),
-          pendingBalance: parseFloat(data.pendingBalance) || 0,
+          todaySales: Number(data.today_revenue) || 0,
+          todayAppointments: Number(data.today_appointments) || 0,
+          completedAppointments: 0,
+          pendingAppointments: Number(data.pending_appointments) || 0,
+          topServices: [],
+          topProducts: [],
+          weeklyRevenue: buildWeeklyRevenue(undefined),
+          pendingBalance: 0,
         });
       } catch (err) {
         console.error('Error loading dashboard:', err);

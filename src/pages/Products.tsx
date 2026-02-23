@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { type Product } from '@/lib/mockData';
-import { api } from '@/lib/api';
+import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePermissions } from '@/hooks/usePermissions';
