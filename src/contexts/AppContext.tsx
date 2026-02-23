@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { storage } from "@/lib/storage";
 import type { Branch } from "@/lib/mockData";
-import { getBranches } from "@/api/branches";
+import api from "@/lib/api";
 import {
   getBusinessConfig,
   setBusinessConfig,
@@ -36,57 +36,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(true);
 
-  // Function to load branches - exposed for external triggering
   const loadBranches = async () => {
-    const token = localStorage.getItem("salon_token");
-    const savedUser = localStorage.getItem("salon_current_user");
-    
-    // Only load branches if user is authenticated (has both token and user data)
-    if (!token || !savedUser) {
-      setBranches([]);
-      setLoadingBranches(false);
-      return;
-    }
-
     try {
-      const data = await getBranches();
-      setBranches(data);
+      const data = await api.branches.getAll();
+      setBranches(data as any);
       if (!currentBranchId && data.length > 0) {
         setCurrentBranchId(data[0].id);
       }
     } catch (error: any) {
-      // If 401, token is invalid - don't log error, just clear branches
-      if (error?.status === 401 || error?.message?.includes('401')) {
-        setBranches([]);
-      } else {
-        console.error("Error cargando sucursales", error);
-      }
+      setBranches([]);
     } finally {
       setLoadingBranches(false);
     }
   };
 
-  // Listen for storage changes (login/logout from other tabs or same tab)
   useEffect(() => {
     const handleStorageChange = () => {
-      const token = localStorage.getItem("salon_token");
-      if (token) {
-        loadBranches();
-      } else {
-        setBranches([]);
-        setLoadingBranches(false);
-      }
+      loadBranches();
     };
 
-    // Initial load with a small delay to let auth initialize first
     const timeoutId = setTimeout(() => {
       loadBranches();
-    }, 100);
+    }, 200);
 
-    // Listen for storage events
     window.addEventListener('storage', handleStorageChange);
-    
-    // Custom event for same-tab login
     window.addEventListener('auth-state-change', handleStorageChange);
     
     return () => {
@@ -108,7 +81,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const currentBranch =
-    branches.find((b) => b.id === currentBranchId) || branches[0];
+    branches.find((b) => b.id === currentBranchId) || branches[0] || null;
 
   const terms = terminology[businessConfig.type];
 
@@ -130,9 +103,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setBusinessConfigState(newConfig);
     setBusinessConfig(newConfig);
   };
-
-  // Don't block rendering if no branches (user might not be authenticated yet)
-  // Components should handle the case when currentBranch is undefined
 
   return (
     <AppContext.Provider

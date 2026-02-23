@@ -245,7 +245,7 @@ export default function Citas() {
   const loadAppointments = async () => {
     try {
       const data = await api.appointments.getAll({ branch_id: currentBranch?.id });
-      setAppointments(data.map(normalizeAppointment));
+      setAppointments((data as any[]).map(normalizeAppointment));
     } catch (error) {
       console.error("Error loading appointments:", error);
       toast.error("Error al cargar citas");
@@ -260,7 +260,7 @@ export default function Citas() {
           api.appointments.getAll({ branch_id: currentBranch?.id }),
           api.users.getAll(),
         ]);
-        setAppointments(appointmentsData.map(normalizeAppointment));
+        setAppointments((appointmentsData as any[]).map(normalizeAppointment));
         setStylists((usersData as Stylist[]).filter((u) => u.role !== "receptionist"));
       } catch (error) {
         console.error("Error loading data:", error);

@@ -296,11 +296,11 @@ export default function Configuracion() {
       } else {
         const newUser = await api.users.create(userData);
         setUsers(prev => [...prev, {
-          id: newUser.id,
-          name: newUser.name,
-          email: newUser.email,
-          phone: newUser.phone,
-          role: newUser.role || 'stylist',
+          id: (newUser as any).id,
+          name: (newUser as any).name || (newUser as any).full_name,
+          email: (newUser as any).email,
+          phone: (newUser as any).phone,
+          role: (newUser as any).role || 'stylist',
           color: newUser.color || '#c97f67',
           active: true,
           branch_id: newUser.branch_id,
