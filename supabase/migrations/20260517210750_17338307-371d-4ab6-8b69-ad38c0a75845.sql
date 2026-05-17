@@ -1,0 +1,8 @@
+ALTER TABLE public.products
+  ADD COLUMN IF NOT EXISTS cost numeric NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS min_stock integer NOT NULL DEFAULT 5;
+
+ALTER TABLE public.suppliers
+  ADD COLUMN IF NOT EXISTS code text,
+  ADD COLUMN IF NOT EXISTS rfc text,
+  ADD COLUMN IF NOT EXISTS payment_terms integer NOT NULL DEFAULT 0;

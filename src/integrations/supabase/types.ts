@@ -598,10 +598,12 @@ export type Database = {
         Row: {
           account_id: string
           category_id: string | null
+          cost: number
           created_at: string | null
           description: string | null
           id: string
           is_active: boolean | null
+          min_stock: number
           name: string
           price: number
           sku: string | null
@@ -611,10 +613,12 @@ export type Database = {
         Insert: {
           account_id: string
           category_id?: string | null
+          cost?: number
           created_at?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
+          min_stock?: number
           name: string
           price?: number
           sku?: string | null
@@ -624,10 +628,12 @@ export type Database = {
         Update: {
           account_id?: string
           category_id?: string | null
+          cost?: number
           created_at?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
+          min_stock?: number
           name?: string
           price?: number
           sku?: string | null
@@ -1124,6 +1130,7 @@ export type Database = {
         Row: {
           account_id: string
           address: string | null
+          code: string | null
           contact_name: string | null
           created_at: string | null
           email: string | null
@@ -1131,12 +1138,15 @@ export type Database = {
           is_active: boolean | null
           name: string
           notes: string | null
+          payment_terms: number
           phone: string | null
+          rfc: string | null
           updated_at: string | null
         }
         Insert: {
           account_id: string
           address?: string | null
+          code?: string | null
           contact_name?: string | null
           created_at?: string | null
           email?: string | null
@@ -1144,12 +1154,15 @@ export type Database = {
           is_active?: boolean | null
           name: string
           notes?: string | null
+          payment_terms?: number
           phone?: string | null
+          rfc?: string | null
           updated_at?: string | null
         }
         Update: {
           account_id?: string
           address?: string | null
+          code?: string | null
           contact_name?: string | null
           created_at?: string | null
           email?: string | null
@@ -1157,7 +1170,9 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           notes?: string | null
+          payment_terms?: number
           phone?: string | null
+          rfc?: string | null
           updated_at?: string | null
         }
         Relationships: [
