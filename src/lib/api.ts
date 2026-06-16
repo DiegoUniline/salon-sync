@@ -40,12 +40,16 @@ export const auth = {
     
     const profile = await getCurrentProfile();
     
-    // Get user role
-    const { data: roleData } = await supabase
+    // Get user role(s) — prefer super_admin > account_admin > others
+    const { data: rolesList } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", data.user.id)
-      .single();
+      .eq("user_id", data.user.id);
+    const rolePriority = ["super_admin", "account_admin", "admin"];
+    const roleData = (rolesList || []).sort((a: any, b: any) => {
+      const ia = rolePriority.indexOf(a.role); const ib = rolePriority.indexOf(b.role);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    })[0] || null;
 
     const user = {
       id: profile.id,
@@ -97,11 +101,15 @@ export const auth = {
     const profile = await getCurrentProfile();
     const { data: { user } } = await supabase.auth.getUser();
     
-    const { data: roleData } = await supabase
+    const { data: rolesList } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", user!.id)
-      .single();
+      .eq("user_id", user!.id);
+    const rolePriority = ["super_admin", "account_admin", "admin"];
+    const roleData = (rolesList || []).sort((a: any, b: any) => {
+      const ia = rolePriority.indexOf(a.role); const ib = rolePriority.indexOf(b.role);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    })[0] || null;
 
     let subscription = null;
     if (profile.account_id) {
