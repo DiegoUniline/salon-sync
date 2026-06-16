@@ -103,48 +103,91 @@ export type Database = {
       }
       appointments: {
         Row: {
+          account_id: string | null
           branch_id: string
           client_id: string | null
+          client_name: string | null
+          client_phone: string | null
           created_at: string | null
+          date: string | null
+          discount: number
           duration_minutes: number | null
           employee_id: string | null
           id: string
           notes: string | null
+          payments: Json
+          products: Json
           scheduled_at: string
           service_id: string | null
+          services: Json
           status: string | null
+          stylist_id: string | null
+          subtotal: number
+          time: string | null
+          total: number
           total_amount: number | null
           updated_at: string | null
         }
         Insert: {
+          account_id?: string | null
           branch_id: string
           client_id?: string | null
+          client_name?: string | null
+          client_phone?: string | null
           created_at?: string | null
+          date?: string | null
+          discount?: number
           duration_minutes?: number | null
           employee_id?: string | null
           id?: string
           notes?: string | null
+          payments?: Json
+          products?: Json
           scheduled_at: string
           service_id?: string | null
+          services?: Json
           status?: string | null
+          stylist_id?: string | null
+          subtotal?: number
+          time?: string | null
+          total?: number
           total_amount?: number | null
           updated_at?: string | null
         }
         Update: {
+          account_id?: string | null
           branch_id?: string
           client_id?: string | null
+          client_name?: string | null
+          client_phone?: string | null
           created_at?: string | null
+          date?: string | null
+          discount?: number
           duration_minutes?: number | null
           employee_id?: string | null
           id?: string
           notes?: string | null
+          payments?: Json
+          products?: Json
           scheduled_at?: string
           service_id?: string | null
+          services?: Json
           status?: string | null
+          stylist_id?: string | null
+          subtotal?: number
+          time?: string | null
+          total?: number
           total_amount?: number | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "appointments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "appointments_branch_id_fkey"
             columns: ["branch_id"]
@@ -774,9 +817,11 @@ export type Database = {
           amount_paid: number | null
           branch_id: string
           created_at: string | null
+          folio: string | null
           id: string
           items: Json | null
           notes: string | null
+          payments: Json
           purchase_date: string | null
           status: string | null
           subtotal: number | null
@@ -790,9 +835,11 @@ export type Database = {
           amount_paid?: number | null
           branch_id: string
           created_at?: string | null
+          folio?: string | null
           id?: string
           items?: Json | null
           notes?: string | null
+          payments?: Json
           purchase_date?: string | null
           status?: string | null
           subtotal?: number | null
@@ -806,9 +853,11 @@ export type Database = {
           amount_paid?: number | null
           branch_id?: string
           created_at?: string | null
+          folio?: string | null
           id?: string
           items?: Json | null
           notes?: string | null
+          payments?: Json
           purchase_date?: string | null
           status?: string | null
           subtotal?: number | null
@@ -847,51 +896,72 @@ export type Database = {
           appointment_id: string | null
           branch_id: string
           client_id: string | null
+          client_name: string | null
           created_at: string | null
+          date: string | null
           discount: number | null
           employee_id: string | null
+          folio: string | null
           id: string
           items: Json | null
           notes: string | null
           payment_method: string | null
+          payments: Json
           sale_date: string | null
+          shift_id: string | null
           subtotal: number | null
           tax: number | null
+          time: string | null
           total: number | null
+          type: string
         }
         Insert: {
           account_id: string
           appointment_id?: string | null
           branch_id: string
           client_id?: string | null
+          client_name?: string | null
           created_at?: string | null
+          date?: string | null
           discount?: number | null
           employee_id?: string | null
+          folio?: string | null
           id?: string
           items?: Json | null
           notes?: string | null
           payment_method?: string | null
+          payments?: Json
           sale_date?: string | null
+          shift_id?: string | null
           subtotal?: number | null
           tax?: number | null
+          time?: string | null
           total?: number | null
+          type?: string
         }
         Update: {
           account_id?: string
           appointment_id?: string | null
           branch_id?: string
           client_id?: string | null
+          client_name?: string | null
           created_at?: string | null
+          date?: string | null
           discount?: number | null
           employee_id?: string | null
+          folio?: string | null
           id?: string
           items?: Json | null
           notes?: string | null
           payment_method?: string | null
+          payments?: Json
           sale_date?: string | null
+          shift_id?: string | null
           subtotal?: number | null
           tax?: number | null
+          time?: string | null
           total?: number | null
+          type?: string
         }
         Relationships: [
           {
@@ -927,6 +997,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
             referencedColumns: ["id"]
           },
         ]
