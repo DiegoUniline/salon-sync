@@ -114,7 +114,7 @@ export default function Inventario() {
           product_id: m.product_id,
           product_name: m.product_name || m.product?.name,
         })));
-        setCategories(categoriesData || []);
+        setCategories(((categoriesData || []) as any[]).map((c: any) => typeof c === 'string' ? c : c.name).filter(Boolean));
       } catch (error) {
         console.error('Error loading data:', error);
         toast.error('Error al cargar datos');
