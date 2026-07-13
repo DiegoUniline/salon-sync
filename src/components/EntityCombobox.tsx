@@ -308,14 +308,31 @@ export function EntityCombobox({
                   <CommandEmpty>
                     <div className="flex flex-col items-center gap-2 py-4">
                       <p className="text-sm text-muted-foreground">No se encontraron resultados</p>
-                      <Button type="button" size="sm" variant="secondary" onClick={openCreate}>
-                        <Plus className="h-4 w-4 mr-1" />
-                        Crear {config.label.toLowerCase()}
-                        {search ? `: "${search}"` : ""}
-                      </Button>
+                      {!hideCreate && (
+                        <Button type="button" size="sm" variant="secondary" onClick={openCreate}>
+                          <Plus className="h-4 w-4 mr-1" />
+                          Crear {config.label.toLowerCase()}
+                          {search ? `: "${search}"` : ""}
+                        </Button>
+                      )}
                     </div>
                   </CommandEmpty>
                   <CommandGroup>
+                    {allowClear && (
+                      <CommandItem
+                        key="__clear__"
+                        value={clearLabel}
+                        onSelect={() => {
+                          onChange(null);
+                          setOpen(false);
+                          setSearch("");
+                        }}
+                      >
+                        <Check className={cn("mr-2 h-4 w-4", !value ? "opacity-100" : "opacity-0")} />
+                        <span className="italic text-muted-foreground">{clearLabel}</span>
+                      </CommandItem>
+                    )}
+
                     {options.map((opt) => (
                       <CommandItem
                         key={opt.id}
