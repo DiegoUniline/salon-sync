@@ -1257,6 +1257,33 @@ export const dashboard = {
   getReports: async () => [],
 };
 
+// ============ CATEGORIES ============
+export const categories = {
+  getAll: async (type?: "product" | "service" | "expense") => {
+    const accountId = await getAccountId();
+    let query = supabase.from("categories").select("*").eq("account_id", accountId);
+    if (type) query = query.eq("type", type);
+    const { data, error } = await query.order("name");
+    if (error) throw error;
+    return data;
+  },
+  create: async (input: { name: string; type: "product" | "service" | "expense" }) => {
+    const accountId = await getAccountId();
+    const { data, error } = await supabase
+      .from("categories")
+      .insert({ account_id: accountId, name: input.name.trim(), type: input.type })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  delete: async (id: string) => {
+    const { error } = await supabase.from("categories").delete().eq("id", id);
+    if (error) throw error;
+  },
+};
+
+
 // Export all
 export const api: any = {
   auth,
@@ -1281,6 +1308,8 @@ export const api: any = {
   schedules,
   config,
   dashboard,
+  categories,
 };
 
 export default api as any;
+

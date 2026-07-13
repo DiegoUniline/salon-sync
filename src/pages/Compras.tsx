@@ -3,6 +3,8 @@ import { useApp } from '@/contexts/AppContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import api from '@/lib/api';
 import { ShiftRequiredAlert } from '@/components/ShiftRequiredAlert';
+import { EntityCombobox } from '@/components/EntityCombobox';
+
 import { useShift } from '@/hooks/useShift';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
@@ -667,27 +669,28 @@ export default function Compras() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Proveedor</Label>
-                  {suppliers.length > 0 ? (
-                    <Select value={supplierId} onValueChange={handleSupplierChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar proveedor..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {suppliers.map(s => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input
-                      value={supplierName}
-                      onChange={(e) => setSupplierName(e.target.value)}
-                      placeholder="Nombre del proveedor"
-                    />
-                  )}
+                  <EntityCombobox
+                    entity="proveedor"
+                    value={supplierId || null}
+                    onChange={(id, raw) => {
+                      setSupplierId(id || '');
+                      if (raw) {
+                        setSupplierName(raw.name);
+                        if (raw.credit_days > 0) {
+                          const due = new Date();
+                          due.setDate(due.getDate() + raw.credit_days);
+                          setDueDate(due.toISOString().split('T')[0]);
+                        }
+                        // Ensure new supplier appears in local list for next actions
+                        setSuppliers(prev => prev.find(s => s.id === raw.id) ? prev : [...prev, raw]);
+                      } else {
+                        setSupplierName('');
+                      }
+                    }}
+                    placeholder="Buscar o crear proveedor..."
+                  />
                 </div>
+
                 <div className="space-y-2">
                   <Label>Fecha</Label>
                   <Input
