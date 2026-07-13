@@ -653,7 +653,7 @@ export default function Ventas() {
                       ))}
                       <div className="flex justify-between text-sm">
                         <span>Total pagos:</span>
-                        <span className={cn("font-bold", mixedTotal !== cartTotal && "text-destructive")}>
+                        <span className={cn("font-bold", Math.abs(mixedTotal - cartTotal) > 0.01 && "text-destructive")}>
                           ${mixedTotal.toLocaleString()}
                         </span>
                       </div>
