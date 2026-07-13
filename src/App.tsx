@@ -63,6 +63,7 @@ function AppRoutes() {
   // Authenticated - show main app
   return (
     <Layout>
+      <ErrorBoundary>
       <Routes>
         {/* Redirect from auth pages to home when authenticated */}
         <Route path="/login" element={<Navigate to="/" replace />} />
