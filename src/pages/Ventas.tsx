@@ -282,19 +282,8 @@ export default function Ventas() {
       return;
     }
 
-    // Validar stock de productos
-    const itemsWithoutStock = cart.filter(c => {
-      if (c.type === 'product') {
-        const product = c.item as Product;
-        return product.stock < c.quantity;
-      }
-      return false;
-    });
+    // Stock is validated atomically by the create_sale_atomic RPC on the server.
 
-    if (itemsWithoutStock.length > 0) {
-      toast.error(`Stock insuficiente para: ${itemsWithoutStock.map(i => `${i.item.name} (disponible: ${(i.item as Product).stock})`).join(', ')}`);
-      return;
-    }
 
     // Validar que todos los items tengan precio válido
     const invalidItems = cart.filter(c => {
