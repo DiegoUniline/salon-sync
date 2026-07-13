@@ -566,34 +566,23 @@ export default function Horarios() {
                   Horario de Profesional
                 </span>
                 <div className="flex gap-2">
-                  <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Sucursal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches.map(branch => (
-                        <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={selectedStylist || ''} onValueChange={setSelectedStylist}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Profesional" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {stylists.map(stylist => (
-                        <SelectItem key={stylist.id} value={stylist.id}>
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="h-3 w-3 rounded-full" 
-                              style={{ backgroundColor: stylist.color || '#3B82F6' }}
-                            />
-                            {stylist.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="w-[200px]">
+                    <EntityCombobox
+                      entity="sucursal"
+                      value={selectedBranch || null}
+                      onChange={(id) => setSelectedBranch(id || '')}
+                      placeholder="Sucursal"
+                    />
+                  </div>
+                  <div className="w-[220px]">
+                    <EntityCombobox
+                      entity="empleado"
+                      value={selectedStylist || null}
+                      onChange={(id) => setSelectedStylist(id || '')}
+                      placeholder="Profesional"
+                    />
+                  </div>
+
                 </div>
               </CardTitle>
               <CardDescription>
