@@ -101,13 +101,13 @@ export const auth = {
   },
 
   me: async () => {
+    const userId = await getCurrentUserId();
     const profile = await getCurrentProfile();
-    const { data: { user } } = await supabase.auth.getUser();
-    
+
     const { data: rolesList } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", user!.id);
+      .eq("user_id", userId);
     const rolePriority = ["super_admin", "account_admin", "admin"];
     const roleData = (rolesList || []).sort((a: any, b: any) => {
       const ia = rolePriority.indexOf(a.role); const ib = rolePriority.indexOf(b.role);
@@ -122,8 +122,8 @@ export const auth = {
         .eq("account_id", profile.account_id)
         .order("expires_at", { ascending: false })
         .limit(1)
-        .single();
-      
+        .maybeSingle();
+
       if (subData) {
         const now = new Date();
         const expires = new Date(subData.expires_at);
@@ -149,8 +149,9 @@ export const auth = {
       color: profile.color,
       avatar_url: profile.avatar_url,
       active: profile.is_active,
-      permissions: profile.permissions || profile.custom_roles?.permissions || null,
+      permissions: profile.permissions || null,
       subscription,
+
     };
   },
 
