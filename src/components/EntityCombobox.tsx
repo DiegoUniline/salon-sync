@@ -145,7 +145,36 @@ export const entityRegistry: Record<string, EntityConfig> = {
       return { id: row.name, label: row.name, raw: row };
     },
   },
+  empleado: {
+    label: "Empleado",
+    loadOptions: async () => {
+      const rows = await api.users.getAll({ active: true });
+      return (rows || [])
+        .map((r: any) => ({ id: r.id, label: r.name, sublabel: r.email || r.phone, raw: r }))
+        .sort((a, b) => a.label.localeCompare(b.label, "es", { sensitivity: "base" }));
+    },
+    createFields: [
+      { name: "name", label: "Nombre", required: true },
+      { name: "email", label: "Correo", type: "email", required: true },
+      { name: "password", label: "Contraseña", required: true },
+      { name: "phone", label: "Teléfono", type: "tel" },
+    ],
+    create: async (v) => {
+      const row = await api.users.create({ ...v, role: "employee" });
+      return { id: row.id, label: row.name || v.name, raw: row };
+    },
+  },
+  rol: {
+    label: "Rol",
+    loadOptions: async () => mapNamed(await api.roles.getAll()),
+    createFields: [{ name: "name", label: "Nombre", required: true }],
+    create: async (v) => {
+      const row = await api.roles.create({ name: v.name, description: "", color: "#3B82F6", permissions: {} });
+      return { id: row.id, label: row.name, raw: row };
+    },
+  },
 };
+
 
 interface Props {
   entity: keyof typeof entityRegistry;
