@@ -145,6 +145,44 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const isSubscriptionExpired = subscription?.status === 'expired' || 
     (daysRemaining !== null && daysRemaining < 0);
 
+  const applyCurrentUserData = (userData: any) => {
+    const user: UserWithRole = {
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
+      branch_id: userData.branch_id,
+      account_id: userData.account_id,
+      color: userData.color,
+      avatar_url: userData.avatar_url,
+      active: userData.active,
+      permissions: userData.permissions as any,
+    };
+
+    setCurrentUser(user);
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+
+    if (userData.subscription) {
+      setSubscription(userData.subscription);
+      localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(userData.subscription));
+    }
+
+    return user;
+  };
+
+  const withTimeout = async <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(`${label} tardó demasiado`)), ms);
+    });
+
+    try {
+      return await Promise.race([promise, timeout]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  };
+
   useEffect(() => {
     // Listen for Supabase auth state changes
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
@@ -152,28 +190,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         if (event === 'SIGNED_IN' && session) {
           // Load user data
           try {
-            const userData = await api.auth.me();
-            const user: UserWithRole = {
-              id: userData.id,
-              name: userData.name,
-              email: userData.email,
-              role: userData.role,
-              branch_id: userData.branch_id,
-              account_id: userData.account_id,
-              color: userData.color,
-              avatar_url: userData.avatar_url,
-              active: userData.active,
-              permissions: userData.permissions as any,
-            };
-            setCurrentUser(user);
-            localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
-            
-            if (userData.subscription) {
-              setSubscription(userData.subscription);
-              localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(userData.subscription));
-            }
-            
-            await refreshData();
+            const userData = await withTimeout(api.auth.me(), 8000, 'Carga de usuario');
+            applyCurrentUserData(userData);
+            void refreshData();
             window.dispatchEvent(new Event('auth-state-change'));
           } catch (error) {
             console.error('Error loading user after sign in:', error);
@@ -190,44 +209,41 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
 
     // Check initial session
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        try {
-          const userData = await api.auth.me();
-          const user: UserWithRole = {
-            id: userData.id,
-            name: userData.name,
-            email: userData.email,
-            role: userData.role,
-            branch_id: userData.branch_id,
-            account_id: userData.account_id,
-            color: userData.color,
-            avatar_url: userData.avatar_url,
-            active: userData.active,
-              permissions: userData.permissions as any,
-          };
-          setCurrentUser(user);
-          localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
-          
-          if (userData.subscription) {
-            setSubscription(userData.subscription);
-            localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(userData.subscription));
+      try {
+        const { data: { session } } = await withTimeout(
+          supabase.auth.getSession(),
+          8000,
+          'Verificación de sesión'
+        );
+
+        if (session) {
+          try {
+            const userData = await withTimeout(api.auth.me(), 8000, 'Carga de usuario');
+            applyCurrentUserData(userData);
+            void refreshData();
+            window.dispatchEvent(new Event('auth-state-change'));
+          } catch (error) {
+            console.error('Session expired:', error);
+            setCurrentUser(null);
+            setSubscription(null);
+            localStorage.removeItem(CURRENT_USER_KEY);
+            localStorage.removeItem(SUBSCRIPTION_KEY);
           }
-          
-          await refreshData();
-          window.dispatchEvent(new Event('auth-state-change'));
-        } catch (error) {
-          console.error('Session expired:', error);
+        } else {
           setCurrentUser(null);
+          setSubscription(null);
           localStorage.removeItem(CURRENT_USER_KEY);
           localStorage.removeItem(SUBSCRIPTION_KEY);
         }
-      } else {
+      } catch (error) {
+        console.error('Error checking session:', error);
         setCurrentUser(null);
+        setSubscription(null);
         localStorage.removeItem(CURRENT_USER_KEY);
         localStorage.removeItem(SUBSCRIPTION_KEY);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
     
     checkSession();
@@ -240,8 +256,8 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const refreshData = async () => {
     try {
       const [usersData, rolesData] = await Promise.all([
-        api.users.getAll().catch(() => []),
-        api.roles.getAll().catch(() => []),
+        withTimeout(api.users.getAll(), 8000, 'Carga de usuarios').catch(() => []),
+        withTimeout(api.roles.getAll(), 8000, 'Carga de roles').catch(() => []),
       ]);
       setUsers(usersData as any);
       setRoles(rolesData as any);
@@ -297,28 +313,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string): Promise<LoginResult> => {
     try {
       const data = await api.auth.login(email, password);
-      const user: UserWithRole = {
-        id: data.user.id,
-        name: data.user.name,
-        email: data.user.email,
-        role: data.user.role,
-        branch_id: data.user.branch_id,
-        account_id: data.user.account_id,
-        color: data.user.color,
-        avatar_url: data.user.avatar_url,
-        active: data.user.active,
-        permissions: data.user.permissions as any,
-      };
-      setCurrentUser(user);
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
-      
-      if (data.subscription) {
-        setSubscription(data.subscription);
-        localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(data.subscription));
-      }
-      
+      applyCurrentUserData({ ...data.user, subscription: data.subscription });
       window.dispatchEvent(new Event('auth-state-change'));
-      await refreshData();
+      void refreshData();
       return { success: true };
     } catch (err: any) {
       return {
