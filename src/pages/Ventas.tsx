@@ -277,24 +277,13 @@ export default function Ventas() {
       return;
     }
 
-    if (paymentMethod === 'mixed' && mixedTotal !== cartTotal) {
+    if (paymentMethod === 'mixed' && Math.abs(mixedTotal - cartTotal) > 0.01) {
       toast.error('El total de pagos no coincide con el total de la venta');
       return;
     }
 
-    // Validar stock de productos
-    const itemsWithoutStock = cart.filter(c => {
-      if (c.type === 'product') {
-        const product = c.item as Product;
-        return product.stock < c.quantity;
-      }
-      return false;
-    });
+    // Stock is validated atomically by the create_sale_atomic RPC on the server.
 
-    if (itemsWithoutStock.length > 0) {
-      toast.error(`Stock insuficiente para: ${itemsWithoutStock.map(i => `${i.item.name} (disponible: ${(i.item as Product).stock})`).join(', ')}`);
-      return;
-    }
 
     // Validar que todos los items tengan precio válido
     const invalidItems = cart.filter(c => {
@@ -653,7 +642,7 @@ export default function Ventas() {
                       ))}
                       <div className="flex justify-between text-sm">
                         <span>Total pagos:</span>
-                        <span className={cn("font-bold", mixedTotal !== cartTotal && "text-destructive")}>
+                        <span className={cn("font-bold", Math.abs(mixedTotal - cartTotal) > 0.01 && "text-destructive")}>
                           ${mixedTotal.toLocaleString()}
                         </span>
                       </div>

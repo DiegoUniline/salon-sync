@@ -791,8 +791,15 @@ export const expenses = {
     return data;
   },
   getCategories: async () => {
-    return ["Renta", "Servicios", "Nómina", "Materiales", "Mantenimiento", "Marketing", "Otros"];
+    const accountId = await getAccountId();
+    const defaults = ["Renta", "Servicios", "Nómina", "Materiales", "Mantenimiento", "Marketing", "Otros"];
+    const { data } = await supabase
+      .from("categories").select("name")
+      .eq("account_id", accountId).eq("type", "expense").order("name");
+    const fromDb = (data || []).map((c: any) => c.name).filter(Boolean);
+    return fromDb.length ? fromDb : defaults;
   },
+
   getSummary: async (params?: { branch_id?: string; start_date?: string; end_date?: string }) => {
     const all = await expenses.getAll(params);
     const total = all.reduce((sum: number, e: any) => sum + Number(e.amount), 0);
@@ -942,45 +949,48 @@ export const inventory = {
     return { total_value: totalValue, total_products: data?.length || 0 };
   },
   addIn: async (movData: any) => {
-    const accountId = await getAccountId();
-    // Get current stock
-    const { data: product } = await supabase.from("products").select("stock").eq("id", movData.product_id).single();
-    const prevStock = Number(product?.stock) || 0;
-    const newStock = prevStock + Number(movData.quantity);
-    // Create movement
-    const { data, error } = await supabase.from("inventory_movements").insert({
-      ...movData, account_id: accountId, type: "in", previous_stock: prevStock, new_stock: newStock,
-    }).select().single();
+    const { data, error } = await supabase.rpc('adjust_product_stock', {
+      p_product_id: movData.product_id,
+      p_delta: Number(movData.quantity),
+      p_type: 'in',
+      p_reason: movData.reason || 'Entrada',
+      p_reference_id: movData.reference_id || null,
+      p_branch_id: movData.branch_id || null,
+    });
     if (error) throw error;
-    // Update product stock
-    await supabase.from("products").update({ stock: newStock }).eq("id", movData.product_id);
     return data;
   },
   addOut: async (movData: any) => {
-    const accountId = await getAccountId();
-    const { data: product } = await supabase.from("products").select("stock").eq("id", movData.product_id).single();
-    const prevStock = Number(product?.stock) || 0;
-    const newStock = Math.max(0, prevStock - Number(movData.quantity));
-    const { data, error } = await supabase.from("inventory_movements").insert({
-      ...movData, account_id: accountId, type: "out", previous_stock: prevStock, new_stock: newStock,
-    }).select().single();
+    const { data, error } = await supabase.rpc('adjust_product_stock', {
+      p_product_id: movData.product_id,
+      p_delta: -Math.abs(Number(movData.quantity)),
+      p_type: 'out',
+      p_reason: movData.reason || 'Salida',
+      p_reference_id: movData.reference_id || null,
+      p_branch_id: movData.branch_id || null,
+    });
     if (error) throw error;
-    await supabase.from("products").update({ stock: newStock }).eq("id", movData.product_id);
     return data;
   },
   adjust: async (movData: any) => {
-    const accountId = await getAccountId();
-    const { data: product } = await supabase.from("products").select("stock").eq("id", movData.product_id).single();
-    const prevStock = Number(product?.stock) || 0;
-    const newStock = Number(movData.new_stock);
-    const { data, error } = await supabase.from("inventory_movements").insert({
-      ...movData, account_id: accountId, type: "adjustment", quantity: newStock - prevStock, previous_stock: prevStock, new_stock: newStock,
-    }).select().single();
+    const { data: product } = await supabase
+      .from('products').select('stock').eq('id', movData.product_id).maybeSingle();
+    const prev = Number(product?.stock) || 0;
+    const target = Number(movData.new_stock);
+    const delta = target - prev;
+    const { data, error } = await supabase.rpc('adjust_product_stock', {
+      p_product_id: movData.product_id,
+      p_delta: delta,
+      p_type: 'adjustment',
+      p_reason: movData.reason || 'Ajuste',
+      p_reference_id: movData.reference_id || null,
+      p_branch_id: movData.branch_id || null,
+    });
     if (error) throw error;
-    await supabase.from("products").update({ stock: newStock }).eq("id", movData.product_id);
     return data;
   },
 };
+
 
 // ============ SHIFTS ============
 export const shifts = {
