@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import api from "@/lib/api";
+import { EntityCombobox } from "@/components/EntityCombobox";
+
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
