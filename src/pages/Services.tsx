@@ -522,17 +522,18 @@ export default function Services() {
               className="pl-10"
             />
           </div>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Categoría" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las categorías</SelectItem>
-              {categories.map(cat => (
-                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-full sm:w-[220px]">
+            <EntityCombobox
+              entity="categoria_servicio"
+              value={categoryFilter === 'all' ? null : categoryFilter}
+              onChange={(_, raw) => setCategoryFilter(raw?.name || 'all')}
+              allowClear
+              clearLabel="Todas las categorías"
+              hideCreate
+              placeholder="Categoría"
+            />
+          </div>
+
           <div className="flex border rounded-lg p-1 bg-secondary/50">
             <Button
               variant={viewMode === 'table' ? 'default' : 'ghost'}
