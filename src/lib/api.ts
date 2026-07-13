@@ -488,23 +488,24 @@ export const users = {
     return data;
   },
   create: async (userData: any) => {
-    // For creating users through the admin panel, we create an auth user first
-    // This requires an edge function for admin user creation
-    // For now, just update profile data
-    const accountId = await getAccountId();
-    const { data, error } = await supabase.from("profiles").insert({
-      user_id: crypto.randomUUID(), // placeholder
-      full_name: userData.name,
-      email: userData.email,
-      phone: userData.phone,
-      account_id: accountId,
-      branch_id: userData.branch_id || null,
-      custom_role_id: userData.custom_role_id || null,
-      color: userData.color || "#3B82F6",
-      permissions: userData.permissions || null,
-    }).select().single();
-    if (error) throw error;
-    return data;
+    // Calls edge function that creates a REAL auth user + profile + role
+    // using the service role. Requires the caller to be admin/account_admin.
+    const { data, error } = await supabase.functions.invoke("admin-create-user", {
+      body: {
+        email: userData.email,
+        password: userData.password,
+        name: userData.name,
+        phone: userData.phone,
+        branch_id: userData.branch_id || null,
+        custom_role_id: userData.custom_role_id || null,
+        color: userData.color || "#3B82F6",
+        permissions: userData.permissions || null,
+        role: userData.role,
+      },
+    });
+    if (error) throw new Error(error.message);
+    if ((data as any)?.error) throw new Error((data as any).error);
+    return (data as any)?.profile;
   },
   update: async (id: string, updates: any) => {
     const updateData: any = {};
