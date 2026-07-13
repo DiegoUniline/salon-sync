@@ -113,7 +113,8 @@ export default function Services() {
           api.services.getCategories(),
         ]);
         setServices(servicesData.map(mapApiService));
-        setCategories(categoriesData);
+        setCategories((categoriesData || []).map((c: any) => typeof c === 'string' ? c : c.name).filter(Boolean));
+
       } catch (error) {
         console.error('Error loading services:', error);
         toast.error('Error al cargar servicios');
