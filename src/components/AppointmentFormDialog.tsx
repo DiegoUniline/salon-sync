@@ -130,8 +130,18 @@ export function AppointmentFormDialog({
             api.users.getAll(),
           ]);
           setClients(clientsData);
-          setServices(servicesData as any);
-          setProducts(productsData as any);
+          setServices((servicesData || []).map((s: any) => ({
+            id: s.id, name: s.name,
+            price: Number(s.price) || 0,
+            duration: Number(s.duration_minutes ?? s.duration) || 30,
+            active: s.is_active ?? s.active ?? true,
+          })));
+          setProducts((productsData || []).map((p: any) => ({
+            id: p.id, name: p.name,
+            price: Number(p.price) || 0,
+            stock: Number(p.stock) || 0,
+            active: p.is_active ?? p.active ?? true,
+          })));
           setStylists(usersData.filter((u: any) => u.role !== 'Recepcionista'));
         } catch (error) {
           console.error('Error loading data:', error);
