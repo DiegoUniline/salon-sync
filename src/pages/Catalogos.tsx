@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import api from '@/lib/api';
+import { EntityCombobox } from '@/components/EntityCombobox';
+
 import { getRoles, saveRoles, type Role, createEmptyPermissions, modules } from '@/lib/permissions';
 import type { ModuleId, ModulePermissions } from '@/lib/permissions';
 import { Button } from '@/components/ui/button';
