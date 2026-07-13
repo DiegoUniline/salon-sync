@@ -1447,6 +1447,42 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      adjust_product_stock: {
+        Args: {
+          p_branch_id?: string
+          p_delta: number
+          p_product_id: string
+          p_reason?: string
+          p_reference_id?: string
+          p_type: string
+        }
+        Returns: {
+          account_id: string
+          barcode: string | null
+          brand: string | null
+          category_id: string | null
+          cost: number
+          created_at: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          max_stock: number | null
+          min_stock: number
+          name: string
+          price: number
+          sku: string | null
+          stock: number | null
+          unit: string | null
+          updated_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       check_subscription_status: {
         Args: { _account_id: string }
         Returns: {
