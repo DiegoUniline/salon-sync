@@ -18,6 +18,10 @@ export interface ColumnConfig {
   placeholder?: string;
   searchItems?: { id: string; label: string; subLabel?: string; data?: any }[];
   onSelect?: (item: any, lineId: string) => void;
+  /** Called when user chooses "Crear ...". Should create the entity and return the new option (or null to skip). */
+  onCreate?: (query: string, lineId: string) => Promise<{ id: string; label: string; subLabel?: string; data?: any } | null>;
+  /** Label prefix for the create row (default: "Crear") */
+  createLabel?: string;
   min?: number;
   max?: number;
   step?: number;
