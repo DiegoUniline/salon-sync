@@ -2,45 +2,47 @@
 // All functions return `any` to maintain backward compatibility with existing page types
 import { supabase } from "@/integrations/supabase/client";
 
+// Helper to get current user id from session (fast, no server round trip)
+const getCurrentUserId = async (): Promise<string> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("No autenticado");
+  return session.user.id;
+};
+
 // Helper to get current user's account_id
 const getAccountId = async (): Promise<string> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autenticado");
-  
+  const userId = await getCurrentUserId();
   const { data: profile } = await supabase
     .from("profiles")
     .select("account_id")
-    .eq("user_id", user.id)
-    .single();
-  
+    .eq("user_id", userId)
+    .maybeSingle();
   if (!profile?.account_id) throw new Error("Sin cuenta asociada");
   return profile.account_id;
 };
 
 // Helper to get current profile
 const getCurrentProfile = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autenticado");
-  
+  const userId = await getCurrentUserId();
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("*, custom_roles(*)")
-    .eq("user_id", user.id)
-    .single();
-  
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
   if (error) throw error;
-  return profile;
+  if (!profile) throw new Error("Perfil no encontrado");
+  return profile as any;
 };
+
 
 // ============ AUTH ============
 export const auth = {
   login: async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message);
-    
+
     const profile = await getCurrentProfile();
-    
-    // Get user role(s) — prefer super_admin > account_admin > others
+
     const { data: rolesList } = await supabase
       .from("user_roles")
       .select("role")
@@ -61,8 +63,9 @@ export const auth = {
       color: profile.color,
       avatar_url: profile.avatar_url,
       active: profile.is_active,
-      permissions: profile.permissions || profile.custom_roles?.permissions || null,
+      permissions: profile.permissions || null,
     };
+
 
     // Get subscription
     let subscription = null;
@@ -98,13 +101,13 @@ export const auth = {
   },
 
   me: async () => {
+    const userId = await getCurrentUserId();
     const profile = await getCurrentProfile();
-    const { data: { user } } = await supabase.auth.getUser();
-    
+
     const { data: rolesList } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", user!.id);
+      .eq("user_id", userId);
     const rolePriority = ["super_admin", "account_admin", "admin"];
     const roleData = (rolesList || []).sort((a: any, b: any) => {
       const ia = rolePriority.indexOf(a.role); const ib = rolePriority.indexOf(b.role);
@@ -119,8 +122,8 @@ export const auth = {
         .eq("account_id", profile.account_id)
         .order("expires_at", { ascending: false })
         .limit(1)
-        .single();
-      
+        .maybeSingle();
+
       if (subData) {
         const now = new Date();
         const expires = new Date(subData.expires_at);
@@ -146,8 +149,9 @@ export const auth = {
       color: profile.color,
       avatar_url: profile.avatar_url,
       active: profile.is_active,
-      permissions: profile.permissions || profile.custom_roles?.permissions || null,
+      permissions: profile.permissions || null,
       subscription,
+
     };
   },
 
