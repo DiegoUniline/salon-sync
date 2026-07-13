@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import api from '@/lib/api';
+import { EntityCombobox } from '@/components/EntityCombobox';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
