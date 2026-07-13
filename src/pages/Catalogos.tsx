@@ -871,28 +871,26 @@ export default function Catalogos() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Rol</Label>
-                <Select value={userForm.role} onValueChange={(v) => setUserForm(prev => ({ ...prev, role: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {roles.map(r => (
-                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <EntityCombobox
+                  entity="rol"
+                  value={userForm.role || null}
+                  onChange={(id) => setUserForm(prev => ({ ...prev, role: id || '' }))}
+                  placeholder="Buscar o crear rol..."
+                />
               </div>
               <div className="space-y-2">
                 <Label>{terms.branch}</Label>
-                <Select value={userForm.branch_id || 'all'} onValueChange={(v) => setUserForm(prev => ({ ...prev, branch_id: v === 'all' ? '' : v }))}>
-                  <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {branches.map(b => (
-                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <EntityCombobox
+                  entity="sucursal"
+                  value={userForm.branch_id || null}
+                  onChange={(id) => setUserForm(prev => ({ ...prev, branch_id: id || '' }))}
+                  allowClear
+                  clearLabel="Todas"
+                  placeholder="Todas"
+                />
               </div>
             </div>
+
             <div className="space-y-2">
               <Label>Color</Label>
               <div className="flex items-center gap-3">
