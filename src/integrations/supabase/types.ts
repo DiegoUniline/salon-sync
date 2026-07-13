@@ -1455,6 +1455,42 @@ export type Database = {
           status: Database["public"]["Enums"]["subscription_status"]
         }[]
       }
+      create_sale_atomic: {
+        Args: { p_sale: Json }
+        Returns: {
+          account_id: string
+          appointment_id: string | null
+          branch_id: string
+          client_id: string | null
+          client_name: string | null
+          client_phone: string | null
+          commission: number | null
+          created_at: string | null
+          date: string | null
+          discount: number | null
+          employee_id: string | null
+          folio: string | null
+          id: string
+          items: Json | null
+          notes: string | null
+          payment_method: string | null
+          payment_status: string | null
+          payments: Json
+          sale_date: string | null
+          shift_id: string | null
+          subtotal: number | null
+          tax: number | null
+          time: string | null
+          total: number | null
+          type: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "sales"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_user_account_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -1462,6 +1498,40 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      register_purchase_payment: {
+        Args: {
+          p_amount: number
+          p_notes?: string
+          p_payment_method?: string
+          p_purchase_id: string
+        }
+        Returns: {
+          account_id: string
+          amount_paid: number | null
+          branch_id: string
+          created_at: string | null
+          expected_date: string | null
+          folio: string | null
+          id: string
+          items: Json | null
+          notes: string | null
+          payments: Json
+          purchase_date: string | null
+          status: string | null
+          subtotal: number | null
+          supplier_id: string | null
+          tax: number | null
+          total: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "purchases"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {

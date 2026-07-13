@@ -488,23 +488,24 @@ export const users = {
     return data;
   },
   create: async (userData: any) => {
-    // For creating users through the admin panel, we create an auth user first
-    // This requires an edge function for admin user creation
-    // For now, just update profile data
-    const accountId = await getAccountId();
-    const { data, error } = await supabase.from("profiles").insert({
-      user_id: crypto.randomUUID(), // placeholder
-      full_name: userData.name,
-      email: userData.email,
-      phone: userData.phone,
-      account_id: accountId,
-      branch_id: userData.branch_id || null,
-      custom_role_id: userData.custom_role_id || null,
-      color: userData.color || "#3B82F6",
-      permissions: userData.permissions || null,
-    }).select().single();
-    if (error) throw error;
-    return data;
+    // Calls edge function that creates a REAL auth user + profile + role
+    // using the service role. Requires the caller to be admin/account_admin.
+    const { data, error } = await supabase.functions.invoke("admin-create-user", {
+      body: {
+        email: userData.email,
+        password: userData.password,
+        name: userData.name,
+        phone: userData.phone,
+        branch_id: userData.branch_id || null,
+        custom_role_id: userData.custom_role_id || null,
+        color: userData.color || "#3B82F6",
+        permissions: userData.permissions || null,
+        role: userData.role,
+      },
+    });
+    if (error) throw new Error(error.message);
+    if ((data as any)?.error) throw new Error((data as any).error);
+    return (data as any)?.profile;
   },
   update: async (id: string, updates: any) => {
     const updateData: any = {};
@@ -761,9 +762,9 @@ export const sales = {
     return data;
   },
   create: async (saleData: any) => {
-    const accountId = await getAccountId();
-    const { data, error } = await supabase.from("sales").insert({ ...saleData, account_id: accountId }).select().single();
-    if (error) throw error;
+    // Uses atomic RPC that validates + decrements stock and writes inventory movements.
+    const { data, error } = await supabase.rpc("create_sale_atomic", { p_sale: saleData });
+    if (error) throw new Error(error.message);
     return data;
   },
   delete: async (id: string) => {
@@ -887,14 +888,14 @@ export const purchases = {
     return data;
   },
   addPayment: async (id: string, paymentData: any) => {
-    const { data, error } = await supabase.from("purchase_payments").insert({ ...paymentData, purchase_id: id }).select().single();
-    if (error) throw error;
-    // Update purchase amount_paid
-    const { data: payments } = await supabase.from("purchase_payments").select("amount").eq("purchase_id", id);
-    const totalPaid = (payments || []).reduce((sum: number, p: any) => sum + Number(p.amount), 0);
-    const { data: purchase } = await supabase.from("purchases").select("total").eq("id", id).single();
-    const newStatus = totalPaid >= Number(purchase?.total) ? "paid" : "partial";
-    await supabase.from("purchases").update({ amount_paid: totalPaid, status: newStatus }).eq("id", id);
+    // Atomic RPC: inserts payment + updates purchase status/amount_paid with validation.
+    const { data, error } = await supabase.rpc("register_purchase_payment", {
+      p_purchase_id: id,
+      p_amount: Number(paymentData.amount),
+      p_payment_method: paymentData.payment_method || "cash",
+      p_notes: paymentData.notes || null,
+    });
+    if (error) throw new Error(error.message);
     return data;
   },
   cancel: async (id: string) => {
