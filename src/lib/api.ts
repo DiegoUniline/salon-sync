@@ -791,8 +791,15 @@ export const expenses = {
     return data;
   },
   getCategories: async () => {
-    return ["Renta", "Servicios", "Nómina", "Materiales", "Mantenimiento", "Marketing", "Otros"];
+    const accountId = await getAccountId();
+    const defaults = ["Renta", "Servicios", "Nómina", "Materiales", "Mantenimiento", "Marketing", "Otros"];
+    const { data } = await supabase
+      .from("categories").select("name")
+      .eq("account_id", accountId).eq("type", "expense").order("name");
+    const fromDb = (data || []).map((c: any) => c.name).filter(Boolean);
+    return fromDb.length ? fromDb : defaults;
   },
+
   getSummary: async (params?: { branch_id?: string; start_date?: string; end_date?: string }) => {
     const all = await expenses.getAll(params);
     const total = all.reduce((sum: number, e: any) => sum + Number(e.amount), 0);
