@@ -4,6 +4,8 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import api from '@/lib/api';
+import { EntityCombobox } from '@/components/EntityCombobox';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
