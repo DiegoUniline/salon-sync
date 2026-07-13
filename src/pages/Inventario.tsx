@@ -305,17 +305,18 @@ export default function Inventario() {
                   className="pl-10"
                 />
               </div>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Categoría" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  {categories.map(cat => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="w-[200px]">
+                <EntityCombobox
+                  entity="categoria_producto"
+                  value={categoryFilter === 'all' ? null : categoryFilter}
+                  onChange={(_, raw) => setCategoryFilter(raw?.name || 'all')}
+                  allowClear
+                  clearLabel="Todas"
+                  hideCreate
+                  placeholder="Categoría"
+                />
+              </div>
+
               <Select value={stockFilter} onValueChange={setStockFilter}>
                 <SelectTrigger className="w-[150px]">
                   <SelectValue placeholder="Stock" />
