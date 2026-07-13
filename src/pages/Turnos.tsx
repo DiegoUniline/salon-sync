@@ -369,30 +369,13 @@ export default function Turnos() {
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label>Responsable</Label>
-                    <Select 
-                      value={openFormData.userId} 
-                      onValueChange={(v) => setOpenFormData(prev => ({ ...prev, userId: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona responsable" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {usersLoading ? (
-                          <div className="p-2 text-center">
-                            <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                          </div>
-                        ) : (
-                          users.map(user => (
-                            <SelectItem key={user.id} value={user.id}>
-                              <div className="flex items-center gap-2">
-                                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: user.color }} />
-                                {user.name}
-                              </div>
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                    <EntityCombobox
+                      entity="empleado"
+                      value={openFormData.userId || null}
+                      onChange={(id) => setOpenFormData(prev => ({ ...prev, userId: id || '' }))}
+                      placeholder="Buscar o crear responsable..."
+                    />
+
                   </div>
 
                   <div className="space-y-2">
