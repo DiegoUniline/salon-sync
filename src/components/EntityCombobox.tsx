@@ -285,8 +285,9 @@ export function EntityCombobox({
             className={cn("w-full justify-between font-normal", !selected && "text-muted-foreground", className)}
           >
             <span className="truncate">
-              {selected?.label || placeholder || `Selecciona ${config.label.toLowerCase()}`}
+              {selected?.label || (allowClear && !value ? clearLabel : (placeholder || `Selecciona ${config.label.toLowerCase()}`))}
             </span>
+
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
