@@ -205,14 +205,43 @@ export function AppointmentFormDialog({
         subLabel: `${s.duration} min | $${s.price}`,
         data: s,
       })),
+      createLabel: 'Crear servicio',
+      onCreate: async (query) => {
+        try {
+          const created: any = await api.services.create({
+            name: query,
+            price: 0,
+            duration_minutes: 30,
+            is_active: true,
+          });
+          const newSvc: Service = {
+            id: created.id,
+            name: created.name,
+            price: Number(created.price) || 0,
+            duration: Number(created.duration_minutes) || 30,
+            active: true,
+          };
+          setServices(prev => [...prev, newSvc]);
+          toast.success('Servicio creado');
+          return {
+            id: newSvc.id,
+            label: newSvc.name,
+            subLabel: `${newSvc.duration} min | $${newSvc.price}`,
+            data: newSvc,
+          };
+        } catch (e: any) {
+          toast.error(e?.message || 'Error al crear servicio');
+          return null;
+        }
+      },
       onSelect: (item, lineId) => {
         setServiceLines(prev => prev.map(line =>
-          line.id === lineId 
-            ? { 
-                ...line, 
-                serviceId: item.id, 
-                serviceName: item.label, 
-                duration: item.data.duration, 
+          line.id === lineId
+            ? {
+                ...line,
+                serviceId: item.id,
+                serviceName: item.label,
+                duration: item.data.duration,
                 price: item.data.price,
                 subtotal: item.data.price * (1 - (line.discount || 0) / 100)
               }
@@ -262,22 +291,53 @@ export function AppointmentFormDialog({
       type: 'search',
       placeholder: 'Buscar producto...',
       width: 'flex-[2]',
-      searchItems: products.filter(p => p.active && p.stock > 0).map(p => ({
+      searchItems: products.filter(p => p.active).map(p => ({
         id: p.id,
         label: p.name,
         subLabel: `Stock: ${p.stock} | $${p.price}`,
         data: p,
       })),
+      createLabel: 'Crear producto',
+      onCreate: async (query) => {
+        try {
+          const created: any = await api.products.create({
+            name: query,
+            price: 0,
+            cost: 0,
+            stock: 0,
+            min_stock: 5,
+            is_active: true,
+          });
+          const newProd: Product = {
+            id: created.id,
+            name: created.name,
+            price: Number(created.price) || 0,
+            stock: Number(created.stock) || 0,
+            active: true,
+          };
+          setProducts(prev => [...prev, newProd]);
+          toast.success('Producto creado');
+          return {
+            id: newProd.id,
+            label: newProd.name,
+            subLabel: `Stock: ${newProd.stock} | $${newProd.price}`,
+            data: newProd,
+          };
+        } catch (e: any) {
+          toast.error(e?.message || 'Error al crear producto');
+          return null;
+        }
+      },
       onSelect: (item, lineId) => {
         setProductLines(prev => prev.map(line =>
-          line.id === lineId 
-            ? { 
-                ...line, 
-                productId: item.id, 
-                productName: item.label, 
-                price: item.data.price, 
-                quantity: 1, 
-                subtotal: item.data.price 
+          line.id === lineId
+            ? {
+                ...line,
+                productId: item.id,
+                productName: item.label,
+                price: item.data.price,
+                quantity: 1,
+                subtotal: item.data.price
               }
             : line
         ));
