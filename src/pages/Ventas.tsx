@@ -277,7 +277,7 @@ export default function Ventas() {
       return;
     }
 
-    if (paymentMethod === 'mixed' && mixedTotal !== cartTotal) {
+    if (paymentMethod === 'mixed' && Math.abs(mixedTotal - cartTotal) > 0.01) {
       toast.error('El total de pagos no coincide con el total de la venta');
       return;
     }
