@@ -3,6 +3,8 @@ import { useApp } from '@/contexts/AppContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import api from '@/lib/api';
 import { ShiftRequiredAlert } from '@/components/ShiftRequiredAlert';
+import { EntityCombobox } from '@/components/EntityCombobox';
+
 import { useShift } from '@/hooks/useShift';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
