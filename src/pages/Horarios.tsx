@@ -765,34 +765,27 @@ export default function Horarios() {
             {blockForm.type === 'branch' && (
               <div className="space-y-2">
                 <Label>Sucursal</Label>
-                <Select value={blockForm.targetId} onValueChange={(v) => setBlockForm(prev => ({ ...prev, targetId: v }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar sucursal" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branches.map(branch => (
-                      <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <EntityCombobox
+                  entity="sucursal"
+                  value={blockForm.targetId || null}
+                  onChange={(id) => setBlockForm(prev => ({ ...prev, targetId: id || '' }))}
+                  placeholder="Seleccionar sucursal"
+                />
               </div>
             )}
 
             {blockForm.type === 'stylist' && (
               <div className="space-y-2">
                 <Label>Profesional</Label>
-                <Select value={blockForm.targetId} onValueChange={(v) => setBlockForm(prev => ({ ...prev, targetId: v }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar profesional" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {stylists.map(stylist => (
-                      <SelectItem key={stylist.id} value={stylist.id}>{stylist.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <EntityCombobox
+                  entity="empleado"
+                  value={blockForm.targetId || null}
+                  onChange={(id) => setBlockForm(prev => ({ ...prev, targetId: id || '' }))}
+                  placeholder="Seleccionar profesional"
+                />
               </div>
             )}
+
 
             <div className="space-y-2">
               <Label>Fechas</Label>
