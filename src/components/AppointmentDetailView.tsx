@@ -605,22 +605,17 @@ export function AppointmentDetailView({
                 </TabsList>
               </div>
               <TabsContent value="existing" className="mt-2">
-                <Select value={clientId} onValueChange={setClientId}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Selecciona un cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        <div className="flex items-center gap-2">
-                          <User className="h-3.5 w-3.5" />
-                          {client.name} - {client.phone}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <EntityCombobox
+                  entity="cliente"
+                  value={clientId || null}
+                  onChange={(id, raw) => {
+                    setClientId(id || '');
+                    if (raw && !clients.find(c => c.id === raw.id)) setClients(prev => [...prev, raw]);
+                  }}
+                  placeholder="Buscar o crear cliente..."
+                />
               </TabsContent>
+
               <TabsContent value="new" className="mt-2 space-y-3">
                 <div className="grid gap-3 grid-cols-2">
                   <Input
