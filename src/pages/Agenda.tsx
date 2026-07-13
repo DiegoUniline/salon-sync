@@ -88,10 +88,12 @@ interface Appointment {
   notes?: string;
 }
 
-const timeSlots = Array.from({ length: 14 }, (_, i) => {
-  const hour = i + 8;
-  return `${hour.toString().padStart(2, '0')}:00`;
+const timeSlots = Array.from({ length: 14 * 2 }, (_, i) => {
+  const hour = 8 + Math.floor(i / 2);
+  const minute = (i % 2) * 30;
+  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
 });
+const SLOT_MINUTES = 30;
 
 const statusColors = {
   'scheduled': 'bg-info/20 border-info text-info',
@@ -302,11 +304,8 @@ export default function Agenda() {
       const startIndex = timeSlots.indexOf(dragStart.time);
       const endIndex = timeSlots.indexOf(dragEnd.time);
       const startTime = timeSlots[Math.min(startIndex, endIndex)];
-      const endTime = timeSlots[Math.max(startIndex, endIndex)];
-      
-      const startHour = parseInt(startTime.split(':')[0]);
-      const endHour = parseInt(endTime.split(':')[0]) + 1;
-      const duration = (endHour - startHour) * 60;
+      const slotCount = Math.abs(endIndex - startIndex) + 1;
+      const duration = slotCount * SLOT_MINUTES;
 
       openNewAppointmentDialog(dragStart.date, startTime, dragStart.stylistId, duration);
     }

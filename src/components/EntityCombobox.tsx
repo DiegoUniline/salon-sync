@@ -117,7 +117,12 @@ export const entityRegistry: Record<string, EntityConfig> = {
   },
   categoria_producto: {
     label: "Categoría de producto",
-    loadOptions: async () => mapNamed(await api.products.getCategories()),
+    loadOptions: async () => {
+      const rows = await api.products.getCategories();
+      return (rows || [])
+        .map((r: any) => ({ id: r.name ?? String(r), label: r.name ?? String(r), raw: r }))
+        .sort((a, b) => a.label.localeCompare(b.label, "es", { sensitivity: "base" }));
+    },
     createFields: [{ name: "name", label: "Nombre", required: true }],
     create: async (v) => {
       const row = await api.categories.create({ name: v.name, type: "product" });
@@ -126,7 +131,12 @@ export const entityRegistry: Record<string, EntityConfig> = {
   },
   categoria_servicio: {
     label: "Categoría de servicio",
-    loadOptions: async () => mapNamed(await api.services.getCategories()),
+    loadOptions: async () => {
+      const rows = await api.services.getCategories();
+      return (rows || [])
+        .map((r: any) => ({ id: r.name ?? String(r), label: r.name ?? String(r), raw: r }))
+        .sort((a, b) => a.label.localeCompare(b.label, "es", { sensitivity: "base" }));
+    },
     createFields: [{ name: "name", label: "Nombre", required: true }],
     create: async (v) => {
       const row = await api.categories.create({ name: v.name, type: "service" });
@@ -137,7 +147,12 @@ export const entityRegistry: Record<string, EntityConfig> = {
     label: "Categoría de gasto",
     loadOptions: async () => {
       const list = await api.expenses.getCategories();
-      return mapNamed((list || []).map((n: any) => (typeof n === "string" ? { id: n, name: n } : n)));
+      return (list || [])
+        .map((r: any) => {
+          const name = typeof r === "string" ? r : r.name;
+          return { id: name, label: name, raw: { name } };
+        })
+        .sort((a, b) => a.label.localeCompare(b.label, "es", { sensitivity: "base" }));
     },
     createFields: [{ name: "name", label: "Nombre", required: true }],
     create: async (v) => {
