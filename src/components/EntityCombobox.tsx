@@ -358,18 +358,21 @@ export function EntityCombobox({
                       </CommandItem>
                     ))}
                   </CommandGroup>
-                  <div className="border-t p-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start"
-                      onClick={openCreate}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Crear nuevo {config.label.toLowerCase()}
-                    </Button>
-                  </div>
+                  {!hideCreate && (
+                    <div className="border-t p-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={openCreate}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Crear nuevo {config.label.toLowerCase()}
+                      </Button>
+                    </div>
+                  )}
+
                 </>
               )}
             </CommandList>
