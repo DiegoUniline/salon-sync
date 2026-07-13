@@ -417,17 +417,18 @@ export default function Products() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Categoría</Label>
-                    <Select value={formData.category} onValueChange={(v) => setFormData(prev => ({ ...prev, category: v }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map(cat => (
-                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <EntityCombobox
+                      entity="categoria_producto"
+                      value={formData.category || null}
+                      onChange={(_, raw) => {
+                        const name = raw?.name || '';
+                        setFormData(prev => ({ ...prev, category: name }));
+                        if (name && !categories.includes(name)) setCategories(prev => [...prev, name]);
+                      }}
+                      placeholder="Buscar o crear categoría..."
+                    />
                   </div>
+
                   <div className="space-y-2">
                     <Label>SKU</Label>
                     <Input
