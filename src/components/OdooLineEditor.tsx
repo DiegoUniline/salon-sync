@@ -443,7 +443,7 @@ function SearchCell({
         className="border-0 rounded-none bg-transparent h-10 focus:ring-1 focus:ring-primary focus:bg-primary/5"
       />
       
-      {showDropdown && filteredItems.length > 0 && createPortal(
+      {showDropdown && (filteredItems.length > 0 || (col.onCreate && localQuery.trim())) && createPortal(
         <div
           style={{
             position: 'fixed',
@@ -465,7 +465,6 @@ function SearchCell({
                 e.stopPropagation();
               }}
               onClick={() => {
-                console.log('Item clicked:', item);
                 handleSelect(item);
               }}
               onMouseEnter={() => setHighlightedIndex(idx)}
@@ -476,6 +475,35 @@ function SearchCell({
               )}
             </div>
           ))}
+          {col.onCreate && localQuery.trim() && (
+            <div
+              key="__create__"
+              className="px-3 py-2 cursor-pointer border-t border-border bg-primary/5 hover:bg-primary/10 flex items-center gap-2 text-primary select-none"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={async () => {
+                isSelectingRef.current = true;
+                try {
+                  const created = await col.onCreate!(localQuery.trim(), line.id);
+                  if (created) handleSelect(created);
+                  else {
+                    setShowDropdown(false);
+                    isSelectingRef.current = false;
+                  }
+                } catch (err) {
+                  console.error('onCreate failed', err);
+                  isSelectingRef.current = false;
+                }
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              <span className="text-sm font-medium">
+                {col.createLabel || 'Crear'} "{localQuery.trim()}"
+              </span>
+            </div>
+          )}
         </div>,
         document.body
       )}
