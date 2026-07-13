@@ -887,14 +887,14 @@ export const purchases = {
     return data;
   },
   addPayment: async (id: string, paymentData: any) => {
-    const { data, error } = await supabase.from("purchase_payments").insert({ ...paymentData, purchase_id: id }).select().single();
-    if (error) throw error;
-    // Update purchase amount_paid
-    const { data: payments } = await supabase.from("purchase_payments").select("amount").eq("purchase_id", id);
-    const totalPaid = (payments || []).reduce((sum: number, p: any) => sum + Number(p.amount), 0);
-    const { data: purchase } = await supabase.from("purchases").select("total").eq("id", id).single();
-    const newStatus = totalPaid >= Number(purchase?.total) ? "paid" : "partial";
-    await supabase.from("purchases").update({ amount_paid: totalPaid, status: newStatus }).eq("id", id);
+    // Atomic RPC: inserts payment + updates purchase status/amount_paid with validation.
+    const { data, error } = await supabase.rpc("register_purchase_payment", {
+      p_purchase_id: id,
+      p_amount: Number(paymentData.amount),
+      p_payment_method: paymentData.payment_method || "cash",
+      p_notes: paymentData.notes || null,
+    });
+    if (error) throw new Error(error.message);
     return data;
   },
   cancel: async (id: string) => {
