@@ -145,7 +145,36 @@ export const entityRegistry: Record<string, EntityConfig> = {
       return { id: row.name, label: row.name, raw: row };
     },
   },
+  empleado: {
+    label: "Empleado",
+    loadOptions: async () => {
+      const rows = await api.users.getAll({ active: true });
+      return (rows || [])
+        .map((r: any) => ({ id: r.id, label: r.name, sublabel: r.email || r.phone, raw: r }))
+        .sort((a, b) => a.label.localeCompare(b.label, "es", { sensitivity: "base" }));
+    },
+    createFields: [
+      { name: "name", label: "Nombre", required: true },
+      { name: "email", label: "Correo", type: "email", required: true },
+      { name: "password", label: "Contraseña", required: true },
+      { name: "phone", label: "Teléfono", type: "tel" },
+    ],
+    create: async (v) => {
+      const row = await api.users.create({ ...v, role: "employee" });
+      return { id: row.id, label: row.name || v.name, raw: row };
+    },
+  },
+  rol: {
+    label: "Rol",
+    loadOptions: async () => mapNamed(await api.roles.getAll()),
+    createFields: [{ name: "name", label: "Nombre", required: true }],
+    create: async (v) => {
+      const row = await api.roles.create({ name: v.name, description: "", color: "#3B82F6", permissions: {} });
+      return { id: row.id, label: row.name, raw: row };
+    },
+  },
 };
+
 
 interface Props {
   entity: keyof typeof entityRegistry;
@@ -158,6 +187,12 @@ interface Props {
   loadOptions?: () => Promise<Option[]>;
   /** Refresh dep — bump to force reload */
   refreshKey?: number;
+  /** Show a "clear" option at the top (for filters). Emits onChange(null). */
+  allowClear?: boolean;
+  /** Label for the clear option (default: "Todos") */
+  clearLabel?: string;
+  /** Hide the "Crear nuevo" affordance (useful for filters) */
+  hideCreate?: boolean;
 }
 
 export function EntityCombobox({
@@ -169,7 +204,11 @@ export function EntityCombobox({
   className,
   loadOptions,
   refreshKey,
+  allowClear,
+  clearLabel = "Todos",
+  hideCreate,
 }: Props) {
+
   const config = entityRegistry[entity];
   if (!config) throw new Error(`EntityCombobox: unknown entity "${entity}"`);
 
@@ -246,8 +285,9 @@ export function EntityCombobox({
             className={cn("w-full justify-between font-normal", !selected && "text-muted-foreground", className)}
           >
             <span className="truncate">
-              {selected?.label || placeholder || `Selecciona ${config.label.toLowerCase()}`}
+              {selected?.label || (allowClear && !value ? clearLabel : (placeholder || `Selecciona ${config.label.toLowerCase()}`))}
             </span>
+
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
@@ -268,14 +308,31 @@ export function EntityCombobox({
                   <CommandEmpty>
                     <div className="flex flex-col items-center gap-2 py-4">
                       <p className="text-sm text-muted-foreground">No se encontraron resultados</p>
-                      <Button type="button" size="sm" variant="secondary" onClick={openCreate}>
-                        <Plus className="h-4 w-4 mr-1" />
-                        Crear {config.label.toLowerCase()}
-                        {search ? `: "${search}"` : ""}
-                      </Button>
+                      {!hideCreate && (
+                        <Button type="button" size="sm" variant="secondary" onClick={openCreate}>
+                          <Plus className="h-4 w-4 mr-1" />
+                          Crear {config.label.toLowerCase()}
+                          {search ? `: "${search}"` : ""}
+                        </Button>
+                      )}
                     </div>
                   </CommandEmpty>
                   <CommandGroup>
+                    {allowClear && (
+                      <CommandItem
+                        key="__clear__"
+                        value={clearLabel}
+                        onSelect={() => {
+                          onChange(null);
+                          setOpen(false);
+                          setSearch("");
+                        }}
+                      >
+                        <Check className={cn("mr-2 h-4 w-4", !value ? "opacity-100" : "opacity-0")} />
+                        <span className="italic text-muted-foreground">{clearLabel}</span>
+                      </CommandItem>
+                    )}
+
                     {options.map((opt) => (
                       <CommandItem
                         key={opt.id}
@@ -301,18 +358,21 @@ export function EntityCombobox({
                       </CommandItem>
                     ))}
                   </CommandGroup>
-                  <div className="border-t p-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start"
-                      onClick={openCreate}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Crear nuevo {config.label.toLowerCase()}
-                    </Button>
-                  </div>
+                  {!hideCreate && (
+                    <div className="border-t p-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={openCreate}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Crear nuevo {config.label.toLowerCase()}
+                      </Button>
+                    </div>
+                  )}
+
                 </>
               )}
             </CommandList>

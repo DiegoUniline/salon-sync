@@ -540,21 +540,13 @@ export function AppointmentFormDialog({
             <div className="grid gap-4 sm:grid-cols-4">
               <div className="space-y-2">
                 <Label>Estilista</Label>
-                <Select value={stylistId} onValueChange={setStylistId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {stylists.map(stylist => (
-                      <SelectItem key={stylist.id} value={stylist.id}>
-                        <div className="flex items-center gap-2">
-                          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: stylist.color }} />
-                          {stylist.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <EntityCombobox
+                  entity="empleado"
+                  value={stylistId || null}
+                  onChange={(id) => setStylistId(id || '')}
+                  placeholder="Buscar estilista..."
+                />
+
               </div>
               <div className="space-y-2">
                 <Label>Fecha</Label>

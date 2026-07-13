@@ -4,6 +4,8 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import api from '@/lib/api';
+import { EntityCombobox } from '@/components/EntityCombobox';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -531,16 +533,15 @@ export default function Horarios() {
                   <Clock className="h-5 w-5 text-primary" />
                   Horario de Sucursal
                 </span>
-                <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Seleccionar sucursal" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branches.map(branch => (
-                      <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="w-[240px]">
+                  <EntityCombobox
+                    entity="sucursal"
+                    value={selectedBranch || null}
+                    onChange={(id) => setSelectedBranch(id || '')}
+                    placeholder="Seleccionar sucursal"
+                  />
+                </div>
+
               </CardTitle>
               <CardDescription>
                 Define los días y horarios de operación de cada sucursal
@@ -565,34 +566,23 @@ export default function Horarios() {
                   Horario de Profesional
                 </span>
                 <div className="flex gap-2">
-                  <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Sucursal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches.map(branch => (
-                        <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={selectedStylist || ''} onValueChange={setSelectedStylist}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Profesional" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {stylists.map(stylist => (
-                        <SelectItem key={stylist.id} value={stylist.id}>
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="h-3 w-3 rounded-full" 
-                              style={{ backgroundColor: stylist.color || '#3B82F6' }}
-                            />
-                            {stylist.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="w-[200px]">
+                    <EntityCombobox
+                      entity="sucursal"
+                      value={selectedBranch || null}
+                      onChange={(id) => setSelectedBranch(id || '')}
+                      placeholder="Sucursal"
+                    />
+                  </div>
+                  <div className="w-[220px]">
+                    <EntityCombobox
+                      entity="empleado"
+                      value={selectedStylist || null}
+                      onChange={(id) => setSelectedStylist(id || '')}
+                      placeholder="Profesional"
+                    />
+                  </div>
+
                 </div>
               </CardTitle>
               <CardDescription>
@@ -775,34 +765,27 @@ export default function Horarios() {
             {blockForm.type === 'branch' && (
               <div className="space-y-2">
                 <Label>Sucursal</Label>
-                <Select value={blockForm.targetId} onValueChange={(v) => setBlockForm(prev => ({ ...prev, targetId: v }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar sucursal" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branches.map(branch => (
-                      <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <EntityCombobox
+                  entity="sucursal"
+                  value={blockForm.targetId || null}
+                  onChange={(id) => setBlockForm(prev => ({ ...prev, targetId: id || '' }))}
+                  placeholder="Seleccionar sucursal"
+                />
               </div>
             )}
 
             {blockForm.type === 'stylist' && (
               <div className="space-y-2">
                 <Label>Profesional</Label>
-                <Select value={blockForm.targetId} onValueChange={(v) => setBlockForm(prev => ({ ...prev, targetId: v }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar profesional" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {stylists.map(stylist => (
-                      <SelectItem key={stylist.id} value={stylist.id}>{stylist.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <EntityCombobox
+                  entity="empleado"
+                  value={blockForm.targetId || null}
+                  onChange={(id) => setBlockForm(prev => ({ ...prev, targetId: id || '' }))}
+                  placeholder="Seleccionar profesional"
+                />
               </div>
             )}
+
 
             <div className="space-y-2">
               <Label>Fechas</Label>

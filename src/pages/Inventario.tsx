@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import api from '@/lib/api';
+import { EntityCombobox } from '@/components/EntityCombobox';
+
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
@@ -114,7 +116,7 @@ export default function Inventario() {
           product_id: m.product_id,
           product_name: m.product_name || m.product?.name,
         })));
-        setCategories(categoriesData || []);
+        setCategories(((categoriesData || []) as any[]).map((c: any) => typeof c === 'string' ? c : c.name).filter(Boolean));
       } catch (error) {
         console.error('Error loading data:', error);
         toast.error('Error al cargar datos');
@@ -305,17 +307,18 @@ export default function Inventario() {
                   className="pl-10"
                 />
               </div>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Categoría" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  {categories.map(cat => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="w-[200px]">
+                <EntityCombobox
+                  entity="categoria_producto"
+                  value={categoryFilter === 'all' ? null : categoryFilter}
+                  onChange={(_, raw) => setCategoryFilter(raw?.name || 'all')}
+                  allowClear
+                  clearLabel="Todas"
+                  hideCreate
+                  placeholder="Categoría"
+                />
+              </div>
+
               <Select value={stockFilter} onValueChange={setStockFilter}>
                 <SelectTrigger className="w-[150px]">
                   <SelectValue placeholder="Stock" />
@@ -559,24 +562,18 @@ export default function Inventario() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Producto</Label>
-              <Select 
-                value={formData.productId} 
-                onValueChange={(v) => setFormData(prev => ({ ...prev, productId: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un producto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map(product => (
-                    <SelectItem key={product.id} value={product.id}>
-                      <div className="flex items-center justify-between gap-4">
-                        <span>{product.name}</span>
-                        <span className="text-muted-foreground">Stock: {product.stock}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <EntityCombobox
+                entity="producto"
+                value={formData.productId || null}
+                onChange={(id, raw) => {
+                  setFormData(prev => ({ ...prev, productId: id || '' }));
+                  if (raw && !products.find((p: any) => p.id === raw.id)) {
+                    setProducts(prev => [...prev, { ...raw, min_stock: raw.min_stock || 5 }]);
+                  }
+                }}
+                placeholder="Buscar o crear producto..."
+              />
+
             </div>
 
             <div className="space-y-2">

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useApp } from "@/contexts/AppContext";
 import api from "@/lib/api";
+import { EntityCombobox } from "@/components/EntityCombobox";
+
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -580,22 +582,17 @@ export function AppointmentEditorDialog({
                     </TabsList>
                   </div>
                   <TabsContent value="existing" className="mt-2">
-                    <Select value={clientId} onValueChange={setClientId}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Selecciona un cliente" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clients.map((client) => (
-                          <SelectItem key={client.id} value={client.id}>
-                            <div className="flex items-center gap-2">
-                              <User className="h-3.5 w-3.5" />
-                              {client.name} - {client.phone}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <EntityCombobox
+                      entity="cliente"
+                      value={clientId || null}
+                      onChange={(id, raw) => {
+                        setClientId(id || '');
+                        if (raw && !clients.find(c => c.id === raw.id)) setClients(prev => [...prev, raw]);
+                      }}
+                      placeholder="Buscar o crear cliente..."
+                    />
                   </TabsContent>
+
                   <TabsContent value="new" className="mt-2 space-y-2">
                     <div className="grid gap-2 grid-cols-2">
                       <Input
@@ -625,21 +622,13 @@ export function AppointmentEditorDialog({
                 <div className="grid gap-3 grid-cols-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs">Estilista</Label>
-                    <Select value={stylistId} onValueChange={setStylistId}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Seleccionar" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {stylists.map((stylist) => (
-                          <SelectItem key={stylist.id} value={stylist.id}>
-                            <div className="flex items-center gap-2">
-                              <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: stylist.color }} />
-                              {stylist.name}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <EntityCombobox
+                      entity="empleado"
+                      value={stylistId || null}
+                      onChange={(id) => setStylistId(id || '')}
+                      placeholder="Estilista"
+                    />
+
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Fecha</Label>

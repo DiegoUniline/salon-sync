@@ -27,6 +27,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { EntityCombobox } from '@/components/EntityCombobox';
+
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -742,27 +744,13 @@ export default function Permisos() {
             
             <div className="space-y-2">
               <Label htmlFor="userRole">Rol *</Label>
-              <Select
-                value={userForm.roleId}
-                onValueChange={(value) => setUserForm(prev => ({ ...prev, roleId: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar rol" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roles.map(role => (
-                    <SelectItem key={role.id} value={role.id}>
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="h-3 w-3 rounded-full" 
-                          style={{ backgroundColor: role.color }}
-                        />
-                        {role.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <EntityCombobox
+                entity="rol"
+                value={userForm.roleId || null}
+                onChange={(id) => setUserForm(prev => ({ ...prev, roleId: id || '' }))}
+                placeholder="Buscar o crear rol..."
+              />
+
             </div>
           </div>
 

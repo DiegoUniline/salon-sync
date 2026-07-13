@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { type Service } from '@/lib/mockData';
 import api from '@/lib/api';
+import { EntityCombobox } from '@/components/EntityCombobox';
+
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -402,17 +404,18 @@ export default function Services() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Categoría</Label>
-                    <Select value={formData.category} onValueChange={(v) => setFormData(prev => ({ ...prev, category: v }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map(cat => (
-                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <EntityCombobox
+                      entity="categoria_servicio"
+                      value={formData.category || null}
+                      onChange={(_, raw) => {
+                        const name = raw?.name || '';
+                        setFormData(prev => ({ ...prev, category: name }));
+                        if (name && !categories.includes(name)) setCategories(prev => [...prev, name]);
+                      }}
+                      placeholder="Buscar o crear categoría..."
+                    />
                   </div>
+
                   <div className="space-y-2">
                     <Label>Duración (min)</Label>
                     <Input
@@ -519,17 +522,18 @@ export default function Services() {
               className="pl-10"
             />
           </div>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Categoría" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las categorías</SelectItem>
-              {categories.map(cat => (
-                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-full sm:w-[220px]">
+            <EntityCombobox
+              entity="categoria_servicio"
+              value={categoryFilter === 'all' ? null : categoryFilter}
+              onChange={(_, raw) => setCategoryFilter(raw?.name || 'all')}
+              allowClear
+              clearLabel="Todas las categorías"
+              hideCreate
+              placeholder="Categoría"
+            />
+          </div>
+
           <div className="flex border rounded-lg p-1 bg-secondary/50">
             <Button
               variant={viewMode === 'table' ? 'default' : 'ghost'}
