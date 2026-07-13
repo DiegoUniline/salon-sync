@@ -308,6 +308,26 @@ export function AppointmentEditorDialog({
         subLabel: `${s.duration} min | $${s.price}`,
         data: s,
       })),
+      createLabel: "Crear servicio",
+      onCreate: async (query) => {
+        try {
+          const created: any = await api.services.create({
+            name: query, price: 0, duration_minutes: 30, is_active: true,
+          });
+          const newSvc = {
+            id: created.id, name: created.name,
+            price: Number(created.price) || 0,
+            duration: Number(created.duration_minutes) || 30,
+            active: true,
+          };
+          setServices((prev: any) => [...prev, newSvc]);
+          toast.success("Servicio creado");
+          return { id: newSvc.id, label: newSvc.name, subLabel: `${newSvc.duration} min | $${newSvc.price}`, data: newSvc };
+        } catch (e: any) {
+          toast.error(e?.message || "Error al crear servicio");
+          return null;
+        }
+      },
       onSelect: (item, lineId) => {
         setServiceLines((prev) =>
           prev.map((line) =>
