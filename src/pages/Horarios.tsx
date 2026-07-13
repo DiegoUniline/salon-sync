@@ -531,16 +531,15 @@ export default function Horarios() {
                   <Clock className="h-5 w-5 text-primary" />
                   Horario de Sucursal
                 </span>
-                <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Seleccionar sucursal" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branches.map(branch => (
-                      <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="w-[240px]">
+                  <EntityCombobox
+                    entity="sucursal"
+                    value={selectedBranch || null}
+                    onChange={(id) => setSelectedBranch(id || '')}
+                    placeholder="Seleccionar sucursal"
+                  />
+                </div>
+
               </CardTitle>
               <CardDescription>
                 Define los días y horarios de operación de cada sucursal
