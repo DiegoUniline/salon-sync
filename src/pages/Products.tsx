@@ -103,7 +103,8 @@ export default function Products() {
           api.products.getCategories(),
         ]);
         setProducts(productsData.map(mapApiProduct));
-        setCategories(categoriesData);
+        setCategories((categoriesData || []).map((c: any) => typeof c === 'string' ? c : c.name).filter(Boolean));
+
       } catch (error) {
         console.error('Error loading products:', error);
         toast.error('Error al cargar productos');
