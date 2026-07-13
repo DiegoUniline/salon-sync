@@ -304,11 +304,8 @@ export default function Agenda() {
       const startIndex = timeSlots.indexOf(dragStart.time);
       const endIndex = timeSlots.indexOf(dragEnd.time);
       const startTime = timeSlots[Math.min(startIndex, endIndex)];
-      const endTime = timeSlots[Math.max(startIndex, endIndex)];
-      
-      const startHour = parseInt(startTime.split(':')[0]);
-      const endHour = parseInt(endTime.split(':')[0]) + 1;
-      const duration = (endHour - startHour) * 60;
+      const slotCount = Math.abs(endIndex - startIndex) + 1;
+      const duration = slotCount * SLOT_MINUTES;
 
       openNewAppointmentDialog(dragStart.date, startTime, dragStart.stylistId, duration);
     }
