@@ -352,8 +352,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const isAuthenticated = !!currentUser && !isLoading;
 
   const hasPermission = (moduleId: ModuleId, action: ActionId): boolean => {
-    if (isLoading) return true;
-    if (!currentUser) return false;
+    // Deny while loading to avoid flashing unauthorized controls
+    if (isLoading || !currentUser) return false;
+
 
     const userRole = currentUser.role?.toLowerCase();
     if (userRole === "admin" || userRole === "administrador" || userRole === "superadmin" || 
