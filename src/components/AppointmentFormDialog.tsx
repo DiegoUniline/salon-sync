@@ -487,22 +487,19 @@ export function AppointmentFormDialog({
                 <TabsTrigger value="new">Nuevo Cliente</TabsTrigger>
               </TabsList>
               <TabsContent value="existing" className="mt-3">
-                <Select value={clientId} onValueChange={setClientId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.map(client => (
-                      <SelectItem key={client.id} value={client.id}>
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          {client.name} - {client.phone}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <EntityCombobox
+                  entity="cliente"
+                  value={clientId || null}
+                  onChange={(id, raw) => {
+                    setClientId(id || '');
+                    if (raw && !clients.find(c => c.id === raw.id)) {
+                      setClients(prev => [...prev, raw]);
+                    }
+                  }}
+                  placeholder="Buscar o crear cliente..."
+                />
               </TabsContent>
+
               <TabsContent value="new" className="mt-3 space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
