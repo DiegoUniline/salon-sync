@@ -622,21 +622,13 @@ export function AppointmentEditorDialog({
                 <div className="grid gap-3 grid-cols-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs">Estilista</Label>
-                    <Select value={stylistId} onValueChange={setStylistId}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Seleccionar" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {stylists.map((stylist) => (
-                          <SelectItem key={stylist.id} value={stylist.id}>
-                            <div className="flex items-center gap-2">
-                              <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: stylist.color }} />
-                              {stylist.name}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <EntityCombobox
+                      entity="empleado"
+                      value={stylistId || null}
+                      onChange={(id) => setStylistId(id || '')}
+                      placeholder="Estilista"
+                    />
+
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Fecha</Label>
