@@ -2,35 +2,38 @@
 // All functions return `any` to maintain backward compatibility with existing page types
 import { supabase } from "@/integrations/supabase/client";
 
+// Helper to get current user id from session (fast, no server round trip)
+const getCurrentUserId = async (): Promise<string> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("No autenticado");
+  return session.user.id;
+};
+
 // Helper to get current user's account_id
 const getAccountId = async (): Promise<string> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autenticado");
-  
+  const userId = await getCurrentUserId();
   const { data: profile } = await supabase
     .from("profiles")
     .select("account_id")
-    .eq("user_id", user.id)
-    .single();
-  
+    .eq("user_id", userId)
+    .maybeSingle();
   if (!profile?.account_id) throw new Error("Sin cuenta asociada");
   return profile.account_id;
 };
 
 // Helper to get current profile
 const getCurrentProfile = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autenticado");
-  
+  const userId = await getCurrentUserId();
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("*, custom_roles(*)")
-    .eq("user_id", user.id)
-    .single();
-  
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
   if (error) throw error;
-  return profile;
+  if (!profile) throw new Error("Perfil no encontrado");
+  return profile as any;
 };
+
 
 // ============ AUTH ============
 export const auth = {
