@@ -1281,6 +1281,8 @@ export const api: any = {
   schedules,
   config,
   dashboard,
+  categories,
 };
 
 export default api as any;
+
