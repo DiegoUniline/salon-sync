@@ -40,10 +40,9 @@ export const auth = {
   login: async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message);
-    
+
     const profile = await getCurrentProfile();
-    
-    // Get user role(s) — prefer super_admin > account_admin > others
+
     const { data: rolesList } = await supabase
       .from("user_roles")
       .select("role")
@@ -64,8 +63,9 @@ export const auth = {
       color: profile.color,
       avatar_url: profile.avatar_url,
       active: profile.is_active,
-      permissions: profile.permissions || profile.custom_roles?.permissions || null,
+      permissions: profile.permissions || null,
     };
+
 
     // Get subscription
     let subscription = null;
