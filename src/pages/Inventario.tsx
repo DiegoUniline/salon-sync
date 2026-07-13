@@ -562,24 +562,18 @@ export default function Inventario() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Producto</Label>
-              <Select 
-                value={formData.productId} 
-                onValueChange={(v) => setFormData(prev => ({ ...prev, productId: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un producto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map(product => (
-                    <SelectItem key={product.id} value={product.id}>
-                      <div className="flex items-center justify-between gap-4">
-                        <span>{product.name}</span>
-                        <span className="text-muted-foreground">Stock: {product.stock}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <EntityCombobox
+                entity="producto"
+                value={formData.productId || null}
+                onChange={(id, raw) => {
+                  setFormData(prev => ({ ...prev, productId: id || '' }));
+                  if (raw && !products.find((p: any) => p.id === raw.id)) {
+                    setProducts(prev => [...prev, { ...raw, min_stock: raw.min_stock || 5 }]);
+                  }
+                }}
+                placeholder="Buscar o crear producto..."
+              />
+
             </div>
 
             <div className="space-y-2">
