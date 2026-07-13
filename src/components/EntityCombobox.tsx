@@ -187,6 +187,12 @@ interface Props {
   loadOptions?: () => Promise<Option[]>;
   /** Refresh dep — bump to force reload */
   refreshKey?: number;
+  /** Show a "clear" option at the top (for filters). Emits onChange(null). */
+  allowClear?: boolean;
+  /** Label for the clear option (default: "Todos") */
+  clearLabel?: string;
+  /** Hide the "Crear nuevo" affordance (useful for filters) */
+  hideCreate?: boolean;
 }
 
 export function EntityCombobox({
@@ -198,7 +204,11 @@ export function EntityCombobox({
   className,
   loadOptions,
   refreshKey,
+  allowClear,
+  clearLabel = "Todos",
+  hideCreate,
 }: Props) {
+
   const config = entityRegistry[entity];
   if (!config) throw new Error(`EntityCombobox: unknown entity "${entity}"`);
 
