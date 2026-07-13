@@ -761,9 +761,9 @@ export const sales = {
     return data;
   },
   create: async (saleData: any) => {
-    const accountId = await getAccountId();
-    const { data, error } = await supabase.from("sales").insert({ ...saleData, account_id: accountId }).select().single();
-    if (error) throw error;
+    // Uses atomic RPC that validates + decrements stock and writes inventory movements.
+    const { data, error } = await supabase.rpc("create_sale_atomic", { p_sale: saleData });
+    if (error) throw new Error(error.message);
     return data;
   },
   delete: async (id: string) => {
