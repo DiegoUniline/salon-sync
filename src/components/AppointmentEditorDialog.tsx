@@ -358,12 +358,32 @@ export function AppointmentEditorDialog({
       type: "search",
       placeholder: "Buscar producto...",
       width: "flex-[2]",
-      searchItems: products.filter((p) => p.active && p.stock > 0).map((p) => ({
+      searchItems: products.filter((p) => p.active).map((p) => ({
         id: p.id,
         label: p.name,
         subLabel: `Stock: ${p.stock} | $${p.price}`,
         data: p,
       })),
+      createLabel: "Crear producto",
+      onCreate: async (query) => {
+        try {
+          const created: any = await api.products.create({
+            name: query, price: 0, cost: 0, stock: 0, min_stock: 5, is_active: true,
+          });
+          const newProd = {
+            id: created.id, name: created.name,
+            price: Number(created.price) || 0,
+            stock: Number(created.stock) || 0,
+            active: true,
+          };
+          setProducts((prev: any) => [...prev, newProd]);
+          toast.success("Producto creado");
+          return { id: newProd.id, label: newProd.name, subLabel: `Stock: ${newProd.stock} | $${newProd.price}`, data: newProd };
+        } catch (e: any) {
+          toast.error(e?.message || "Error al crear producto");
+          return null;
+        }
+      },
       onSelect: (item, lineId) => {
         setProductLines((prev) =>
           prev.map((line) =>
