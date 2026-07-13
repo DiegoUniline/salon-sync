@@ -88,10 +88,12 @@ interface Appointment {
   notes?: string;
 }
 
-const timeSlots = Array.from({ length: 14 }, (_, i) => {
-  const hour = i + 8;
-  return `${hour.toString().padStart(2, '0')}:00`;
+const timeSlots = Array.from({ length: 14 * 2 }, (_, i) => {
+  const hour = 8 + Math.floor(i / 2);
+  const minute = (i % 2) * 30;
+  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
 });
+const SLOT_MINUTES = 30;
 
 const statusColors = {
   'scheduled': 'bg-info/20 border-info text-info',
