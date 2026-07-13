@@ -174,6 +174,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
             }
             
             await refreshData();
+            window.dispatchEvent(new Event('auth-state-change'));
           } catch (error) {
             console.error('Error loading user after sign in:', error);
           }
@@ -214,6 +215,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
           }
           
           await refreshData();
+          window.dispatchEvent(new Event('auth-state-change'));
         } catch (error) {
           console.error('Session expired:', error);
           setCurrentUser(null);

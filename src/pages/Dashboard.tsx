@@ -31,7 +31,7 @@ interface DashboardStats {
 }
 
 export default function Dashboard() {
-  const { currentBranch } = useApp();
+  const { currentBranch, isLoadingBranches } = useApp();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +72,11 @@ export default function Dashboard() {
     const loadStats = async () => {
       // Wait for currentBranch to be available
       if (!currentBranch) {
+        if (!isLoadingBranches) {
+          setStats(null);
+          setError('No hay una sucursal disponible para cargar el dashboard');
+          setLoading(false);
+        }
         return;
       }
 
@@ -98,7 +103,7 @@ export default function Dashboard() {
       }
     };
     loadStats();
-  }, [currentBranch?.id]);
+  }, [currentBranch?.id, isLoadingBranches]);
 
   if (loading) {
     return (

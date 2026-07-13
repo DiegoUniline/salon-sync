@@ -17,6 +17,8 @@ export type Database = {
       account_subscriptions: {
         Row: {
           account_id: string
+          amount_paid: number | null
+          billing_cycle: string | null
           created_at: string | null
           expires_at: string
           id: string
@@ -28,6 +30,8 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          amount_paid?: number | null
+          billing_cycle?: string | null
           created_at?: string | null
           expires_at: string
           id?: string
@@ -39,6 +43,8 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          amount_paid?: number | null
+          billing_cycle?: string | null
           created_at?: string | null
           expires_at?: string
           id?: string
@@ -68,36 +74,60 @@ export type Database = {
       accounts: {
         Row: {
           address: string | null
+          business_type: string | null
           created_at: string | null
+          currency: string | null
           email: string
+          facebook: string | null
           id: string
+          instagram: string | null
           is_active: boolean | null
           logo_url: string | null
           name: string
           phone: string | null
+          tax_id: string | null
+          timezone: string | null
           updated_at: string | null
+          website: string | null
+          whatsapp: string | null
         }
         Insert: {
           address?: string | null
+          business_type?: string | null
           created_at?: string | null
+          currency?: string | null
           email: string
+          facebook?: string | null
           id?: string
+          instagram?: string | null
           is_active?: boolean | null
           logo_url?: string | null
           name: string
           phone?: string | null
+          tax_id?: string | null
+          timezone?: string | null
           updated_at?: string | null
+          website?: string | null
+          whatsapp?: string | null
         }
         Update: {
           address?: string | null
+          business_type?: string | null
           created_at?: string | null
+          currency?: string | null
           email?: string
+          facebook?: string | null
           id?: string
+          instagram?: string | null
           is_active?: boolean | null
           logo_url?: string | null
           name?: string
           phone?: string | null
+          tax_id?: string | null
+          timezone?: string | null
           updated_at?: string | null
+          website?: string | null
+          whatsapp?: string | null
         }
         Relationships: []
       }
@@ -105,6 +135,7 @@ export type Database = {
         Row: {
           account_id: string | null
           branch_id: string
+          client_email: string | null
           client_id: string | null
           client_name: string | null
           client_phone: string | null
@@ -113,16 +144,20 @@ export type Database = {
           discount: number
           duration_minutes: number | null
           employee_id: string | null
+          folio: string | null
           id: string
           notes: string | null
+          payment_status: string | null
           payments: Json
           products: Json
+          reminder_sent: boolean | null
           scheduled_at: string
           service_id: string | null
           services: Json
           status: string | null
           stylist_id: string | null
           subtotal: number
+          tax: number | null
           time: string | null
           total: number
           total_amount: number | null
@@ -131,6 +166,7 @@ export type Database = {
         Insert: {
           account_id?: string | null
           branch_id: string
+          client_email?: string | null
           client_id?: string | null
           client_name?: string | null
           client_phone?: string | null
@@ -139,16 +175,20 @@ export type Database = {
           discount?: number
           duration_minutes?: number | null
           employee_id?: string | null
+          folio?: string | null
           id?: string
           notes?: string | null
+          payment_status?: string | null
           payments?: Json
           products?: Json
+          reminder_sent?: boolean | null
           scheduled_at: string
           service_id?: string | null
           services?: Json
           status?: string | null
           stylist_id?: string | null
           subtotal?: number
+          tax?: number | null
           time?: string | null
           total?: number
           total_amount?: number | null
@@ -157,6 +197,7 @@ export type Database = {
         Update: {
           account_id?: string | null
           branch_id?: string
+          client_email?: string | null
           client_id?: string | null
           client_name?: string | null
           client_phone?: string | null
@@ -165,16 +206,20 @@ export type Database = {
           discount?: number
           duration_minutes?: number | null
           employee_id?: string | null
+          folio?: string | null
           id?: string
           notes?: string | null
+          payment_status?: string | null
           payments?: Json
           products?: Json
+          reminder_sent?: boolean | null
           scheduled_at?: string
           service_id?: string | null
           services?: Json
           status?: string | null
           stylist_id?: string | null
           subtotal?: number
+          tax?: number | null
           time?: string | null
           total?: number
           total_amount?: number | null
@@ -263,35 +308,47 @@ export type Database = {
         Row: {
           account_id: string
           address: string | null
+          color: string | null
           created_at: string | null
           email: string | null
           id: string
           is_active: boolean | null
+          is_main: boolean | null
           name: string
           phone: string | null
+          timezone: string | null
           updated_at: string | null
+          whatsapp: string | null
         }
         Insert: {
           account_id: string
           address?: string | null
+          color?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
           is_active?: boolean | null
+          is_main?: boolean | null
           name: string
           phone?: string | null
+          timezone?: string | null
           updated_at?: string | null
+          whatsapp?: string | null
         }
         Update: {
           account_id?: string
           address?: string | null
+          color?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
           is_active?: boolean | null
+          is_main?: boolean | null
           name?: string
           phone?: string | null
+          timezone?: string | null
           updated_at?: string | null
+          whatsapp?: string | null
         }
         Relationships: [
           {
@@ -424,32 +481,56 @@ export type Database = {
       clients: {
         Row: {
           account_id: string
+          address: string | null
+          birthday: string | null
           created_at: string | null
           email: string | null
+          gender: string | null
           id: string
+          last_visit: string | null
+          loyalty_points: number | null
           name: string
           notes: string | null
           phone: string | null
+          tags: Json | null
+          total_spent: number | null
+          total_visits: number | null
           updated_at: string | null
         }
         Insert: {
           account_id: string
+          address?: string | null
+          birthday?: string | null
           created_at?: string | null
           email?: string | null
+          gender?: string | null
           id?: string
+          last_visit?: string | null
+          loyalty_points?: number | null
           name: string
           notes?: string | null
           phone?: string | null
+          tags?: Json | null
+          total_spent?: number | null
+          total_visits?: number | null
           updated_at?: string | null
         }
         Update: {
           account_id?: string
+          address?: string | null
+          birthday?: string | null
           created_at?: string | null
           email?: string | null
+          gender?: string | null
           id?: string
+          last_visit?: string | null
+          loyalty_points?: number | null
           name?: string
           notes?: string | null
           phone?: string | null
+          tags?: Json | null
+          total_spent?: number | null
+          total_visits?: number | null
           updated_at?: string | null
         }
         Relationships: [
@@ -515,11 +596,14 @@ export type Database = {
           created_at: string | null
           description: string
           expense_date: string | null
+          folio: string | null
           id: string
+          notes: string | null
           payment_method: string | null
           receipt_url: string | null
           supplier_id: string | null
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           account_id: string
@@ -529,11 +613,14 @@ export type Database = {
           created_at?: string | null
           description: string
           expense_date?: string | null
+          folio?: string | null
           id?: string
+          notes?: string | null
           payment_method?: string | null
           receipt_url?: string | null
           supplier_id?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           account_id?: string
@@ -543,11 +630,14 @@ export type Database = {
           created_at?: string | null
           description?: string
           expense_date?: string | null
+          folio?: string | null
           id?: string
+          notes?: string | null
           payment_method?: string | null
           receipt_url?: string | null
           supplier_id?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -586,6 +676,8 @@ export type Database = {
           quantity: number
           reference_id: string | null
           type: string
+          unit_cost: number | null
+          user_id: string | null
         }
         Insert: {
           account_id: string
@@ -599,6 +691,8 @@ export type Database = {
           quantity: number
           reference_id?: string | null
           type: string
+          unit_cost?: number | null
+          user_id?: string | null
         }
         Update: {
           account_id?: string
@@ -612,6 +706,8 @@ export type Database = {
           quantity?: number
           reference_id?: string | null
           type?: string
+          unit_cost?: number | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -640,47 +736,62 @@ export type Database = {
       products: {
         Row: {
           account_id: string
+          barcode: string | null
+          brand: string | null
           category_id: string | null
           cost: number
           created_at: string | null
           description: string | null
           id: string
+          image_url: string | null
           is_active: boolean | null
+          max_stock: number | null
           min_stock: number
           name: string
           price: number
           sku: string | null
           stock: number | null
+          unit: string | null
           updated_at: string | null
         }
         Insert: {
           account_id: string
+          barcode?: string | null
+          brand?: string | null
           category_id?: string | null
           cost?: number
           created_at?: string | null
           description?: string | null
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
+          max_stock?: number | null
           min_stock?: number
           name: string
           price?: number
           sku?: string | null
           stock?: number | null
+          unit?: string | null
           updated_at?: string | null
         }
         Update: {
           account_id?: string
+          barcode?: string | null
+          brand?: string | null
           category_id?: string | null
           cost?: number
           created_at?: string | null
           description?: string | null
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
+          max_stock?: number | null
           min_stock?: number
           name?: string
           price?: number
           sku?: string | null
           stock?: number | null
+          unit?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -706,12 +817,15 @@ export type Database = {
           avatar_url: string | null
           branch_id: string | null
           color: string | null
+          commission_percent: number | null
           created_at: string | null
           custom_role_id: string | null
           email: string
           full_name: string
+          hire_date: string | null
           id: string
           is_active: boolean | null
+          notes: string | null
           permissions: Json | null
           phone: string | null
           updated_at: string | null
@@ -722,12 +836,15 @@ export type Database = {
           avatar_url?: string | null
           branch_id?: string | null
           color?: string | null
+          commission_percent?: number | null
           created_at?: string | null
           custom_role_id?: string | null
           email: string
           full_name: string
+          hire_date?: string | null
           id?: string
           is_active?: boolean | null
+          notes?: string | null
           permissions?: Json | null
           phone?: string | null
           updated_at?: string | null
@@ -738,12 +855,15 @@ export type Database = {
           avatar_url?: string | null
           branch_id?: string | null
           color?: string | null
+          commission_percent?: number | null
           created_at?: string | null
           custom_role_id?: string | null
           email?: string
           full_name?: string
+          hire_date?: string | null
           id?: string
           is_active?: boolean | null
+          notes?: string | null
           permissions?: Json | null
           phone?: string | null
           updated_at?: string | null
@@ -817,6 +937,7 @@ export type Database = {
           amount_paid: number | null
           branch_id: string
           created_at: string | null
+          expected_date: string | null
           folio: string | null
           id: string
           items: Json | null
@@ -829,12 +950,14 @@ export type Database = {
           tax: number | null
           total: number | null
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           account_id: string
           amount_paid?: number | null
           branch_id: string
           created_at?: string | null
+          expected_date?: string | null
           folio?: string | null
           id?: string
           items?: Json | null
@@ -847,12 +970,14 @@ export type Database = {
           tax?: number | null
           total?: number | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           account_id?: string
           amount_paid?: number | null
           branch_id?: string
           created_at?: string | null
+          expected_date?: string | null
           folio?: string | null
           id?: string
           items?: Json | null
@@ -865,6 +990,7 @@ export type Database = {
           tax?: number | null
           total?: number | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -897,6 +1023,8 @@ export type Database = {
           branch_id: string
           client_id: string | null
           client_name: string | null
+          client_phone: string | null
+          commission: number | null
           created_at: string | null
           date: string | null
           discount: number | null
@@ -906,6 +1034,7 @@ export type Database = {
           items: Json | null
           notes: string | null
           payment_method: string | null
+          payment_status: string | null
           payments: Json
           sale_date: string | null
           shift_id: string | null
@@ -921,6 +1050,8 @@ export type Database = {
           branch_id: string
           client_id?: string | null
           client_name?: string | null
+          client_phone?: string | null
+          commission?: number | null
           created_at?: string | null
           date?: string | null
           discount?: number | null
@@ -930,6 +1061,7 @@ export type Database = {
           items?: Json | null
           notes?: string | null
           payment_method?: string | null
+          payment_status?: string | null
           payments?: Json
           sale_date?: string | null
           shift_id?: string | null
@@ -945,6 +1077,8 @@ export type Database = {
           branch_id?: string
           client_id?: string | null
           client_name?: string | null
+          client_phone?: string | null
+          commission?: number | null
           created_at?: string | null
           date?: string | null
           discount?: number | null
@@ -954,6 +1088,7 @@ export type Database = {
           items?: Json | null
           notes?: string | null
           payment_method?: string | null
+          payment_status?: string | null
           payments?: Json
           sale_date?: string | null
           shift_id?: string | null
@@ -1050,10 +1185,13 @@ export type Database = {
         Row: {
           account_id: string
           category_id: string | null
+          color: string | null
+          commission_percent: number | null
           created_at: string | null
           description: string | null
           duration_minutes: number | null
           id: string
+          image_url: string | null
           is_active: boolean | null
           name: string
           price: number
@@ -1062,10 +1200,13 @@ export type Database = {
         Insert: {
           account_id: string
           category_id?: string | null
+          color?: string | null
+          commission_percent?: number | null
           created_at?: string | null
           description?: string | null
           duration_minutes?: number | null
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
           name: string
           price?: number
@@ -1074,10 +1215,13 @@ export type Database = {
         Update: {
           account_id?: string
           category_id?: string | null
+          color?: string | null
+          commission_percent?: number | null
           created_at?: string | null
           description?: string | null
           duration_minutes?: number | null
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
           name?: string
           price?: number
@@ -1106,6 +1250,8 @@ export type Database = {
           branch_id: string
           closed_at: string | null
           created_at: string | null
+          difference: number | null
+          expected_cash: number | null
           final_cash: number | null
           id: string
           initial_cash: number | null
@@ -1119,6 +1265,8 @@ export type Database = {
           branch_id: string
           closed_at?: string | null
           created_at?: string | null
+          difference?: number | null
+          expected_cash?: number | null
           final_cash?: number | null
           id?: string
           initial_cash?: number | null
@@ -1132,6 +1280,8 @@ export type Database = {
           branch_id?: string
           closed_at?: string | null
           created_at?: string | null
+          difference?: number | null
+          expected_cash?: number | null
           final_cash?: number | null
           id?: string
           initial_cash?: number | null
@@ -1175,6 +1325,8 @@ export type Database = {
           max_users: number
           name: string
           price: number
+          price_yearly: number | null
+          trial_days: number | null
           updated_at: string | null
         }
         Insert: {
@@ -1187,6 +1339,8 @@ export type Database = {
           max_users?: number
           name: string
           price?: number
+          price_yearly?: number | null
+          trial_days?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -1199,6 +1353,8 @@ export type Database = {
           max_users?: number
           name?: string
           price?: number
+          price_yearly?: number | null
+          trial_days?: number | null
           updated_at?: string | null
         }
         Relationships: []
@@ -1219,6 +1375,7 @@ export type Database = {
           phone: string | null
           rfc: string | null
           updated_at: string | null
+          website: string | null
         }
         Insert: {
           account_id: string
@@ -1235,6 +1392,7 @@ export type Database = {
           phone?: string | null
           rfc?: string | null
           updated_at?: string | null
+          website?: string | null
         }
         Update: {
           account_id?: string
@@ -1251,6 +1409,7 @@ export type Database = {
           phone?: string | null
           rfc?: string | null
           updated_at?: string | null
+          website?: string | null
         }
         Relationships: [
           {
