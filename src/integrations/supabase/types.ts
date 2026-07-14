@@ -263,6 +263,54 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          account_id: string
+          action: string
+          created_at: string
+          entity_id: string | null
+          entity_table: string
+          id: string
+          ip_address: string | null
+          new_data: Json | null
+          old_data: Json | null
+          summary: string | null
+          user_agent: string | null
+          user_id: string | null
+          user_name: string | null
+        }
+        Insert: {
+          account_id: string
+          action: string
+          created_at?: string
+          entity_id?: string | null
+          entity_table: string
+          id?: string
+          ip_address?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          summary?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Update: {
+          account_id?: string
+          action?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_table?: string
+          id?: string
+          ip_address?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          summary?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Relationships: []
+      }
       blocked_days: {
         Row: {
           account_id: string
