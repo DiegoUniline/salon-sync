@@ -35,6 +35,7 @@ import Catalogos from "./pages/Catalogos";
 import Reportes from "./pages/Reportes";
 import Comisiones from "./pages/Comisiones";
 import Auditoria from "./pages/Auditoria";
+import WhatsApp from "./pages/WhatsApp";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
