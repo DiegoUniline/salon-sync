@@ -848,11 +848,13 @@ export const sales = {
     // Uses atomic RPC that validates + decrements stock and writes inventory movements.
     const { data, error } = await supabase.rpc("create_sale_atomic", { p_sale: saleData });
     if (error) throw new Error(error.message);
+    import("@/lib/audit").then(({ logAudit }) => logAudit({ action: "create", entity_table: "sales", entity_id: (data as any)?.id, summary: `Venta ${(data as any)?.folio || ""} por $${(data as any)?.total || 0}`, new_data: data }));
     return data;
   },
   delete: async (id: string) => {
     const { error } = await supabase.from("sales").delete().eq("id", id);
     if (error) throw error;
+    import("@/lib/audit").then(({ logAudit }) => logAudit({ action: "delete", entity_table: "sales", entity_id: id, summary: `Venta eliminada` }));
   },
 };
 
