@@ -124,6 +124,9 @@ interface Appointment {
   discount_percent?: number;
   total: number;
   notes?: string;
+  duration?: number;
+  duration_minutes?: number;
+  end_time?: string;
 }
 
 interface AppointmentDetailViewProps {
@@ -150,6 +153,20 @@ const statusColors = {
   completed: "bg-success/20 text-success border-success/30",
   cancelled: "bg-destructive/20 text-destructive border-destructive/30",
 };
+
+const toMinutes = (value: string) => {
+  const [hours, minutes] = (value || "00:00").split(":").map(Number);
+  return (hours || 0) * 60 + (minutes || 0);
+};
+
+const toTime = (minutes: number) => {
+  const normalized = ((minutes % 1440) + 1440) % 1440;
+  return `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
+};
+
+const getDurationFromRange = (start: string, end: string) => Math.max(0, toMinutes(end) - toMinutes(start));
+
+const buildEndTime = (start: string, duration: number) => toTime(toMinutes(start) + (Number(duration) || 30));
 
 export function AppointmentDetailView({
   appointment,
@@ -186,6 +203,7 @@ export function AppointmentDetailView({
   const [stylistId, setStylistId] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [time, setTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("09:30");
   const [notes, setNotes] = useState("");
   const [generalDiscount, setGeneralDiscount] = useState(0);
   const [currentStatus, setCurrentStatus] = useState<Appointment["status"]>("scheduled");
@@ -240,7 +258,10 @@ export function AppointmentDetailView({
       setClientId(appointment.client_id);
       setStylistId(appointment.stylist_id);
       setDate(appointment.date.split("T")[0]);
-      setTime((appointment.time || "09:00").slice(0, 5));
+      const startTime = (appointment.time || "09:00").slice(0, 5);
+      const savedDuration = Number(appointment.duration_minutes ?? appointment.duration ?? 30) || 30;
+      setTime(startTime);
+      setEndTime(appointment.end_time?.slice(0, 5) || buildEndTime(startTime, savedDuration));
       setNotes(appointment.notes || "");
       setGeneralDiscount(Number(appointment.discount_percent ?? 0));
       setCurrentStatus(appointment.status);
@@ -283,11 +304,13 @@ export function AppointmentDetailView({
       }
     } else {
       // New appointment
+      const startTime = initialTime || "09:00";
       if (initialDate) setDate(initialDate);
-      if (initialTime) setTime(initialTime);
+      setTime(startTime);
+      setEndTime(buildEndTime(startTime, initialDuration || 30));
       if (initialStylistId) setStylistId(initialStylistId);
     }
-  }, [loading, appointment, initialDate, initialTime, initialStylistId]);
+  }, [loading, appointment, initialDate, initialTime, initialStylistId, initialDuration]);
 
   // Calculations
   const servicesSubtotal = serviceLines.reduce((sum, line) => sum + Number(line.subtotal || 0), 0);
@@ -296,8 +319,13 @@ export function AppointmentDetailView({
   const generalDiscountAmount = (subtotal * generalDiscount) / 100;
   const total = subtotal - generalDiscountAmount;
   const totalDuration = serviceLines.reduce((sum, line) => sum + (line.duration || 0), 0);
+  const effectiveDuration = getDurationFromRange(time, endTime) || totalDuration || initialDuration || 30;
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const change = totalPaid > total ? totalPaid - total : 0;
+
+  useEffect(() => {
+    setEndTime(buildEndTime(time, totalDuration || initialDuration || 30));
+  }, [time, totalDuration, initialDuration]);
 
   const serviceColumns: ColumnConfig[] = [
     {
@@ -526,7 +554,8 @@ export function AppointmentDetailView({
       branch_id: currentBranch?.id,
       date,
       time,
-      duration: totalDuration,
+      duration: effectiveDuration,
+      end_time: endTime,
       notes, // Include notes in the payload
       services: validServices.map((l) => ({
         service_id: l.serviceId,
@@ -694,7 +723,7 @@ export function AppointmentDetailView({
             </Tabs>
 
             {/* Stylist, Date, Time */}
-            <div className="grid gap-4 grid-cols-3">
+            <div className="grid gap-4 grid-cols-4">
               <div className="space-y-2">
                 <Label className="text-sm">Estilista</Label>
                 <EntityCombobox
@@ -710,8 +739,25 @@ export function AppointmentDetailView({
                 <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-10" />
               </div>
               <div className="space-y-2">
-                <Label className="text-sm">Hora</Label>
+                <Label className="text-sm">Hora inicio</Label>
                 <Select value={time} onValueChange={setTime}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 26 }, (_, i) => {
+                      const hour = Math.floor(i / 2) + 8;
+                      const minutes = i % 2 === 0 ? "00" : "30";
+                      if (hour > 20) return null;
+                      const t = `${hour.toString().padStart(2, "0")}:${minutes}`;
+                      return <SelectItem key={t} value={t}>{t}</SelectItem>;
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm">Hora fin</Label>
+                <Select value={endTime} onValueChange={setEndTime}>
                   <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
@@ -736,7 +782,7 @@ export function AppointmentDetailView({
                 {totalDuration > 0 && (
                   <Badge variant="secondary" className="ml-auto">
                     <Clock className="h-3 w-3 mr-1" />
-                    {totalDuration} min
+                    {effectiveDuration} min
                   </Badge>
                 )}
               </Label>
@@ -844,7 +890,7 @@ export function AppointmentDetailView({
                   <span>{date}</span>
                   <span className="text-muted-foreground">•</span>
                   <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span>{time}</span>
+                  <span>{time} - {endTime}</span>
                 </div>
                 {stylistId && (
                   <div className="flex items-center gap-2 text-sm">

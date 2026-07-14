@@ -86,6 +86,8 @@ interface Appointment {
   discount_percent?: number;
   total: number;
   notes?: string;
+  duration?: number;
+  duration_minutes?: number;
 }
 
 const timeSlots = Array.from({ length: 14 * 2 }, (_, i) => {
@@ -304,7 +306,7 @@ export default function Agenda() {
       const startIndex = timeSlots.indexOf(dragStart.time);
       const endIndex = timeSlots.indexOf(dragEnd.time);
       const startTime = timeSlots[Math.min(startIndex, endIndex)];
-      const slotCount = Math.abs(endIndex - startIndex) + 1;
+      const slotCount = Math.max(1, Math.abs(endIndex - startIndex));
       const duration = slotCount * SLOT_MINUTES;
 
       openNewAppointmentDialog(dragStart.date, startTime, dragStart.stylistId, duration);
@@ -488,8 +490,7 @@ export default function Agenda() {
                     if (a.stylist_id !== stylist.id) return false;
                     // Handle time format "HH:MM:SS" or "HH:MM"
                     const timeStr = (a.time || '').slice(0, 5);
-                    const appointmentHour = parseInt(timeStr.split(':')[0]);
-                    return appointmentHour === slotHour;
+                    return timeStr === time;
                   });
                   const isInDragRange = isSlotInDragRange(time, stylist.id);
 
@@ -679,8 +680,8 @@ export default function Agenda() {
 }
 
 function AppointmentChip({ appointment, stylistColor, onClick }: { appointment: Appointment; stylistColor: string; onClick: () => void }) {
-  const duration = appointment.services?.reduce((sum, s) => sum + s.duration, 0) || 60;
-  const slots = Math.ceil(duration / 60);
+  const duration = Number(appointment.duration_minutes ?? appointment.duration) || appointment.services?.reduce((sum, s) => sum + (s.duration || 0), 0) || 30;
+  const slots = Math.ceil(duration / SLOT_MINUTES);
   const height = Math.max(slots * 44 - 4, 40);
   
   // Use direct fields from API (client_name, client_phone) or fallback to nested objects

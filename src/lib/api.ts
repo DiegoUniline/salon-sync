@@ -34,6 +34,79 @@ const getCurrentProfile = async () => {
   return profile as any;
 };
 
+const normalizeTime = (time?: string | null) => (time || "09:00").slice(0, 5);
+
+const buildScheduledAt = (date?: string | null, time?: string | null) => {
+  const safeDate = (date || new Date().toISOString().split("T")[0]).split("T")[0];
+  return `${safeDate}T${normalizeTime(time)}:00`;
+};
+
+const normalizeAppointmentPayload = async (apptData: any, isUpdate = false) => {
+  const payload: Record<string, any> = {};
+  const has = (key: string) => Object.prototype.hasOwnProperty.call(apptData, key);
+
+  if (!isUpdate || has("account_id")) {
+    payload.account_id = apptData.account_id || await getAccountId();
+  }
+
+  if (!isUpdate || has("branch_id")) payload.branch_id = apptData.branch_id;
+  if (has("client_id") || !isUpdate) payload.client_id = apptData.client_id || null;
+
+  if (has("stylist_id") || has("employee_id") || !isUpdate) {
+    const stylistId = apptData.stylist_id || apptData.employee_id || null;
+    payload.stylist_id = stylistId;
+    payload.employee_id = stylistId;
+  }
+
+  if (has("date") || has("time") || has("scheduled_at") || !isUpdate) {
+    const date = (apptData.date || apptData.scheduled_at || new Date().toISOString()).split("T")[0];
+    const time = normalizeTime(apptData.time || (apptData.scheduled_at ? apptData.scheduled_at.split("T")[1] : undefined));
+    payload.date = date;
+    payload.time = time;
+    payload.scheduled_at = apptData.scheduled_at || buildScheduledAt(date, time);
+  }
+
+  if (has("duration") || has("duration_minutes") || !isUpdate) {
+    payload.duration_minutes = Number(apptData.duration_minutes ?? apptData.duration ?? 30) || 30;
+  }
+
+  if (has("services") || !isUpdate) {
+    const services = Array.isArray(apptData.services) ? apptData.services : [];
+    payload.services = services;
+    payload.service_id = services[0]?.service_id || null;
+  }
+  if (has("products") || !isUpdate) payload.products = Array.isArray(apptData.products) ? apptData.products : [];
+  if (has("payments") || !isUpdate) payload.payments = Array.isArray(apptData.payments) ? apptData.payments : [];
+
+  if (has("subtotal") || !isUpdate) payload.subtotal = Number(apptData.subtotal ?? 0) || 0;
+  if (has("discount") || !isUpdate) payload.discount = Number(apptData.discount ?? 0) || 0;
+  if (has("total") || has("total_amount") || !isUpdate) {
+    const total = Number(apptData.total ?? apptData.total_amount ?? 0) || 0;
+    payload.total = total;
+    payload.total_amount = total;
+  }
+  if (has("tax")) payload.tax = Number(apptData.tax ?? 0) || 0;
+  if (has("notes") || !isUpdate) payload.notes = apptData.notes || null;
+  if (has("status") || !isUpdate) payload.status = apptData.status || "scheduled";
+  if (has("payment_status")) payload.payment_status = apptData.payment_status;
+
+  if (has("client_id") || !isUpdate) {
+    const clientId = apptData.client_id;
+    if (clientId) {
+      const { data: client } = await supabase.from("clients").select("name, phone, email").eq("id", clientId).maybeSingle();
+      payload.client_name = apptData.client_name ?? client?.name ?? null;
+      payload.client_phone = apptData.client_phone ?? client?.phone ?? null;
+      payload.client_email = apptData.client_email ?? client?.email ?? null;
+    } else {
+      payload.client_name = apptData.client_name ?? null;
+      payload.client_phone = apptData.client_phone ?? null;
+      payload.client_email = apptData.client_email ?? null;
+    }
+  }
+
+  return payload;
+};
+
 
 // ============ AUTH ============
 export const auth = {
@@ -725,12 +798,14 @@ export const appointments = {
     return data;
   },
   create: async (apptData: any) => {
-    const { data, error } = await supabase.from("appointments").insert(apptData).select().single();
+    const payload = await normalizeAppointmentPayload(apptData);
+    const { data, error } = await supabase.from("appointments").insert(payload as any).select().single();
     if (error) throw error;
     return data;
   },
   update: async (id: string, updates: any) => {
-    const { data, error } = await supabase.from("appointments").update(updates).eq("id", id).select().single();
+    const payload = await normalizeAppointmentPayload(updates, true);
+    const { data, error } = await supabase.from("appointments").update(payload as any).eq("id", id).select().single();
     if (error) throw error;
     return data;
   },
