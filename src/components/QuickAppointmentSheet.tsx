@@ -53,12 +53,13 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
   const [notes, setNotes] = useState("");
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const [viewMonth, setViewMonth] = useState<Date>(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [view, setView] = useState<"day" | "week" | "month">("month");
+  const [anchor, setAnchor] = useState<Date>(new Date(today));
   const [date, setDate] = useState<string>(ymd(today));
   const [time, setTime] = useState<string>("");
 
-  const [monthAppts, setMonthAppts] = useState<ApptRow[]>([]);
-  const [loadingMonth, setLoadingMonth] = useState(false);
+  const [rangeAppts, setRangeAppts] = useState<ApptRow[]>([]);
+  const [loadingRange, setLoadingRange] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -72,7 +73,8 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
     setTime("");
     const t = new Date(); t.setHours(0, 0, 0, 0);
     setDate(ymd(t));
-    setViewMonth(new Date(t.getFullYear(), t.getMonth(), 1));
+    setAnchor(new Date(t));
+    setView("month");
 
     (async () => {
       setLoading(true);
@@ -107,18 +109,33 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
     if (svc) setDuration(svc.duration || 30);
   }, [serviceId, services]);
 
-  // Fetch appointments for the viewed month for the selected stylist
+  // Compute visible range depending on view
+  const range = useMemo(() => {
+    if (view === "day") {
+      return { start: new Date(anchor), end: new Date(anchor) };
+    }
+    if (view === "week") {
+      const d = new Date(anchor);
+      const dow = (d.getDay() + 6) % 7; // Mon=0
+      const start = new Date(d); start.setDate(d.getDate() - dow);
+      const end = new Date(start); end.setDate(start.getDate() + 6);
+      return { start, end };
+    }
+    const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+    const end = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
+    return { start, end };
+  }, [view, anchor]);
+
+  // Fetch appointments for the visible range for the selected stylist
   useEffect(() => {
-    if (!stylistId || !open) { setMonthAppts([]); return; }
+    if (!stylistId || !open) { setRangeAppts([]); return; }
     (async () => {
-      setLoadingMonth(true);
+      setLoadingRange(true);
       try {
-        const start = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
-        const end = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0);
         const data = await api.appointments.getAll({
           stylist_id: stylistId,
-          start_date: ymd(start),
-          end_date: ymd(end),
+          start_date: ymd(range.start),
+          end_date: ymd(range.end),
         });
         const rows: ApptRow[] = (data || [])
           .filter((a: any) => a.status !== "cancelled")
@@ -130,56 +147,73 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
             stylist_id: a.stylist_id,
             status: a.status,
           }));
-        setMonthAppts(rows);
+        setRangeAppts(rows);
       } catch (e: any) {
         console.error(e);
       } finally {
-        setLoadingMonth(false);
+        setLoadingRange(false);
       }
     })();
-  }, [stylistId, viewMonth, open]);
+  }, [stylistId, range.start, range.end, open]);
 
   const endTime = time ? toTime(toMin(time) + duration) : "";
 
-  // Build month grid (Mon-first)
+  // Month grid (Mon-first)
   const monthGrid = useMemo(() => {
-    const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
-    const startWeekday = (first.getDay() + 6) % 7; // Mon=0
-    const daysInMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).getDate();
+    const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+    const startWeekday = (first.getDay() + 6) % 7;
+    const daysInMonth = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate();
     const cells: Array<{ date: Date | null; key: string }> = [];
     for (let i = 0; i < startWeekday; i++) cells.push({ date: null, key: `e${i}` });
     for (let d = 1; d <= daysInMonth; d++) {
-      const dt = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), d);
+      const dt = new Date(anchor.getFullYear(), anchor.getMonth(), d);
       cells.push({ date: dt, key: ymd(dt) });
     }
     while (cells.length % 7 !== 0) cells.push({ date: null, key: `f${cells.length}` });
     return cells;
-  }, [viewMonth]);
+  }, [anchor]);
+
+  // Week days (Mon-Sun)
+  const weekDays = useMemo(() => {
+    const days: Date[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(range.start); d.setDate(range.start.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }, [range.start]);
 
   const countByDay = useMemo(() => {
     const m: Record<string, number> = {};
-    monthAppts.forEach((a) => { if (a.date) m[a.date] = (m[a.date] || 0) + 1; });
+    rangeAppts.forEach((a) => { if (a.date) m[a.date] = (m[a.date] || 0) + 1; });
     return m;
-  }, [monthAppts]);
+  }, [rangeAppts]);
 
-  // Time slots for selected day
+  const isSlotBusy = (dateKey: string, minute: number) => {
+    const end = minute + duration;
+    return rangeAppts.some((a) => {
+      if (a.date !== dateKey) return false;
+      const s = toMin(a.time);
+      const e = s + (a.duration || 30);
+      return minute < e && end > s;
+    });
+  };
+
+  // Time slots for selected day (day-view + fallback picker)
   const daySlots = useMemo(() => {
-    const dayAppts = monthAppts.filter((a) => a.date === date);
     const slots: Array<{ time: string; busy: boolean }> = [];
     for (let m = DAY_START; m + duration <= DAY_END; m += SLOT) {
-      const end = m + duration;
-      const busy = dayAppts.some((a) => {
-        const s = toMin(a.time);
-        const e = s + (a.duration || 30);
-        return m < e && end > s;
-      });
-      slots.push({ time: toTime(m), busy });
+      slots.push({ time: toTime(m), busy: isSlotBusy(date, m) });
     }
     return slots;
-  }, [monthAppts, date, duration]);
+  }, [rangeAppts, date, duration]);
 
-  const shiftMonth = (delta: number) => {
-    setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + delta, 1));
+  const shift = (delta: number) => {
+    const d = new Date(anchor);
+    if (view === "day") d.setDate(d.getDate() + delta);
+    else if (view === "week") d.setDate(d.getDate() + delta * 7);
+    else d.setMonth(d.getMonth() + delta);
+    setAnchor(d);
   };
 
   const handleSave = async () => {
@@ -280,55 +314,137 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
 
             {/* Calendar */}
             <div className="rounded-lg border p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => shiftMonth(-1)}>
+              <div className="flex items-center justify-between gap-2">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => shift(-1)}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <div className="text-sm font-semibold capitalize">
-                  {MONTHS[viewMonth.getMonth()]} {viewMonth.getFullYear()}
+                <div className="text-sm font-semibold capitalize text-center flex-1">
+                  {view === "day" && anchor.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "short", year: "numeric" })}
+                  {view === "week" && `${range.start.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} – ${range.end.toLocaleDateString("es-MX", { day: "numeric", month: "short" })}`}
+                  {view === "month" && `${MONTHS[anchor.getMonth()]} ${anchor.getFullYear()}`}
                 </div>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => shiftMonth(1)}>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => shift(1)}>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
 
-              <div className="grid grid-cols-7 gap-1 text-[10px] text-center text-muted-foreground">
-                {WEEKDAYS.map((d, i) => <div key={i}>{d}</div>)}
+              <div className="flex rounded-md border overflow-hidden text-xs">
+                {(["day", "week", "month"] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setView(v)}
+                    className={cn(
+                      "flex-1 py-1 capitalize transition-colors",
+                      view === v ? "bg-primary text-primary-foreground" : "bg-background hover:bg-accent",
+                    )}
+                  >
+                    {v === "day" ? "Día" : v === "week" ? "Semana" : "Mes"}
+                  </button>
+                ))}
               </div>
 
-              <div className="grid grid-cols-7 gap-1">
-                {monthGrid.map((cell) => {
-                  if (!cell.date) return <div key={cell.key} />;
-                  const key = ymd(cell.date);
-                  const isPast = cell.date < today;
-                  const isSelected = key === date;
-                  const count = countByDay[key] || 0;
-                  return (
-                    <button
-                      key={cell.key}
-                      disabled={isPast || !stylistId}
-                      onClick={() => { setDate(key); setTime(""); }}
-                      className={cn(
-                        "relative aspect-square rounded-md text-xs flex flex-col items-center justify-center transition-colors",
-                        "border",
-                        isSelected
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background hover:bg-accent border-border",
-                        isPast && "opacity-40 cursor-not-allowed hover:bg-background",
-                        !stylistId && !isSelected && "opacity-60",
-                      )}
-                    >
-                      <span className="font-medium">{cell.date.getDate()}</span>
-                      {count > 0 && (
-                        <span className={cn(
-                          "absolute bottom-0.5 text-[9px] leading-none px-1 rounded-full",
-                          isSelected ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground",
-                        )}>{count}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+              {view === "month" && (
+                <>
+                  <div className="grid grid-cols-7 gap-1 text-[10px] text-center text-muted-foreground">
+                    {WEEKDAYS.map((d, i) => <div key={i}>{d}</div>)}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {monthGrid.map((cell) => {
+                      if (!cell.date) return <div key={cell.key} />;
+                      const key = ymd(cell.date);
+                      const isPast = cell.date < today;
+                      const isSelected = key === date;
+                      const count = countByDay[key] || 0;
+                      return (
+                        <button
+                          key={cell.key}
+                          disabled={isPast || !stylistId}
+                          onClick={() => { setDate(key); setTime(""); setAnchor(cell.date!); }}
+                          className={cn(
+                            "relative aspect-square rounded-md text-xs flex flex-col items-center justify-center transition-colors border",
+                            isSelected ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent border-border",
+                            isPast && "opacity-40 cursor-not-allowed hover:bg-background",
+                            !stylistId && !isSelected && "opacity-60",
+                          )}
+                        >
+                          <span className="font-medium">{cell.date.getDate()}</span>
+                          {count > 0 && (
+                            <span className={cn(
+                              "absolute bottom-0.5 text-[9px] leading-none px-1 rounded-full",
+                              isSelected ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground",
+                            )}>{count}</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {view === "week" && (
+                <div className="overflow-x-auto">
+                  <div className="min-w-[520px]">
+                    <div className="grid grid-cols-[48px_repeat(7,1fr)] gap-0.5 text-[10px] text-center text-muted-foreground mb-1">
+                      <div />
+                      {weekDays.map((d, i) => {
+                        const isSel = ymd(d) === date;
+                        const isPast = d < today;
+                        return (
+                          <button
+                            key={i}
+                            disabled={isPast || !stylistId}
+                            onClick={() => { setDate(ymd(d)); setTime(""); setAnchor(d); }}
+                            className={cn(
+                              "rounded py-1 leading-tight",
+                              isSel ? "bg-primary text-primary-foreground" : "hover:bg-accent",
+                              isPast && "opacity-40 cursor-not-allowed",
+                            )}
+                          >
+                            <div>{WEEKDAYS[i]}</div>
+                            <div className="font-semibold text-foreground">{d.getDate()}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="max-h-72 overflow-y-auto">
+                      {Array.from({ length: Math.ceil((DAY_END - DAY_START) / 30) }).map((_, rowIdx) => {
+                        const minute = DAY_START + rowIdx * 30;
+                        return (
+                          <div key={minute} className="grid grid-cols-[48px_repeat(7,1fr)] gap-0.5 mb-0.5">
+                            <div className="text-[10px] text-muted-foreground text-right pr-1 pt-1">{toTime(minute)}</div>
+                            {weekDays.map((d, i) => {
+                              const key = ymd(d);
+                              const isPast = d < today;
+                              const busy = stylistId ? isSlotBusy(key, minute) : false;
+                              const isSel = key === date && time === toTime(minute);
+                              return (
+                                <button
+                                  key={i}
+                                  disabled={isPast || !stylistId || busy}
+                                  onClick={() => { setDate(key); setTime(toTime(minute)); setAnchor(d); }}
+                                  className={cn(
+                                    "h-6 rounded border text-[9px] transition-colors",
+                                    isSel && "bg-primary text-primary-foreground border-primary",
+                                    !isSel && busy && "bg-destructive/15 border-destructive/30 cursor-not-allowed",
+                                    !isSel && !busy && "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/25",
+                                    isPast && "opacity-30 cursor-not-allowed",
+                                  )}
+                                />
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {view === "day" && (
+                <p className="text-[11px] text-center text-muted-foreground">
+                  Selecciona el horario en el panel inferior
+                </p>
+              )}
 
               {!stylistId && (
                 <p className="text-[11px] text-center text-muted-foreground">Selecciona un estilista para ver disponibilidad</p>
@@ -356,7 +472,7 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                   </div>
                 </div>
 
-                {loadingMonth ? (
+                {loadingRange ? (
                   <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin" /></div>
                 ) : (
                   <div className="grid grid-cols-4 gap-1.5 max-h-64 overflow-y-auto pr-1">
