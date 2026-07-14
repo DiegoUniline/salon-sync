@@ -335,7 +335,7 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                 {clientId && <Badge variant="secondary" className="text-[10px]">existente</Badge>}
                 {!clientId && <Badge className="text-[10px]">nuevo</Badge>}
               </div>
-              <div className="grid grid-cols-1 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <Input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Nombre" />
                 <Input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="Teléfono" />
               </div>
