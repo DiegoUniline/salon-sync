@@ -82,11 +82,11 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
     const d = dragRef.current;
     if (!d) return;
     const a = Math.min(d.startMin, d.endMin);
-    const b = Math.max(d.startMin, d.endMin) + d.step;
+    const b = Math.max(d.startMin, d.endMin);
     setDate(d.date);
     setAnchor(new Date(d.date + "T00:00:00"));
     setTime(toTime(a));
-    setDuration(Math.max(d.step, b - a));
+    setDuration(Math.max(d.step, b - a || d.step));
     setDrag(null);
   };
 
