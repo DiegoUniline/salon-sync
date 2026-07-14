@@ -1,19 +1,22 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Send, Phone, QrCode, RefreshCw, Power, MessageSquare, Search, User, CalendarPlus } from "lucide-react";
+import { Loader2, Send, Phone, QrCode, RefreshCw, Power, MessageSquare, Search, User, CalendarPlus, Link2, UserPlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QuickAppointmentSheet } from "@/components/QuickAppointmentSheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import api from "@/lib/api";
 
 interface Instance { id: string; instance_name: string; phone_number: string | null; status: string; qr_code: string | null; }
-interface Conversation { id: string; remote_jid: string; contact_name: string | null; contact_phone: string | null; last_message: string | null; last_message_at: string | null; unread_count: number; client_id: string | null; }
+interface Conversation { id: string; remote_jid: string; contact_name: string | null; contact_phone: string | null; last_message: string | null; last_message_at: string | null; unread_count: number; client_id: string | null; client_name?: string | null; }
 interface Message { id: string; from_me: boolean; content: string | null; message_type: string; status: string; timestamp: string; }
+interface ClientRow { id: string; name: string; phone: string | null; }
 
 export default function WhatsApp() {
   const [instance, setInstance] = useState<Instance | null>(null);
