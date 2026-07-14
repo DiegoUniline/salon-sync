@@ -82,11 +82,11 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
     const d = dragRef.current;
     if (!d) return;
     const a = Math.min(d.startMin, d.endMin);
-    const b = Math.max(d.startMin, d.endMin) + d.step;
+    const b = Math.max(d.startMin, d.endMin);
     setDate(d.date);
     setAnchor(new Date(d.date + "T00:00:00"));
     setTime(toTime(a));
-    setDuration(Math.max(d.step, b - a));
+    setDuration(Math.max(d.step, b - a || d.step));
     setDrag(null);
   };
 
@@ -470,7 +470,8 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                               const key = ymd(d);
                               const isPast = d < today;
                               const busy = stylistId ? isSlotBusy(key, minute) : false;
-                              const isSel = key === date && time === toTime(minute);
+                              const selStart = time ? toMin(time) : -1;
+                              const isSel = key === date && time !== "" && minute >= selStart && minute < selStart + duration;
                               const inDrag = !!(drag && drag.date === key && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin));
                               const disabled = isPast || !stylistId || busy;
                               return (
@@ -507,7 +508,8 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                     const key = ymd(anchor);
                     const isPast = anchor < today;
                     const busy = stylistId ? isSlotBusy(key, minute) : false;
-                    const isSel = key === date && time === toTime(minute);
+                    const selStart = time ? toMin(time) : -1;
+                    const isSel = key === date && time !== "" && minute >= selStart && minute < selStart + duration;
                     const inDrag = !!(drag && drag.date === key && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin));
                     const disabled = isPast || !stylistId || busy;
                     return (
