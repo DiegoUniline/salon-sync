@@ -460,7 +460,7 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                         );
                       })}
                     </div>
-                    <div className="max-h-72 overflow-y-auto">
+                    <div className="max-h-72 overflow-y-auto touch-none select-none" onPointerDown={onGridPointerDown} onPointerMove={onGridPointerMove}>
                       {Array.from({ length: Math.ceil((DAY_END - DAY_START) / 30) }).map((_, rowIdx) => {
                         const minute = DAY_START + rowIdx * 30;
                         return (
@@ -471,19 +471,22 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                               const isPast = d < today;
                               const busy = stylistId ? isSlotBusy(key, minute) : false;
                               const isSel = key === date && time === toTime(minute);
+                              const inDrag = !!(drag && drag.date === key && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin));
+                              const disabled = isPast || !stylistId || busy;
                               return (
-                                <button
+                                <div
                                   key={i}
-                                  disabled={isPast || !stylistId || busy}
-                                  onMouseDown={(e) => { e.preventDefault(); setDrag({ date: key, startMin: minute, endMin: minute, step: 30 }); }}
-                                  onMouseEnter={() => { if (drag && drag.date === key) setDrag({ ...drag, endMin: minute }); }}
-                                  onClick={() => { if (!drag) { setDate(key); setTime(toTime(minute)); setAnchor(d); } }}
+                                  data-slot-date={disabled ? undefined : key}
+                                  data-slot-min={disabled ? undefined : minute}
+                                  data-slot-step="30"
+                                  data-slot-busy={busy ? "1" : "0"}
+                                  onClick={() => { if (!disabled && !drag) { setDate(key); setTime(toTime(minute)); setAnchor(d); } }}
                                   className={cn(
-                                    "h-6 rounded border text-[9px] transition-colors select-none",
+                                    "h-6 rounded border text-[9px] transition-colors",
                                     isSel && "bg-primary text-primary-foreground border-primary",
-                                    drag && drag.date === key && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin) && "bg-primary/40 border-primary",
-                                    !isSel && busy && "bg-destructive/15 border-destructive/30 cursor-not-allowed",
-                                    !isSel && !busy && "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/25",
+                                    inDrag && "bg-primary/50 border-primary",
+                                    !isSel && !inDrag && busy && "bg-destructive/15 border-destructive/30 cursor-not-allowed",
+                                    !isSel && !inDrag && !busy && "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/25 cursor-pointer",
                                     isPast && "opacity-30 cursor-not-allowed",
                                   )}
                                 />
