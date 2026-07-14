@@ -1,19 +1,22 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Send, Phone, QrCode, RefreshCw, Power, MessageSquare, Search, User, CalendarPlus } from "lucide-react";
+import { Loader2, Send, Phone, QrCode, RefreshCw, Power, MessageSquare, Search, User, CalendarPlus, Link2, UserPlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QuickAppointmentSheet } from "@/components/QuickAppointmentSheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import api from "@/lib/api";
 
 interface Instance { id: string; instance_name: string; phone_number: string | null; status: string; qr_code: string | null; }
-interface Conversation { id: string; remote_jid: string; contact_name: string | null; contact_phone: string | null; last_message: string | null; last_message_at: string | null; unread_count: number; client_id: string | null; }
+interface Conversation { id: string; remote_jid: string; contact_name: string | null; contact_phone: string | null; last_message: string | null; last_message_at: string | null; unread_count: number; client_id: string | null; client_name?: string | null; }
 interface Message { id: string; from_me: boolean; content: string | null; message_type: string; status: string; timestamp: string; }
+interface ClientRow { id: string; name: string; phone: string | null; }
 
 export default function WhatsApp() {
   const [instance, setInstance] = useState<Instance | null>(null);
@@ -26,6 +29,10 @@ export default function WhatsApp() {
   const [search, setSearch] = useState("");
   const [newChatPhone, setNewChatPhone] = useState("");
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [clients, setClients] = useState<ClientRow[]>([]);
+  const [clientSearch, setClientSearch] = useState("");
+  const [linking, setLinking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const callFn = async (action: string, params: Record<string, any> = {}) => {
@@ -42,8 +49,44 @@ export default function WhatsApp() {
     setLoadingInst(false);
   };
   const loadConversations = async () => {
-    const { data } = await supabase.from("whatsapp_conversations").select("*").order("last_message_at", { ascending: false, nullsFirst: false });
-    setConversations((data as any[]) || []);
+    const { data } = await supabase
+      .from("whatsapp_conversations")
+      .select("*, clients(name)")
+      .order("last_message_at", { ascending: false, nullsFirst: false });
+    setConversations(((data as any[]) || []).map((c) => ({ ...c, client_name: c.clients?.name || null })));
+  };
+  const openLinkClient = async () => {
+    setLinkOpen(true);
+    try {
+      const all = await api.clients.getAll();
+      setClients((all || []).map((c: any) => ({ id: c.id, name: c.name, phone: c.phone })));
+    } catch (e: any) { toast.error(e?.message || "Error cargando clientes"); }
+  };
+  const linkClient = async (clientId: string | null) => {
+    if (!selectedId) return;
+    setLinking(true);
+    try {
+      await supabase.from("whatsapp_conversations").update({ client_id: clientId }).eq("id", selectedId);
+      toast.success(clientId ? "Cliente vinculado" : "Vínculo eliminado");
+      setLinkOpen(false);
+      await loadConversations();
+    } catch (e: any) { toast.error(e?.message || "Error"); }
+    finally { setLinking(false); }
+  };
+  const createAndLinkClient = async () => {
+    if (!selected) return;
+    setLinking(true);
+    try {
+      const created = await api.clients.create({
+        name: selected.contact_name || selected.contact_phone || "Cliente WhatsApp",
+        phone: selected.contact_phone || "",
+      });
+      await supabase.from("whatsapp_conversations").update({ client_id: created.id }).eq("id", selected.id);
+      toast.success("Cliente creado y vinculado");
+      setLinkOpen(false);
+      await loadConversations();
+    } catch (e: any) { toast.error(e?.message || "Error"); }
+    finally { setLinking(false); }
   };
   const loadMessages = async (convId: string) => {
     const { data } = await supabase.from("whatsapp_messages").select("*").eq("conversation_id", convId).order("timestamp", { ascending: true }).limit(200);
@@ -171,21 +214,27 @@ export default function WhatsApp() {
           </div>
           <ScrollArea className="flex-1">
             {filtered.length === 0 && <p className="text-center text-sm text-muted-foreground p-6">Sin conversaciones aún</p>}
-            {filtered.map((c) => (
-              <button key={c.id} onClick={() => setSelectedId(c.id)}
-                className={cn("w-full text-left p-3 border-b hover:bg-accent transition-colors", selectedId === c.id && "bg-accent")}>
-                <div className="flex justify-between items-start gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{c.contact_name || c.contact_phone}</p>
-                    <p className="text-xs text-muted-foreground truncate">{c.last_message || "—"}</p>
+            {filtered.map((c) => {
+              const displayName = c.client_name || c.contact_name || c.contact_phone;
+              return (
+                <button key={c.id} onClick={() => setSelectedId(c.id)}
+                  className={cn("w-full text-left p-3 border-b hover:bg-accent transition-colors", selectedId === c.id && "bg-accent")}>
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate flex items-center gap-1.5">
+                        {displayName}
+                        {c.client_id && <Link2 className="h-3 w-3 text-primary shrink-0" />}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">{c.last_message || "—"}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      {c.last_message_at && <span className="text-[10px] text-muted-foreground">{new Date(c.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                      {c.unread_count > 0 && <Badge className="h-5 min-w-5 px-1 text-[10px]">{c.unread_count}</Badge>}
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    {c.last_message_at && <span className="text-[10px] text-muted-foreground">{new Date(c.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
-                    {c.unread_count > 0 && <Badge className="h-5 min-w-5 px-1 text-[10px]">{c.unread_count}</Badge>}
-                  </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </ScrollArea>
         </Card>
 
@@ -197,9 +246,21 @@ export default function WhatsApp() {
               <div className="p-3 border-b flex items-center gap-3">
                 <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center"><User className="h-5 w-5" /></div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{selected.contact_name || selected.contact_phone}</p>
-                  <p className="text-xs text-muted-foreground">+{selected.contact_phone}</p>
+                  <p className="font-medium truncate flex items-center gap-1.5">
+                    {selected.client_name || selected.contact_name || selected.contact_phone}
+                    {selected.client_id && <Badge variant="secondary" className="text-[10px] gap-1"><Link2 className="h-3 w-3" />Cliente</Badge>}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    +{selected.contact_phone}
+                    {selected.client_name && selected.contact_name && selected.client_name !== selected.contact_name && (
+                      <span className="ml-1">· WA: {selected.contact_name}</span>
+                    )}
+                  </p>
                 </div>
+                <Button size="sm" variant="outline" onClick={openLinkClient} className="gap-1">
+                  <Link2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">{selected.client_id ? "Cambiar" : "Vincular"}</span>
+                </Button>
                 <Button size="sm" variant="default" onClick={() => setScheduleOpen(true)} className="gap-1">
                   <CalendarPlus className="h-4 w-4" />
                   <span className="hidden sm:inline">Agendar</span>
@@ -244,6 +305,55 @@ export default function WhatsApp() {
           onScheduled={loadConversations}
         />
       )}
+
+      <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Vincular contacto a un cliente</DialogTitle>
+            <DialogDescription>
+              Al vincular, el chat mostrará el nombre del cliente en el CRM.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Button variant="outline" className="w-full justify-start gap-2" onClick={createAndLinkClient} disabled={linking}>
+              <UserPlus className="h-4 w-4" />
+              Crear cliente nuevo con estos datos
+            </Button>
+            {selected?.client_id && (
+              <Button variant="ghost" className="w-full justify-start gap-2 text-destructive" onClick={() => linkClient(null)} disabled={linking}>
+                <X className="h-4 w-4" />
+                Quitar vínculo actual
+              </Button>
+            )}
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Buscar cliente existente..." className="pl-8"
+                value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
+            </div>
+            <ScrollArea className="h-64 border rounded-md">
+              {clients
+                .filter((c) => {
+                  if (!clientSearch) return true;
+                  const q = clientSearch.toLowerCase();
+                  return c.name.toLowerCase().includes(q) || (c.phone || "").includes(q);
+                })
+                .slice(0, 100)
+                .map((c) => (
+                  <button key={c.id} onClick={() => linkClient(c.id)} disabled={linking}
+                    className={cn("w-full text-left px-3 py-2 border-b hover:bg-accent transition-colors flex justify-between items-center gap-2",
+                      selected?.client_id === c.id && "bg-primary/10")}>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{c.name}</p>
+                      {c.phone && <p className="text-xs text-muted-foreground truncate">{c.phone}</p>}
+                    </div>
+                    {selected?.client_id === c.id && <Badge variant="secondary" className="text-[10px]">actual</Badge>}
+                  </button>
+                ))}
+              {clients.length === 0 && <p className="text-center text-sm text-muted-foreground p-6">No hay clientes</p>}
+            </ScrollArea>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
