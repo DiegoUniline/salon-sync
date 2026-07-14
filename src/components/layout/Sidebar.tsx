@@ -187,8 +187,8 @@ export function Sidebar() {
               item.brand
                 ? 'bg-[#25D366] text-white'
                 : isActive
-                ? cn(c.activeTile, 'text-white')
-                : cn(c.tile, c.icon)
+                ? 'text-sidebar-accent-foreground'
+                : 'text-sidebar-foreground/80'
             )}
           >
             <Icon className="h-4 w-4" />
