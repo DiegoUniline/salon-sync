@@ -209,7 +209,11 @@ export default function Landing() {
 
       {/* ============ HERO ============ */}
       <section id="top" className="relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 pt-16 md:pt-24 pb-16 md:pb-20">
+        {/* Ambient blobs */}
+        <div className="blob bg-accent/30 h-[380px] w-[380px] -top-24 -left-24" />
+        <div className="blob bg-primary/20 h-[420px] w-[420px] top-40 -right-32" style={{ animationDelay: '2s' }} />
+
+        <div className="relative max-w-7xl mx-auto px-4 md:px-6 pt-16 md:pt-24 pb-16 md:pb-20">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Copy */}
             <div className="space-y-6 fade-up">
