@@ -335,13 +335,13 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                 {clientId && <Badge variant="secondary" className="text-[10px]">existente</Badge>}
                 {!clientId && <Badge className="text-[10px]">nuevo</Badge>}
               </div>
-              <div className="grid grid-cols-1 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <Input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Nombre" />
                 <Input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="Teléfono" />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Servicio</Label>
                 <Select value={serviceId} onValueChange={setServiceId}>
@@ -471,7 +471,7 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                               const isPast = d < today;
                               const busy = stylistId ? isSlotBusy(key, minute) : false;
                               const selStart = time ? toMin(time) : -1;
-                              const isSel = key === date && time !== "" && minute >= selStart && minute < selStart + duration;
+                              const isSel = key === date && time !== "" && minute >= selStart && minute < selStart + duration + 30;
                               const inDrag = !!(drag && drag.date === key && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin));
                               const disabled = isPast || !stylistId || busy;
                               return (
@@ -509,7 +509,7 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                     const isPast = anchor < today;
                     const busy = stylistId ? isSlotBusy(key, minute) : false;
                     const selStart = time ? toMin(time) : -1;
-                    const isSel = key === date && time !== "" && minute >= selStart && minute < selStart + duration;
+                    const isSel = key === date && time !== "" && minute >= selStart && minute < selStart + duration + SLOT;
                     const inDrag = !!(drag && drag.date === key && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin));
                     const disabled = isPast || !stylistId || busy;
                     return (
