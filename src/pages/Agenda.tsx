@@ -116,13 +116,17 @@ const statusLabels = {
 };
 
 export default function Agenda() {
+  const { toast } = useToast();
   const { currentBranch } = useApp();
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [blocks, setBlocks] = useState<any[]>([]);
   const [stylists, setStylists] = useState<Stylist[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [blockPrefill, setBlockPrefill] = useState<{ date?: string; startTime?: string; endTime?: string; stylistId?: string }>({});
   
   const [selectedBranches, setSelectedBranches] = useState<string[]>([currentBranch?.id || '']);
   const [selectedStylists, setSelectedStylists] = useState<string[]>([]);
