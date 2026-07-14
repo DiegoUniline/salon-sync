@@ -141,6 +141,8 @@ export default function Ventas() {
   // Ticket state
   const [showTicket, setShowTicket] = useState(false);
   const [ticketData, setTicketData] = useState<TicketData | null>(null);
+  const [lastSaleId, setLastSaleId] = useState<string | null>(null);
+  const [rebookOpen, setRebookOpen] = useState(false);
 
   // Load data
   useEffect(() => {
