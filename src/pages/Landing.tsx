@@ -22,6 +22,7 @@ import {
   Heart,
   Store,
 } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 
 const features = [
   {
