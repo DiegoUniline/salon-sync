@@ -53,7 +53,7 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
   const [notes, setNotes] = useState("");
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const [view, setView] = useState<"day" | "week" | "month">("month");
+  const [view, setView] = useState<"day" | "week" | "month">("week");
   const [anchor, setAnchor] = useState<Date>(new Date(today));
   const [date, setDate] = useState<string>(ymd(today));
   const [time, setTime] = useState<string>("");
@@ -128,7 +128,7 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
     const t = new Date(); t.setHours(0, 0, 0, 0);
     setDate(ymd(t));
     setAnchor(new Date(t));
-    setView("month");
+    setView("week");
 
     (async () => {
       setLoading(true);
