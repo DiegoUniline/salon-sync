@@ -131,9 +131,24 @@ Deno.serve(async (req) => {
       return json(req, { error: profErr.message }, 400);
     }
 
-    // Assign role (default 'employee')
-    const roleName = role && ["admin", "account_admin", "employee"].includes(role) ? role : "employee";
+    // Whitelist de roles asignables según jerarquía del caller
+    const callerRoles = (rolesList || []).map((r: any) => r.role);
+    const isSuperAdmin = callerRoles.includes("super_admin");
+    const isAccountAdmin = callerRoles.includes("account_admin");
+
+    let assignable: string[];
+    if (isSuperAdmin) assignable = ["super_admin", "account_admin", "admin", "employee"];
+    else if (isAccountAdmin) assignable = ["admin", "employee"]; // NO puede crear account_admin ni super_admin
+    else assignable = ["employee"];
+
+    const requestedRole = typeof role === "string" ? role : "employee";
+    if (role && !assignable.includes(requestedRole)) {
+      await admin.auth.admin.deleteUser(newUserId);
+      return json(req, { error: `No tienes permisos para asignar el rol '${requestedRole}'` }, 403);
+    }
+    const roleName = assignable.includes(requestedRole) ? requestedRole : "employee";
     await admin.from("user_roles").insert({ user_id: newUserId, role: roleName });
+
 
     return json(req, { success: true, profile, user_id: newUserId });
   } catch (e: any) {
