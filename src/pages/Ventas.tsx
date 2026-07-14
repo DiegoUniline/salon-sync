@@ -997,8 +997,17 @@ export default function Ventas() {
           data={ticketData}
           open={showTicket}
           onOpenChange={setShowTicket}
+          saleId={lastSaleId || undefined}
+          onRebook={() => { setShowTicket(false); setRebookOpen(true); }}
         />
       )}
+
+      <QuickAppointmentSheet
+        open={rebookOpen}
+        onOpenChange={setRebookOpen}
+        contactName={ticketData?.clientName || null}
+        contactPhone={ticketData?.clientPhone || null}
+      />
     </div>
   );
 }
