@@ -107,6 +107,9 @@ const fullPermissions: Record<ModuleId, ModulePermissions> = {
   configuracion: { view: true, create: true, edit: true, delete: true },
   permisos: { view: true, create: true, edit: true, delete: true },
   superadmin: { view: false, create: false, edit: false, delete: false },
+  reportes: { view: true, create: true, edit: true, delete: true },
+  comisiones: { view: true, create: true, edit: true, delete: true },
+  auditoria: { view: true, create: true, edit: true, delete: true },
 };
 
 // Permisos de Super Admin (acceso total incluyendo panel de admin)
