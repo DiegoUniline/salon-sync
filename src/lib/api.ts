@@ -801,22 +801,26 @@ export const appointments = {
     const payload = await normalizeAppointmentPayload(apptData);
     const { data, error } = await supabase.from("appointments").insert(payload as any).select().single();
     if (error) throw error;
+    import("@/lib/audit").then(({ logAudit }) => logAudit({ action: "create", entity_table: "appointments", entity_id: (data as any)?.id, summary: `Cita creada para ${(data as any)?.client_name || "cliente"} el ${(data as any)?.date}`, new_data: data }));
     return data;
   },
   update: async (id: string, updates: any) => {
     const payload = await normalizeAppointmentPayload(updates, true);
     const { data, error } = await supabase.from("appointments").update(payload as any).eq("id", id).select().single();
     if (error) throw error;
+    import("@/lib/audit").then(({ logAudit }) => logAudit({ action: "update", entity_table: "appointments", entity_id: id, summary: `Cita actualizada (${(data as any)?.status || "?"})`, new_data: data }));
     return data;
   },
   updateStatus: async (id: string, status: string) => {
     const { data, error } = await supabase.from("appointments").update({ status }).eq("id", id).select().single();
     if (error) throw error;
+    import("@/lib/audit").then(({ logAudit }) => logAudit({ action: "update", entity_table: "appointments", entity_id: id, summary: `Estado cambiado a ${status}` }));
     return data;
   },
   delete: async (id: string) => {
     const { error } = await supabase.from("appointments").delete().eq("id", id);
     if (error) throw error;
+    import("@/lib/audit").then(({ logAudit }) => logAudit({ action: "delete", entity_table: "appointments", entity_id: id, summary: `Cita eliminada` }));
   },
 };
 
