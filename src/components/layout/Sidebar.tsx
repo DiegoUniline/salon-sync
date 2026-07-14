@@ -65,6 +65,7 @@ const groups: NavGroup[] = [
       { path: '/citas', icon: CalendarCheck, label: 'Citas', moduleId: 'agenda' },
       { path: '/pagos', icon: DollarSign, label: 'Pagos', moduleId: 'agenda' },
       { path: '/ventas', icon: DollarSign, label: 'Ventas', moduleId: 'ventas' },
+      { path: '/cobro-express', icon: Receipt, label: 'Cobro Express', moduleId: 'ventas' },
     ],
   },
   {
