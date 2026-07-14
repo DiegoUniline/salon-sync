@@ -18,6 +18,7 @@ import Dashboard from "./pages/Dashboard";
 import Agenda from "./pages/Agenda";
 import Citas from "./pages/Citas";
 import Ventas from "./pages/Ventas";
+import CobroExpress from "./pages/CobroExpress";
 import Pagos from "./pages/Pagos";
 import Gastos from "./pages/Gastos";
 import Compras from "./pages/Compras";
