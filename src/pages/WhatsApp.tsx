@@ -214,21 +214,27 @@ export default function WhatsApp() {
           </div>
           <ScrollArea className="flex-1">
             {filtered.length === 0 && <p className="text-center text-sm text-muted-foreground p-6">Sin conversaciones aún</p>}
-            {filtered.map((c) => (
-              <button key={c.id} onClick={() => setSelectedId(c.id)}
-                className={cn("w-full text-left p-3 border-b hover:bg-accent transition-colors", selectedId === c.id && "bg-accent")}>
-                <div className="flex justify-between items-start gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{c.contact_name || c.contact_phone}</p>
-                    <p className="text-xs text-muted-foreground truncate">{c.last_message || "—"}</p>
+            {filtered.map((c) => {
+              const displayName = c.client_name || c.contact_name || c.contact_phone;
+              return (
+                <button key={c.id} onClick={() => setSelectedId(c.id)}
+                  className={cn("w-full text-left p-3 border-b hover:bg-accent transition-colors", selectedId === c.id && "bg-accent")}>
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate flex items-center gap-1.5">
+                        {displayName}
+                        {c.client_id && <Link2 className="h-3 w-3 text-primary shrink-0" />}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">{c.last_message || "—"}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      {c.last_message_at && <span className="text-[10px] text-muted-foreground">{new Date(c.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                      {c.unread_count > 0 && <Badge className="h-5 min-w-5 px-1 text-[10px]">{c.unread_count}</Badge>}
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    {c.last_message_at && <span className="text-[10px] text-muted-foreground">{new Date(c.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
-                    {c.unread_count > 0 && <Badge className="h-5 min-w-5 px-1 text-[10px]">{c.unread_count}</Badge>}
-                  </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </ScrollArea>
         </Card>
 
