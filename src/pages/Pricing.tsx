@@ -54,10 +54,11 @@ export default function Pricing() {
               Salon <span className="text-accent">Pro</span>
             </span>
           </Link>
-          <nav className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
-            <Link to="/#features" className="hover:text-foreground transition-colors">Producto</Link>
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
+            <Link to="/#top" className="hover:text-foreground transition-colors">Inicio</Link>
             <Link to="/#pricing" className="hover:text-foreground transition-colors">Precios</Link>
-            <Link to="/" className="hover:text-foreground transition-colors">Inicio</Link>
+            <Link to="/#about" className="hover:text-foreground transition-colors">Quiénes somos</Link>
+            <Link to="/#testimonials" className="hover:text-foreground transition-colors">Clientes</Link>
           </nav>
           <div className="flex items-center gap-2">
             <Link to="/login">
