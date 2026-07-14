@@ -506,7 +506,8 @@ export function AppointmentFormDialog({
       branch_id: currentBranch?.id,
       date,
       time,
-      duration: totalDuration,
+      duration: effectiveDuration || totalDuration,
+      end_time: endTime,
       services: validServices.map(l => ({
         service_id: l.serviceId,
         price: l.price,
