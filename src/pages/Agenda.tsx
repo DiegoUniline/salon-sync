@@ -164,30 +164,39 @@ export default function Agenda() {
     loadData();
   }, []);
 
-  // Load appointments when date or filters change
+  // Load appointments + blocks when date or filters change
   useEffect(() => {
-    const loadAppointments = async () => {
+    const load = async () => {
       try {
-        const startDate = viewMode === 'month' 
+        const startDate = viewMode === 'month'
           ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1).toISOString().split('T')[0]
           : viewMode === 'week'
           ? getWeekDates(selectedDate)[0].toISOString().split('T')[0]
           : selectedDate.toISOString().split('T')[0];
-        
+
         const endDate = viewMode === 'month'
           ? new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).toISOString().split('T')[0]
           : viewMode === 'week'
           ? getWeekDates(selectedDate)[6].toISOString().split('T')[0]
           : selectedDate.toISOString().split('T')[0];
 
-        const data = await api.appointments.getAll({ start_date: startDate, end_date: endDate });
+        const [data, blocksData] = await Promise.all([
+          api.appointments.getAll({ start_date: startDate, end_date: endDate }),
+          api.schedules.getBlocked({ end_date: endDate }).catch(() => []),
+        ]);
         setAppointments(data as any);
+        // Filtrar blocks que solapan con el rango visible
+        const inRange = (blocksData || []).filter((b: any) =>
+          !(b.end_date < startDate || b.start_date > endDate)
+        );
+        setBlocks(inRange);
       } catch (error) {
-        console.error('Error loading appointments:', error);
+        console.error('Error loading agenda:', error);
       }
     };
-    loadAppointments();
+    load();
   }, [selectedDate, viewMode]);
+
 
   const filteredStylists = stylists.filter(s => s.role !== 'receptionist');
 
