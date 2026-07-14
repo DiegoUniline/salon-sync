@@ -656,17 +656,19 @@ export default function Agenda() {
                     return t >= Math.min(s, e) && t <= Math.max(s, e);
                   })();
 
+                  const block = !appointment ? isSlotBlocked(date, time) : null;
                   return (
                     <div
                       key={i}
                       className={cn(
-                        'border-l border-border/30 cursor-pointer transition-colors p-0.5 relative',
+                        'border-l border-border/30 transition-colors p-0.5 relative',
                         isToday(date) && 'bg-primary/5',
                         inDragRange && 'bg-primary/25',
-                        !appointment && !inDragRange && 'hover:bg-muted/30'
+                        !appointment && !block && !inDragRange && 'cursor-pointer hover:bg-muted/30',
+                        block && 'cursor-not-allowed',
                       )}
                       onMouseDown={() => {
-                        if (appointment) return;
+                        if (appointment || block) return;
                         dragRef.current = false;
                         setIsDragging(true);
                         setDragStart({ time, stylistId: displayStylists[0]?.id || '', date, dayKey });
@@ -680,6 +682,7 @@ export default function Agenda() {
                       }}
                       onClick={() => {
                         if (dragRef.current) return;
+                        if (block) { handleUnblock((block as any).id); return; }
                         if (appointment) {
                           setSelectedAppointment(appointment);
                         } else {
@@ -687,6 +690,18 @@ export default function Agenda() {
                         }
                       }}
                     >
+                      {block && (
+                        <div
+                          className="absolute inset-0 flex items-center justify-center"
+                          style={{
+                            backgroundImage:
+                              'repeating-linear-gradient(45deg, hsl(var(--warning) / 0.35) 0 6px, hsl(var(--warning) / 0.15) 6px 12px)',
+                          }}
+                          title={(block as any).reason || 'Bloqueado'}
+                        >
+                          <Lock className="h-3 w-3 opacity-80" />
+                        </div>
+                      )}
                       {appointment && (() => {
                         const clientName = (appointment as any).client_name || appointment.client?.name || 'Cliente';
                         const serviceName = appointment.services?.[0]?.name || '';
