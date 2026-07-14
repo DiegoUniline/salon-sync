@@ -83,6 +83,9 @@ const defaultPermissions: Record<ModuleId, ModulePermissions> = {
   configuracion: { view: false, create: false, edit: false, delete: false },
   permisos: { view: false, create: false, edit: false, delete: false },
   superadmin: { view: false, create: false, edit: false, delete: false },
+  reportes: { view: false, create: false, edit: false, delete: false },
+  comisiones: { view: false, create: false, edit: false, delete: false },
+  auditoria: { view: false, create: false, edit: false, delete: false },
 };
 
 // Permisos completos (todos habilitados)
