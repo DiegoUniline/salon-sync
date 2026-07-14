@@ -38,6 +38,7 @@ import {
   Users,
   BarChart3,
   Cog,
+  ChevronsUpDown,
 } from 'lucide-react';
 
 type NavItem = { path: string; icon: typeof LayoutDashboard; label: string; moduleId: ModuleId };
