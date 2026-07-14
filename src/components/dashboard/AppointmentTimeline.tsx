@@ -89,7 +89,12 @@ export function AppointmentTimeline() {
 }
 
 function AppointmentCard({ appointment, delay }: { appointment: Appointment; delay: number }) {
-  const totalDuration = appointment.services?.reduce((sum, s) => sum + s.duration, 0) || 0;
+  const servicesArray: Array<{ name: string; duration: number }> = Array.isArray(appointment.services)
+    ? appointment.services
+    : (typeof appointment.services === 'string'
+        ? (() => { try { const p = JSON.parse(appointment.services as any); return Array.isArray(p) ? p : []; } catch { return []; } })()
+        : []);
+  const totalDuration = servicesArray.reduce((sum, s) => sum + (Number(s?.duration) || 0), 0);
   const stylistColor = appointment.stylist_color || '#3B82F6';
   const stylistName = appointment.stylist_name || 'Sin asignar';
   const clientName = appointment.client_name || 'Cliente';
@@ -125,7 +130,7 @@ function AppointmentCard({ appointment, delay }: { appointment: Appointment; del
         </div>
         
         <p className="text-sm text-muted-foreground mt-1">
-          {appointment.services?.map(s => s.name).join(', ') || 'Sin servicios'}
+          {servicesArray.map(s => s.name).join(', ') || 'Sin servicios'}
         </p>
 
         <div className="flex items-center gap-2 mt-2">
