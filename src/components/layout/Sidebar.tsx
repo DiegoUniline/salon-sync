@@ -51,6 +51,7 @@ const groups: NavGroup[] = [
     color: 'sky',
     items: [
       { path: '/', icon: LayoutDashboard, label: 'Dashboard', moduleId: 'dashboard' },
+      { path: '/whatsapp', icon: MessageCircle, label: 'WhatsApp', moduleId: 'whatsapp' },
       { path: '/superadmin', icon: Crown, label: 'Super Admin', moduleId: 'superadmin' },
     ],
   },
@@ -63,7 +64,6 @@ const groups: NavGroup[] = [
       { path: '/citas', icon: CalendarCheck, label: 'Citas', moduleId: 'agenda' },
       { path: '/pagos', icon: DollarSign, label: 'Pagos', moduleId: 'agenda' },
       { path: '/ventas', icon: DollarSign, label: 'Ventas', moduleId: 'ventas' },
-      { path: '/whatsapp', icon: MessageCircle, label: 'WhatsApp', moduleId: 'whatsapp' },
     ],
   },
   {
