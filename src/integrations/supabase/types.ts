@@ -322,9 +322,11 @@ export type Database = {
           account_id: string
           created_at: string | null
           end_date: string
+          end_time: string | null
           id: string
           reason: string | null
           start_date: string
+          start_time: string | null
           target_id: string | null
           type: string
         }
@@ -332,9 +334,11 @@ export type Database = {
           account_id: string
           created_at?: string | null
           end_date: string
+          end_time?: string | null
           id?: string
           reason?: string | null
           start_date: string
+          start_time?: string | null
           target_id?: string | null
           type: string
         }
@@ -342,9 +346,11 @@ export type Database = {
           account_id?: string
           created_at?: string | null
           end_date?: string
+          end_time?: string | null
           id?: string
           reason?: string | null
           start_date?: string
+          start_time?: string | null
           target_id?: string | null
           type?: string
         }
