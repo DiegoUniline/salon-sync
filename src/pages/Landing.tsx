@@ -173,9 +173,9 @@ export default function Landing() {
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
-            <a href="#features" className="hover:text-foreground transition-colors">Producto</a>
-            <a href="#for-who" className="hover:text-foreground transition-colors">Para quién</a>
+            <a href="#top" className="hover:text-foreground transition-colors">Inicio</a>
             <a href="#pricing" className="hover:text-foreground transition-colors">Precios</a>
+            <a href="#about" className="hover:text-foreground transition-colors">Quiénes somos</a>
             <a href="#testimonials" className="hover:text-foreground transition-colors">Clientes</a>
           </nav>
           <div className="flex items-center gap-2">
