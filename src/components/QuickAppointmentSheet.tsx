@@ -470,7 +470,8 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                               const key = ymd(d);
                               const isPast = d < today;
                               const busy = stylistId ? isSlotBusy(key, minute) : false;
-                              const isSel = key === date && time === toTime(minute);
+                              const selStart = time ? toMin(time) : -1;
+                              const isSel = key === date && time !== "" && minute >= selStart && minute < selStart + duration;
                               const inDrag = !!(drag && drag.date === key && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin));
                               const disabled = isPast || !stylistId || busy;
                               return (
