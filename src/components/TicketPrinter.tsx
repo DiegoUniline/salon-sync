@@ -324,10 +324,22 @@ export function TicketPrinter({
           </div>
         </div>
 
-        <div className="flex gap-2 justify-end mt-4">
+        <div className="flex flex-wrap gap-2 justify-end mt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cerrar
           </Button>
+          {onRebook && (
+            <Button variant="secondary" onClick={onRebook}>
+              <CalendarPlus className="h-4 w-4 mr-2" />
+              Reagendar
+            </Button>
+          )}
+          {canWA && (
+            <Button variant="outline" onClick={sendReceiptWA} disabled={sendingWA} className="gap-2">
+              {sendingWA ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4 text-green-600" />}
+              Enviar por WhatsApp
+            </Button>
+          )}
           <Button className="gradient-bg border-0" onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-2" />
             Imprimir
