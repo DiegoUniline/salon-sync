@@ -173,9 +173,9 @@ export default function Landing() {
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
-            <a href="#features" className="hover:text-foreground transition-colors">Producto</a>
-            <a href="#for-who" className="hover:text-foreground transition-colors">Para quién</a>
+            <a href="#top" className="hover:text-foreground transition-colors">Inicio</a>
             <a href="#pricing" className="hover:text-foreground transition-colors">Precios</a>
+            <a href="#about" className="hover:text-foreground transition-colors">Quiénes somos</a>
             <a href="#testimonials" className="hover:text-foreground transition-colors">Clientes</a>
           </nav>
           <div className="flex items-center gap-2">
@@ -192,22 +192,22 @@ export default function Landing() {
       </header>
 
       {/* ============ HERO ============ */}
-      <section className="relative overflow-hidden">
+      <section id="top" className="relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 md:px-6 pt-16 md:pt-24 pb-16 md:pb-20">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Copy */}
             <div className="space-y-6 fade-up">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 text-accent text-xs font-medium">
                 <Cloud className="h-3.5 w-3.5" />
-                100% en la nube · Sin instalación
+                Software en la nube para salones, barberías y spas
               </div>
               <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight leading-[1.05] text-foreground">
-                El sistema que ordena
-                <span className="block text-accent">tu salón, barbería o spa.</span>
+                Administra tu salón
+                <span className="block text-accent">sin caos y sin perder citas.</span>
               </h1>
               <p className="text-lg text-muted-foreground max-w-xl leading-relaxed">
-                Agenda, WhatsApp, punto de venta, inventario y comisiones en un solo lugar.
-                Diseñado para negocios reales, no para hojas de cálculo.
+                Agenda, WhatsApp automático, punto de venta e inventario en un solo sistema.
+                Llena tu agenda, cobra rápido y sabe cuánto ganas cada día.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <Link to="/signup">
@@ -379,6 +379,52 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ============ QUIÉNES SOMOS ============ */}
+      <section id="about" className="py-20 md:py-28 bg-secondary/40">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 grid md:grid-cols-2 gap-12 items-center">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 text-accent text-xs font-medium mb-4">
+              Quiénes somos
+            </div>
+            <h2 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-foreground mb-4">
+              Un equipo obsesionado con hacerte ganar más tiempo
+            </h2>
+            <p className="text-lg text-muted-foreground leading-relaxed mb-4">
+              Salon Pro nació trabajando codo a codo con dueños de barberías, estéticas y spas.
+              Sabemos cómo se vive el mostrador un sábado a las 5 de la tarde: teléfono sonando,
+              WhatsApp lleno, clientes esperando y una libreta que ya no da.
+            </p>
+            <p className="text-lg text-muted-foreground leading-relaxed">
+              Por eso construimos un sistema simple, rápido y en español, pensado para que cualquier
+              persona del equipo lo use desde el primer día — sin manuales ni capacitaciones eternas.
+            </p>
+            <div className="grid grid-cols-3 gap-4 mt-8">
+              <div>
+                <div className="font-display text-3xl font-semibold text-foreground">+500</div>
+                <div className="text-sm text-muted-foreground">negocios activos</div>
+              </div>
+              <div>
+                <div className="font-display text-3xl font-semibold text-foreground">98%</div>
+                <div className="text-sm text-muted-foreground">satisfacción</div>
+              </div>
+              <div>
+                <div className="font-display text-3xl font-semibold text-foreground">24/7</div>
+                <div className="text-sm text-muted-foreground">soporte real</div>
+              </div>
+            </div>
+          </div>
+          <div className="relative rounded-3xl overflow-hidden aspect-[4/5] shadow-xl border border-border/60">
+            <img
+              src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1000&q=80"
+              alt="Equipo Salon Pro"
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-primary/40 via-transparent to-transparent" />
+          </div>
+        </div>
+      </section>
+
       {/* ============ TESTIMONIALS ============ */}
       <section id="testimonials" className="py-20 md:py-28">
         <div className="max-w-7xl mx-auto px-4 md:px-6">
@@ -508,8 +554,9 @@ export default function Landing() {
             </span>
           </div>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
-            <a href="#features" className="hover:text-foreground">Producto</a>
+            <a href="#top" className="hover:text-foreground">Inicio</a>
             <a href="#pricing" className="hover:text-foreground">Precios</a>
+            <a href="#about" className="hover:text-foreground">Quiénes somos</a>
             <Link to="/login" className="hover:text-foreground">Iniciar sesión</Link>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
