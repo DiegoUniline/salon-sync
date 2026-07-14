@@ -32,6 +32,9 @@ import Permisos from "./pages/Permisos";
 import Proveedores from "./pages/Proveedores";
 import SuperAdmin from "./pages/SuperAdmin";
 import Catalogos from "./pages/Catalogos";
+import Reportes from "./pages/Reportes";
+import Comisiones from "./pages/Comisiones";
+import Auditoria from "./pages/Auditoria";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -205,6 +208,30 @@ function AppRoutes() {
           element={
             <ProtectedRoute moduleId="catalogos">
               <Catalogos />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reportes"
+          element={
+            <ProtectedRoute moduleId="reportes">
+              <Reportes />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/comisiones"
+          element={
+            <ProtectedRoute moduleId="comisiones">
+              <Comisiones />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/auditoria"
+          element={
+            <ProtectedRoute moduleId="auditoria">
+              <Auditoria />
             </ProtectedRoute>
           }
         />

@@ -25,6 +25,9 @@ import {
   Store,
   Crown,
   FolderOpen,
+  TrendingUp,
+  Wallet,
+  History,
 } from 'lucide-react';
 
 const navItems: { path: string; icon: typeof LayoutDashboard; label: string; moduleId: ModuleId }[] = [
@@ -43,6 +46,9 @@ const navItems: { path: string; icon: typeof LayoutDashboard; label: string; mod
   { path: '/turnos', icon: Clock, label: 'Turnos', moduleId: 'turnos' },
   { path: '/cortes', icon: FileText, label: 'Cortes', moduleId: 'cortes' },
   { path: '/horarios', icon: CalendarClock, label: 'Horarios', moduleId: 'horarios' },
+  { path: '/reportes', icon: TrendingUp, label: 'Reportes', moduleId: 'reportes' },
+  { path: '/comisiones', icon: Wallet, label: 'Comisiones', moduleId: 'comisiones' },
+  { path: '/auditoria', icon: History, label: 'Bitácora', moduleId: 'auditoria' },
   { path: '/catalogos', icon: FolderOpen, label: 'Catálogos', moduleId: 'catalogos' },
   { path: '/permisos', icon: Shield, label: 'Permisos', moduleId: 'permisos' },
   { path: '/configuracion', icon: Settings, label: 'Configuración', moduleId: 'configuracion' },

@@ -14,6 +14,9 @@ export const modules = [
   { id: 'cortes', name: 'Cortes', icon: '🧾' },
   { id: 'horarios', name: 'Horarios', icon: '📆' },
   { id: 'catalogos', name: 'Catálogos', icon: '📋' },
+  { id: 'reportes', name: 'Reportes', icon: '📈' },
+  { id: 'comisiones', name: 'Comisiones', icon: '💵' },
+  { id: 'auditoria', name: 'Bitácora', icon: '📝' },
   { id: 'configuracion', name: 'Configuración', icon: '⚙️' },
   { id: 'permisos', name: 'Permisos', icon: '🔐' },
   { id: 'superadmin', name: 'Super Admin', icon: '👑' },
@@ -80,6 +83,9 @@ const defaultPermissions: Record<ModuleId, ModulePermissions> = {
   configuracion: { view: false, create: false, edit: false, delete: false },
   permisos: { view: false, create: false, edit: false, delete: false },
   superadmin: { view: false, create: false, edit: false, delete: false },
+  reportes: { view: false, create: false, edit: false, delete: false },
+  comisiones: { view: false, create: false, edit: false, delete: false },
+  auditoria: { view: false, create: false, edit: false, delete: false },
 };
 
 // Permisos completos (todos habilitados)
@@ -101,6 +107,9 @@ const fullPermissions: Record<ModuleId, ModulePermissions> = {
   configuracion: { view: true, create: true, edit: true, delete: true },
   permisos: { view: true, create: true, edit: true, delete: true },
   superadmin: { view: false, create: false, edit: false, delete: false },
+  reportes: { view: true, create: true, edit: true, delete: true },
+  comisiones: { view: true, create: true, edit: true, delete: true },
+  auditoria: { view: true, create: true, edit: true, delete: true },
 };
 
 // Permisos de Super Admin (acceso total incluyendo panel de admin)
@@ -122,6 +131,9 @@ const superAdminPermissions: Record<ModuleId, ModulePermissions> = {
   configuracion: { view: true, create: true, edit: true, delete: true },
   permisos: { view: true, create: true, edit: true, delete: true },
   superadmin: { view: true, create: true, edit: true, delete: true },
+  reportes: { view: true, create: true, edit: true, delete: true },
+  comisiones: { view: true, create: true, edit: true, delete: true },
+  auditoria: { view: true, create: true, edit: true, delete: true },
 };
 
 // Roles predefinidos del sistema
@@ -178,6 +190,9 @@ export const defaultRoles: Role[] = [
       configuracion: { view: false, create: false, edit: false, delete: false },
       permisos: { view: false, create: false, edit: false, delete: false },
       superadmin: { view: false, create: false, edit: false, delete: false },
+      reportes: { view: true, create: false, edit: false, delete: false },
+      comisiones: { view: false, create: false, edit: false, delete: false },
+      auditoria: { view: false, create: false, edit: false, delete: false },
     },
   },
   {
@@ -204,6 +219,9 @@ export const defaultRoles: Role[] = [
       configuracion: { view: false, create: false, edit: false, delete: false },
       permisos: { view: false, create: false, edit: false, delete: false },
       superadmin: { view: false, create: false, edit: false, delete: false },
+      reportes: { view: false, create: false, edit: false, delete: false },
+      comisiones: { view: false, create: false, edit: false, delete: false },
+      auditoria: { view: false, create: false, edit: false, delete: false },
     },
   },
 ];

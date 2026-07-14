@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { TrialBanner } from '@/components/TrialBanner';
 import { SubscriptionBlockedModal } from '@/components/SubscriptionBlockedModal';
 import { WelcomeTour } from '@/components/WelcomeTour';
+import { GlobalSearch } from '@/components/GlobalSearch';
 
 interface LayoutProps {
   children: ReactNode;
@@ -18,6 +19,8 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Global search (Ctrl+K) */}
+      <GlobalSearch />
       {/* Welcome tour for first-time users */}
       <WelcomeTour userName={currentUser?.name?.split(' ')[0]} />
       
