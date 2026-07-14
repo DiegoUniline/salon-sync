@@ -245,9 +245,9 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Search */}
+      {/* Search + expand/collapse all */}
       {!sidebarCollapsed && (
-        <div className="px-3 pt-3 pb-1 flex-shrink-0">
+        <div className="px-3 pt-3 pb-1 flex-shrink-0 space-y-2">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-sidebar-foreground/50" />
             <Input
@@ -257,8 +257,30 @@ export function Sidebar() {
               className="pl-8 h-9 bg-sidebar-accent/40 border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/50"
             />
           </div>
+          {(() => {
+            const allOpen = groups.every((g) => openGroups[g.title] ?? true);
+            return (
+              <button
+                onClick={() =>
+                  setOpenGroups(Object.fromEntries(groups.map((g) => [g.title, !allOpen])))
+                }
+                className="w-full flex items-center justify-center gap-1.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
+              >
+                {allOpen ? (
+                  <>
+                    <ChevronsUpDown className="h-3.5 w-3.5 rotate-180" /> Contraer todo
+                  </>
+                ) : (
+                  <>
+                    <ChevronsUpDown className="h-3.5 w-3.5" /> Expandir todo
+                  </>
+                )}
+              </button>
+            );
+          })()}
         </div>
       )}
+
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-3 px-3">
