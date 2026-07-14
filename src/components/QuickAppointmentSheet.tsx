@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,8 +63,23 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
 
   // Drag-to-select state
   const [drag, setDrag] = useState<{ date: string; startMin: number; endMin: number; step: number } | null>(null);
+  const dragRef = useRef<typeof drag>(null);
+  useEffect(() => { dragRef.current = drag; }, [drag]);
 
-  const commitDrag = (d: { date: string; startMin: number; endMin: number; step: number } | null) => {
+  const cellUnderPointer = (e: { clientX: number; clientY: number }) => {
+    const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+    if (!el) return null;
+    const cell = el.closest<HTMLElement>("[data-slot-date]");
+    if (!cell) return null;
+    const date = cell.dataset.slotDate!;
+    const min = Number(cell.dataset.slotMin);
+    const step = Number(cell.dataset.slotStep || SLOT);
+    const busy = cell.dataset.slotBusy === "1";
+    return { date, min, step, busy };
+  };
+
+  const commitDrag = () => {
+    const d = dragRef.current;
     if (!d) return;
     const a = Math.min(d.startMin, d.endMin);
     const b = Math.max(d.startMin, d.endMin) + d.step;
@@ -73,6 +88,31 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
     setTime(toTime(a));
     setDuration(Math.max(d.step, b - a));
     setDrag(null);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const up = () => commitDrag();
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    return () => {
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
+  }, [open]);
+
+  const onGridPointerDown = (e: React.PointerEvent) => {
+    const c = cellUnderPointer(e);
+    if (!c || c.busy) return;
+    e.preventDefault();
+    setDrag({ date: c.date, startMin: c.min, endMin: c.min, step: c.step });
+  };
+  const onGridPointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const c = cellUnderPointer(e);
+    if (!c || c.date !== d.date) return;
+    if (c.min !== d.endMin) setDrag({ ...d, endMin: c.min });
   };
 
   useEffect(() => {
@@ -276,7 +316,7 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-[50vw] sm:min-w-[560px] overflow-y-auto" onMouseUp={() => commitDrag(drag)} onMouseLeave={() => commitDrag(drag)}>
+      <SheetContent side="right" className="w-full sm:max-w-[50vw] sm:min-w-[560px] overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <CalendarPlus className="h-5 w-5 text-primary" />
@@ -420,7 +460,7 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                         );
                       })}
                     </div>
-                    <div className="max-h-72 overflow-y-auto">
+                    <div className="max-h-72 overflow-y-auto touch-none select-none" onPointerDown={onGridPointerDown} onPointerMove={onGridPointerMove}>
                       {Array.from({ length: Math.ceil((DAY_END - DAY_START) / 30) }).map((_, rowIdx) => {
                         const minute = DAY_START + rowIdx * 30;
                         return (
@@ -431,19 +471,22 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                               const isPast = d < today;
                               const busy = stylistId ? isSlotBusy(key, minute) : false;
                               const isSel = key === date && time === toTime(minute);
+                              const inDrag = !!(drag && drag.date === key && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin));
+                              const disabled = isPast || !stylistId || busy;
                               return (
-                                <button
+                                <div
                                   key={i}
-                                  disabled={isPast || !stylistId || busy}
-                                  onMouseDown={(e) => { e.preventDefault(); setDrag({ date: key, startMin: minute, endMin: minute, step: 30 }); }}
-                                  onMouseEnter={() => { if (drag && drag.date === key) setDrag({ ...drag, endMin: minute }); }}
-                                  onClick={() => { if (!drag) { setDate(key); setTime(toTime(minute)); setAnchor(d); } }}
+                                  data-slot-date={disabled ? undefined : key}
+                                  data-slot-min={disabled ? undefined : minute}
+                                  data-slot-step="30"
+                                  data-slot-busy={busy ? "1" : "0"}
+                                  onClick={() => { if (!disabled && !drag) { setDate(key); setTime(toTime(minute)); setAnchor(d); } }}
                                   className={cn(
-                                    "h-6 rounded border text-[9px] transition-colors select-none",
+                                    "h-6 rounded border text-[9px] transition-colors",
                                     isSel && "bg-primary text-primary-foreground border-primary",
-                                    drag && drag.date === key && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin) && "bg-primary/40 border-primary",
-                                    !isSel && busy && "bg-destructive/15 border-destructive/30 cursor-not-allowed",
-                                    !isSel && !busy && "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/25",
+                                    inDrag && "bg-primary/50 border-primary",
+                                    !isSel && !inDrag && busy && "bg-destructive/15 border-destructive/30 cursor-not-allowed",
+                                    !isSel && !inDrag && !busy && "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/25 cursor-pointer",
                                     isPast && "opacity-30 cursor-not-allowed",
                                   )}
                                 />
@@ -492,28 +535,29 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                 {loadingRange ? (
                   <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin" /></div>
                 ) : (
-                  <div className="grid grid-cols-4 gap-1.5 max-h-64 overflow-y-auto pr-1 select-none">
+                  <div className="grid grid-cols-4 gap-1.5 max-h-64 overflow-y-auto pr-1 select-none touch-none" onPointerDown={onGridPointerDown} onPointerMove={onGridPointerMove}>
                     {daySlots.map((s) => {
                       const minute = toMin(s.time);
                       const selected = time === s.time;
-                      const inDrag = drag && drag.date === date && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin);
+                      const inDrag = !!(drag && drag.date === date && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin));
                       return (
-                        <button
+                        <div
                           key={s.time}
-                          disabled={s.busy}
-                          onMouseDown={(e) => { e.preventDefault(); setDrag({ date, startMin: minute, endMin: minute, step: SLOT }); }}
-                          onMouseEnter={() => { if (drag && drag.date === date) setDrag({ ...drag, endMin: minute }); }}
-                          onClick={() => { if (!drag) setTime(s.time); }}
+                          data-slot-date={s.busy ? undefined : date}
+                          data-slot-min={s.busy ? undefined : minute}
+                          data-slot-step={SLOT}
+                          data-slot-busy={s.busy ? "1" : "0"}
+                          onClick={() => { if (!s.busy && !drag) setTime(s.time); }}
                           className={cn(
-                            "text-xs py-1.5 rounded-md border font-medium transition-colors",
+                            "text-xs py-1.5 rounded-md border font-medium transition-colors text-center",
                             selected && "bg-primary text-primary-foreground border-primary",
-                            inDrag && "bg-primary/40 border-primary text-primary-foreground",
+                            inDrag && "bg-primary/50 border-primary text-primary-foreground",
                             !selected && !inDrag && s.busy && "bg-destructive/10 text-destructive border-destructive/30 line-through cursor-not-allowed",
-                            !selected && !inDrag && !s.busy && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20",
+                            !selected && !inDrag && !s.busy && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 cursor-pointer",
                           )}
                         >
                           {s.time}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
