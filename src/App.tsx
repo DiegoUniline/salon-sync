@@ -212,6 +212,30 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/reportes"
+          element={
+            <ProtectedRoute moduleId="reportes">
+              <Reportes />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/comisiones"
+          element={
+            <ProtectedRoute moduleId="comisiones">
+              <Comisiones />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/auditoria"
+          element={
+            <ProtectedRoute moduleId="auditoria">
+              <Auditoria />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/proveedores"
           element={
             <ProtectedRoute moduleId="proveedores">
