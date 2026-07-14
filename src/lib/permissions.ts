@@ -131,6 +131,9 @@ const superAdminPermissions: Record<ModuleId, ModulePermissions> = {
   configuracion: { view: true, create: true, edit: true, delete: true },
   permisos: { view: true, create: true, edit: true, delete: true },
   superadmin: { view: true, create: true, edit: true, delete: true },
+  reportes: { view: true, create: true, edit: true, delete: true },
+  comisiones: { view: true, create: true, edit: true, delete: true },
+  auditoria: { view: true, create: true, edit: true, delete: true },
 };
 
 // Roles predefinidos del sistema
