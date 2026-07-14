@@ -319,6 +319,10 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       applyCurrentUserData({ ...data.user, subscription: data.subscription });
       window.dispatchEvent(new Event('auth-state-change'));
       void refreshData();
+      import("@/lib/audit").then(({ logAudit, clearAuditCache }) => {
+        clearAuditCache();
+        setTimeout(() => logAudit({ action: "login", entity_table: "auth", summary: `Inicio de sesión: ${email}` }), 300);
+      });
       return { success: true };
     } catch (err: any) {
       return {
@@ -329,6 +333,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    try {
+      await import("@/lib/audit").then(({ logAudit }) => logAudit({ action: "logout", entity_table: "auth", summary: "Cierre de sesión" }));
+    } catch {}
     try {
       await api.auth.logout();
     } catch {}
