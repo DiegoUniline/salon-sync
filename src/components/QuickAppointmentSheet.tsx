@@ -276,7 +276,7 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+      <SheetContent side="right" className="w-full sm:max-w-[50vw] sm:min-w-[560px] overflow-y-auto" onMouseUp={() => commitDrag(drag)} onMouseLeave={() => commitDrag(drag)}>
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <CalendarPlus className="h-5 w-5 text-primary" />
