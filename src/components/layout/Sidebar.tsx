@@ -159,23 +159,32 @@ export function Sidebar() {
 
   const toggleGroup = (t: string) => setOpenGroups((p) => ({ ...p, [t]: !p[t] }));
 
-  const renderItem = (item: NavItem) => {
+  const renderItem = (item: NavItem, color: string) => {
     const isActive = location.pathname === item.path;
     const fav = isFavorite(item.path);
     const Icon = item.icon;
+    const c = colorMap[color] ?? colorMap.slate;
     return (
       <li key={item.path} className="group/item relative">
         <NavLink
           to={item.path}
-          className={cn('nav-item', isActive && 'active', sidebarCollapsed && 'justify-center px-2')}
+          className={cn(
+            'flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150',
+            isActive
+              ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm'
+              : 'text-sidebar-foreground hover:bg-sidebar-accent/60',
+            sidebarCollapsed && 'justify-center px-1.5'
+          )}
           title={sidebarCollapsed ? item.label : undefined}
         >
-          <Icon
+          <span
             className={cn(
-              'h-4 w-4 flex-shrink-0 text-sidebar-foreground',
-              isActive && 'text-sidebar-primary-foreground'
+              'flex h-7 w-7 items-center justify-center rounded-md flex-shrink-0 transition-colors',
+              isActive ? cn(c.activeTile, 'text-white') : cn(c.tile, c.icon)
             )}
-          />
+          >
+            <Icon className="h-4 w-4" />
+          </span>
           {!sidebarCollapsed && <span className="flex-1 truncate">{item.label}</span>}
         </NavLink>
         {!sidebarCollapsed && (
@@ -186,7 +195,7 @@ export function Sidebar() {
               toggle(item.path, item.label);
             }}
             className={cn(
-              'absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover/item:opacity-100 hover:bg-sidebar-accent transition-opacity',
+              'absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover/item:opacity-100 hover:bg-sidebar-accent transition-opacity',
               fav && 'opacity-100'
             )}
             title={fav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
