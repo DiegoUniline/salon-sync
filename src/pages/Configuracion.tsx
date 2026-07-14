@@ -65,10 +65,12 @@ import {
   Upload,
   Image,
   Mail,
+  MessageCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { WhatsAppTemplatesTab } from '@/components/WhatsAppTemplatesTab';
 
 interface Branch {
   id: string;
