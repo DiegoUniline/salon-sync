@@ -334,7 +334,7 @@ export function Sidebar() {
               ) : (
                 <div className="h-px bg-sidebar-border my-2" />
               )}
-              {show && <ul className="space-y-1 mt-1">{group.items.map(renderItem)}</ul>}
+              {show && <ul className="space-y-0.5 mt-1">{group.items.map((it) => renderItem(it, group.color))}</ul>}
             </div>
           );
         })}
