@@ -40,8 +40,9 @@ import {
   Cog,
   ChevronsUpDown,
 } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 
-type NavItem = { path: string; icon: typeof LayoutDashboard; label: string; moduleId: ModuleId };
+type NavItem = { path: string; icon: any; label: string; moduleId: ModuleId; brand?: boolean };
 type NavGroup = { title: string; icon: typeof LayoutDashboard; color: string; items: NavItem[] };
 
 const groups: NavGroup[] = [
@@ -51,7 +52,7 @@ const groups: NavGroup[] = [
     color: 'sky',
     items: [
       { path: '/', icon: LayoutDashboard, label: 'Dashboard', moduleId: 'dashboard' },
-      { path: '/whatsapp', icon: MessageCircle, label: 'WhatsApp', moduleId: 'whatsapp' },
+      { path: '/whatsapp', icon: WhatsAppIcon, label: 'WhatsApp', moduleId: 'whatsapp', brand: true },
       { path: '/superadmin', icon: Crown, label: 'Super Admin', moduleId: 'superadmin' },
     ],
   },
