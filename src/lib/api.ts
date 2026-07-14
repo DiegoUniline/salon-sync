@@ -743,6 +743,11 @@ export const appointments = {
     const { data, error } = await supabase.from("appointments").insert(payload as any).select().single();
     if (error) throw error;
     import("@/lib/audit").then(({ logAudit }) => logAudit({ action: "create", entity_table: "appointments", entity_id: (data as any)?.id, summary: `Cita creada para ${(data as any)?.client_name || "cliente"} el ${(data as any)?.date}`, new_data: data }));
+    // Auto-send WhatsApp confirmation (non-blocking)
+    try {
+      supabase.functions.invoke('evolution-api', { body: { action: 'send_template', type: 'appointment_confirmed', appointment_id: (data as any)?.id } })
+        .catch((e) => console.warn('WA confirm skipped:', e?.message));
+    } catch {}
     return data;
   },
   update: async (id: string, updates: any) => {
@@ -756,6 +761,12 @@ export const appointments = {
     const { data, error } = await supabase.from("appointments").update({ status }).eq("id", id).select().single();
     if (error) throw error;
     import("@/lib/audit").then(({ logAudit }) => logAudit({ action: "update", entity_table: "appointments", entity_id: id, summary: `Estado cambiado a ${status}` }));
+    if (status === 'cancelled') {
+      try {
+        supabase.functions.invoke('evolution-api', { body: { action: 'send_template', type: 'appointment_cancelled', appointment_id: id } })
+          .catch((e) => console.warn('WA cancel skipped:', e?.message));
+      } catch {}
+    }
     return data;
   },
   delete: async (id: string) => {
