@@ -1394,6 +1394,7 @@ export const api: any = {
   config,
   dashboard,
   categories,
+  whatsappTemplates,
 };
 
 export default api as any;
