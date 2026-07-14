@@ -305,6 +305,55 @@ export default function WhatsApp() {
           onScheduled={loadConversations}
         />
       )}
+
+      <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Vincular contacto a un cliente</DialogTitle>
+            <DialogDescription>
+              Al vincular, el chat mostrará el nombre del cliente en el CRM.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Button variant="outline" className="w-full justify-start gap-2" onClick={createAndLinkClient} disabled={linking}>
+              <UserPlus className="h-4 w-4" />
+              Crear cliente nuevo con estos datos
+            </Button>
+            {selected?.client_id && (
+              <Button variant="ghost" className="w-full justify-start gap-2 text-destructive" onClick={() => linkClient(null)} disabled={linking}>
+                <X className="h-4 w-4" />
+                Quitar vínculo actual
+              </Button>
+            )}
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Buscar cliente existente..." className="pl-8"
+                value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
+            </div>
+            <ScrollArea className="h-64 border rounded-md">
+              {clients
+                .filter((c) => {
+                  if (!clientSearch) return true;
+                  const q = clientSearch.toLowerCase();
+                  return c.name.toLowerCase().includes(q) || (c.phone || "").includes(q);
+                })
+                .slice(0, 100)
+                .map((c) => (
+                  <button key={c.id} onClick={() => linkClient(c.id)} disabled={linking}
+                    className={cn("w-full text-left px-3 py-2 border-b hover:bg-accent transition-colors flex justify-between items-center gap-2",
+                      selected?.client_id === c.id && "bg-primary/10")}>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{c.name}</p>
+                      {c.phone && <p className="text-xs text-muted-foreground truncate">{c.phone}</p>}
+                    </div>
+                    {selected?.client_id === c.id && <Badge variant="secondary" className="text-[10px]">actual</Badge>}
+                  </button>
+                ))}
+              {clients.length === 0 && <p className="text-center text-sm text-muted-foreground p-6">No hay clientes</p>}
+            </ScrollArea>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
