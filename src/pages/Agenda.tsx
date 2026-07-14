@@ -752,12 +752,12 @@ export default function Agenda() {
                   )}
                   onClick={() => { if (date) { setSelectedDate(date); setViewMode('day'); } }}
                 >
-                  <p className={cn(
-                    "text-xs font-medium mb-0.5",
-                    today && "text-primary"
-                  )}>
-                    {date?.getDate()}
-                  </p>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <p className={cn("text-xs font-medium", today && "text-primary")}>{date?.getDate()}</p>
+                    {date && getBlocksForDate(date).length > 0 && (
+                      <Lock className="h-3 w-3 text-warning" />
+                    )}
+                  </div>
                   <div className="space-y-0.5">
                     {dayAppointments.slice(0, 2).map(apt => {
                       const clientName = (apt as any).client_name || apt.client?.name || 'Cliente';
