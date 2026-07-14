@@ -16,9 +16,13 @@ import {
   Building2,
   Users,
   Loader2,
+  Lock,
+  X,
 } from 'lucide-react';
 import { AppointmentDetailView } from '@/components/AppointmentDetailView';
+import { BlockTimeDialog } from '@/components/BlockTimeDialog';
 import { AnimatePresence } from 'framer-motion';
+import { useToast } from '@/hooks/use-toast';
 
 type ViewMode = 'day' | 'week' | 'month';
 
@@ -112,13 +116,17 @@ const statusLabels = {
 };
 
 export default function Agenda() {
+  const { toast } = useToast();
   const { currentBranch } = useApp();
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [blocks, setBlocks] = useState<any[]>([]);
   const [stylists, setStylists] = useState<Stylist[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [blockPrefill, setBlockPrefill] = useState<{ date?: string; startTime?: string; endTime?: string; stylistId?: string }>({});
   
   const [selectedBranches, setSelectedBranches] = useState<string[]>([currentBranch?.id || '']);
   const [selectedStylists, setSelectedStylists] = useState<string[]>([]);
@@ -156,30 +164,39 @@ export default function Agenda() {
     loadData();
   }, []);
 
-  // Load appointments when date or filters change
+  // Load appointments + blocks when date or filters change
   useEffect(() => {
-    const loadAppointments = async () => {
+    const load = async () => {
       try {
-        const startDate = viewMode === 'month' 
+        const startDate = viewMode === 'month'
           ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1).toISOString().split('T')[0]
           : viewMode === 'week'
           ? getWeekDates(selectedDate)[0].toISOString().split('T')[0]
           : selectedDate.toISOString().split('T')[0];
-        
+
         const endDate = viewMode === 'month'
           ? new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).toISOString().split('T')[0]
           : viewMode === 'week'
           ? getWeekDates(selectedDate)[6].toISOString().split('T')[0]
           : selectedDate.toISOString().split('T')[0];
 
-        const data = await api.appointments.getAll({ start_date: startDate, end_date: endDate });
+        const [data, blocksData] = await Promise.all([
+          api.appointments.getAll({ start_date: startDate, end_date: endDate }),
+          api.schedules.getBlocked({ end_date: endDate }).catch(() => []),
+        ]);
         setAppointments(data as any);
+        // Filtrar blocks que solapan con el rango visible
+        const inRange = (blocksData || []).filter((b: any) =>
+          !(b.end_date < startDate || b.start_date > endDate)
+        );
+        setBlocks(inRange);
       } catch (error) {
-        console.error('Error loading appointments:', error);
+        console.error('Error loading agenda:', error);
       }
     };
-    loadAppointments();
+    load();
   }, [selectedDate, viewMode]);
+
 
   const filteredStylists = stylists.filter(s => s.role !== 'receptionist');
 
@@ -371,6 +388,55 @@ export default function Agenda() {
     return stylist?.name || 'Sin asignar';
   };
 
+  // ============ BLOQUEOS ============
+  const reloadBlocks = async () => {
+    try {
+      const list = await api.schedules.getBlocked({});
+      setBlocks(list || []);
+    } catch (e) { console.error(e); }
+  };
+
+  const dateStr = (d: Date) => d.toISOString().split('T')[0];
+
+  // Devuelve los bloques activos para una fecha + (opcional) stylist
+  const getBlocksForDate = (date: Date, stylistId?: string) => {
+    const s = dateStr(date);
+    return blocks.filter((b: any) => {
+      if (s < b.start_date || s > b.end_date) return false;
+      if (b.type === 'account') return true;
+      if (b.type === 'employee') return stylistId ? b.target_id === stylistId : true;
+      return false;
+    });
+  };
+
+  // Indica si un slot (time 'HH:MM') está bloqueado
+  const isSlotBlocked = (date: Date, time: string, stylistId?: string) => {
+    const dayBlocks = getBlocksForDate(date, stylistId);
+    return dayBlocks.find((b: any) => {
+      if (!b.start_time || !b.end_time) return true; // día completo
+      const t = time + ':00';
+      return t >= b.start_time && t < b.end_time;
+    });
+  };
+
+  const handleUnblock = async (blockId: string) => {
+    if (!confirm('¿Quitar este bloqueo?')) return;
+    try {
+      await api.schedules.deleteBlocked(blockId);
+      toast({ title: 'Bloqueo eliminado' });
+      reloadBlocks();
+    } catch (e: any) {
+      toast({ title: 'No se pudo eliminar', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const openBlockDialog = (prefill: typeof blockPrefill = {}) => {
+    setBlockPrefill(prefill);
+    setBlockDialogOpen(true);
+  };
+
+
+
   if (loading) {
     return (
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center">
@@ -453,6 +519,16 @@ export default function Agenda() {
             ))}
           </div>
 
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1 text-xs"
+            onClick={() => openBlockDialog({ date: dateStr(selectedDate) })}
+            title="Bloquear día u horas"
+          >
+            <Lock className="h-3.5 w-3.5" /> Bloquear
+          </Button>
+
           <Button size="sm" className="h-8 gradient-bg border-0" onClick={() => openNewAppointmentDialog(selectedDate, '09:00', displayStylists[0]?.id || '')}>
             <Plus className="h-4 w-4" />
           </Button>
@@ -488,30 +564,47 @@ export default function Agenda() {
                   const slotHour = parseInt(time.split(':')[0]);
                   const appointment = filteredAppointments.find(a => {
                     if (a.stylist_id !== stylist.id) return false;
-                    // Handle time format "HH:MM:SS" or "HH:MM"
                     const timeStr = (a.time || '').slice(0, 5);
                     return timeStr === time;
                   });
                   const isInDragRange = isSlotInDragRange(time, stylist.id);
+                  const block = !appointment ? isSlotBlocked(selectedDate, time, stylist.id) : null;
 
                   return (
-                    <div 
-                      key={stylist.id} 
+                    <div
+                      key={stylist.id}
                       className={cn(
-                        'flex-1 border-l border-border/30 cursor-pointer transition-colors relative',
+                        'flex-1 border-l border-border/30 transition-colors relative',
                         isInDragRange && 'bg-primary/20',
-                        !appointment && 'hover:bg-muted/40'
+                        !appointment && !block && 'cursor-pointer hover:bg-muted/40',
+                        block && 'cursor-not-allowed',
                       )}
-                      onMouseDown={() => !appointment && handleMouseDown(time, stylist.id, selectedDate)}
+                      onMouseDown={() => !appointment && !block && handleMouseDown(time, stylist.id, selectedDate)}
                       onMouseEnter={() => handleMouseEnter(time)}
-                      onClick={() => !appointment && !dragRef.current && handleSlotClick(time, stylist.id, selectedDate)}
+                      onClick={() => {
+                        if (dragRef.current) return;
+                        if (block) { handleUnblock((block as any).id); return; }
+                        if (!appointment) handleSlotClick(time, stylist.id, selectedDate);
+                      }}
                     >
                       {appointment && (
-                        <AppointmentChip 
+                        <AppointmentChip
                           appointment={appointment}
                           stylistColor={getStylistColor(appointment.stylist_id)}
                           onClick={() => setSelectedAppointment(appointment)}
                         />
+                      )}
+                      {block && (
+                        <div
+                          className="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-warning-foreground bg-warning/40 border border-warning/60"
+                          style={{
+                            backgroundImage:
+                              'repeating-linear-gradient(45deg, hsl(var(--warning) / 0.35) 0 6px, hsl(var(--warning) / 0.15) 6px 12px)',
+                          }}
+                          title={(block as any).reason || 'Bloqueado'}
+                        >
+                          <Lock className="h-3 w-3 opacity-80" />
+                        </div>
                       )}
                     </div>
                   );
@@ -563,17 +656,19 @@ export default function Agenda() {
                     return t >= Math.min(s, e) && t <= Math.max(s, e);
                   })();
 
+                  const block = !appointment ? isSlotBlocked(date, time) : null;
                   return (
                     <div
                       key={i}
                       className={cn(
-                        'border-l border-border/30 cursor-pointer transition-colors p-0.5 relative',
+                        'border-l border-border/30 transition-colors p-0.5 relative',
                         isToday(date) && 'bg-primary/5',
                         inDragRange && 'bg-primary/25',
-                        !appointment && !inDragRange && 'hover:bg-muted/30'
+                        !appointment && !block && !inDragRange && 'cursor-pointer hover:bg-muted/30',
+                        block && 'cursor-not-allowed',
                       )}
                       onMouseDown={() => {
-                        if (appointment) return;
+                        if (appointment || block) return;
                         dragRef.current = false;
                         setIsDragging(true);
                         setDragStart({ time, stylistId: displayStylists[0]?.id || '', date, dayKey });
@@ -587,6 +682,7 @@ export default function Agenda() {
                       }}
                       onClick={() => {
                         if (dragRef.current) return;
+                        if (block) { handleUnblock((block as any).id); return; }
                         if (appointment) {
                           setSelectedAppointment(appointment);
                         } else {
@@ -594,6 +690,18 @@ export default function Agenda() {
                         }
                       }}
                     >
+                      {block && (
+                        <div
+                          className="absolute inset-0 flex items-center justify-center"
+                          style={{
+                            backgroundImage:
+                              'repeating-linear-gradient(45deg, hsl(var(--warning) / 0.35) 0 6px, hsl(var(--warning) / 0.15) 6px 12px)',
+                          }}
+                          title={(block as any).reason || 'Bloqueado'}
+                        >
+                          <Lock className="h-3 w-3 opacity-80" />
+                        </div>
+                      )}
                       {appointment && (() => {
                         const clientName = (appointment as any).client_name || appointment.client?.name || 'Cliente';
                         const serviceName = appointment.services?.[0]?.name || '';
@@ -644,12 +752,12 @@ export default function Agenda() {
                   )}
                   onClick={() => { if (date) { setSelectedDate(date); setViewMode('day'); } }}
                 >
-                  <p className={cn(
-                    "text-xs font-medium mb-0.5",
-                    today && "text-primary"
-                  )}>
-                    {date?.getDate()}
-                  </p>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <p className={cn("text-xs font-medium", today && "text-primary")}>{date?.getDate()}</p>
+                    {date && getBlocksForDate(date).length > 0 && (
+                      <Lock className="h-3 w-3 text-warning" />
+                    )}
+                  </div>
                   <div className="space-y-0.5">
                     {dayAppointments.slice(0, 2).map(apt => {
                       const clientName = (apt as any).client_name || apt.client?.name || 'Cliente';
@@ -696,6 +804,17 @@ export default function Agenda() {
           />
         )}
       </AnimatePresence>
+
+      <BlockTimeDialog
+        open={blockDialogOpen}
+        onOpenChange={setBlockDialogOpen}
+        stylists={filteredStylists}
+        initialDate={blockPrefill.date}
+        initialStartTime={blockPrefill.startTime}
+        initialEndTime={blockPrefill.endTime}
+        initialStylistId={blockPrefill.stylistId}
+        onCreated={reloadBlocks}
+      />
     </div>
   );
 }
