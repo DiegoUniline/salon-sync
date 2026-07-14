@@ -41,6 +41,7 @@ import {
   ChevronsUpDown,
 } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
+import salonProLogo from '@/assets/salon-pro-logo.png.asset.json';
 
 type NavItem = { path: string; icon: any; label: string; moduleId: ModuleId; brand?: boolean };
 type NavGroup = { title: string; icon: typeof LayoutDashboard; color: string; items: NavItem[] };
@@ -229,12 +230,14 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border flex-shrink-0">
-        <div className={cn('flex items-center gap-3 overflow-hidden', sidebarCollapsed && 'justify-center')}>
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-bg">
-            <Scissors className="h-5 w-5 text-primary-foreground" />
+        <div className={cn('flex items-center gap-2.5 overflow-hidden', sidebarCollapsed && 'justify-center')}>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 p-1 shadow-sm flex-shrink-0">
+            <img src={salonProLogo.url} alt="Salon Pro" className="h-full w-full object-contain" />
           </div>
           {!sidebarCollapsed && (
-            <span className="font-semibold text-sidebar-foreground whitespace-nowrap">SalonPro</span>
+            <span className="font-display font-semibold text-[15px] tracking-tight text-sidebar-foreground whitespace-nowrap">
+              Salon <span className="text-[hsl(var(--brand-rose))]">Pro</span>
+            </span>
           )}
         </div>
         <button
