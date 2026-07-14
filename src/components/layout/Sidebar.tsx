@@ -155,7 +155,7 @@ export function Sidebar() {
         >
           <Icon
             className={cn(
-              'h-5 w-5 flex-shrink-0 text-sidebar-foreground',
+              'h-4 w-4 flex-shrink-0 text-sidebar-foreground',
               isActive && 'text-sidebar-primary-foreground'
             )}
           />
@@ -261,7 +261,7 @@ export function Sidebar() {
                     >
                       <Star
                         className={cn(
-                          'h-5 w-5 flex-shrink-0 fill-yellow-400 text-yellow-400'
+                          'h-4 w-4 flex-shrink-0 fill-yellow-400 text-yellow-400'
                         )}
                       />
                       {!sidebarCollapsed && <span className="flex-1 truncate">{f.label}</span>}
