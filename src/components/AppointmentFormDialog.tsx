@@ -173,6 +173,7 @@ export function AppointmentFormDialog({
     setStylistId('');
     setDate(new Date().toISOString().split('T')[0]);
     setTime('09:00');
+    setEndTime('09:30');
     setNotes('');
     setGeneralDiscount(0);
     setServiceLines([]);
