@@ -41,12 +41,13 @@ import {
 } from 'lucide-react';
 
 type NavItem = { path: string; icon: typeof LayoutDashboard; label: string; moduleId: ModuleId };
-type NavGroup = { title: string; icon: typeof LayoutDashboard; items: NavItem[] };
+type NavGroup = { title: string; icon: typeof LayoutDashboard; color: string; items: NavItem[] };
 
 const groups: NavGroup[] = [
   {
     title: 'Inicio',
     icon: Home,
+    color: 'sky',
     items: [
       { path: '/', icon: LayoutDashboard, label: 'Dashboard', moduleId: 'dashboard' },
       { path: '/superadmin', icon: Crown, label: 'Super Admin', moduleId: 'superadmin' },
@@ -55,6 +56,7 @@ const groups: NavGroup[] = [
   {
     title: 'Operación',
     icon: Calendar,
+    color: 'violet',
     items: [
       { path: '/agenda', icon: Calendar, label: 'Agenda', moduleId: 'agenda' },
       { path: '/citas', icon: CalendarCheck, label: 'Citas', moduleId: 'agenda' },
@@ -66,6 +68,7 @@ const groups: NavGroup[] = [
   {
     title: 'Catálogo',
     icon: FolderOpen,
+    color: 'emerald',
     items: [
       { path: '/servicios', icon: Scissors, label: 'Servicios', moduleId: 'servicios' },
       { path: '/productos', icon: Package, label: 'Productos', moduleId: 'productos' },
@@ -75,6 +78,7 @@ const groups: NavGroup[] = [
   {
     title: 'Almacén y compras',
     icon: Warehouse,
+    color: 'amber',
     items: [
       { path: '/inventario', icon: Warehouse, label: 'Inventario', moduleId: 'inventario' },
       { path: '/compras', icon: ShoppingCart, label: 'Compras', moduleId: 'compras' },
@@ -85,6 +89,7 @@ const groups: NavGroup[] = [
   {
     title: 'Equipo',
     icon: Users,
+    color: 'rose',
     items: [
       { path: '/horarios', icon: CalendarClock, label: 'Horarios', moduleId: 'horarios' },
       { path: '/turnos', icon: Clock, label: 'Turnos', moduleId: 'turnos' },
@@ -95,6 +100,7 @@ const groups: NavGroup[] = [
   {
     title: 'Análisis',
     icon: BarChart3,
+    color: 'cyan',
     items: [
       { path: '/reportes', icon: TrendingUp, label: 'Reportes', moduleId: 'reportes' },
       { path: '/auditoria', icon: History, label: 'Bitácora', moduleId: 'auditoria' },
@@ -103,12 +109,23 @@ const groups: NavGroup[] = [
   {
     title: 'Administración',
     icon: Cog,
+    color: 'slate',
     items: [
       { path: '/permisos', icon: Shield, label: 'Permisos', moduleId: 'permisos' },
       { path: '/configuracion', icon: Settings, label: 'Configuración', moduleId: 'configuracion' },
     ],
   },
 ];
+
+const colorMap: Record<string, { tile: string; icon: string; label: string; activeTile: string }> = {
+  sky:     { tile: 'bg-sky-100',     icon: 'text-sky-600',     label: 'text-sky-700',     activeTile: 'bg-sky-500' },
+  violet:  { tile: 'bg-violet-100',  icon: 'text-violet-600',  label: 'text-violet-700',  activeTile: 'bg-violet-500' },
+  emerald: { tile: 'bg-emerald-100', icon: 'text-emerald-600', label: 'text-emerald-700', activeTile: 'bg-emerald-500' },
+  amber:   { tile: 'bg-amber-100',   icon: 'text-amber-600',   label: 'text-amber-700',   activeTile: 'bg-amber-500' },
+  rose:    { tile: 'bg-rose-100',    icon: 'text-rose-600',    label: 'text-rose-700',    activeTile: 'bg-rose-500' },
+  cyan:    { tile: 'bg-cyan-100',    icon: 'text-cyan-600',    label: 'text-cyan-700',    activeTile: 'bg-cyan-500' },
+  slate:   { tile: 'bg-slate-200',   icon: 'text-slate-700',   label: 'text-slate-700',   activeTile: 'bg-slate-600' },
+};
 
 export function Sidebar() {
   const location = useLocation();
@@ -142,23 +159,32 @@ export function Sidebar() {
 
   const toggleGroup = (t: string) => setOpenGroups((p) => ({ ...p, [t]: !p[t] }));
 
-  const renderItem = (item: NavItem) => {
+  const renderItem = (item: NavItem, color: string) => {
     const isActive = location.pathname === item.path;
     const fav = isFavorite(item.path);
     const Icon = item.icon;
+    const c = colorMap[color] ?? colorMap.slate;
     return (
       <li key={item.path} className="group/item relative">
         <NavLink
           to={item.path}
-          className={cn('nav-item', isActive && 'active', sidebarCollapsed && 'justify-center px-2')}
+          className={cn(
+            'flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150',
+            isActive
+              ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm'
+              : 'text-sidebar-foreground hover:bg-sidebar-accent/60',
+            sidebarCollapsed && 'justify-center px-1.5'
+          )}
           title={sidebarCollapsed ? item.label : undefined}
         >
-          <Icon
+          <span
             className={cn(
-              'h-4 w-4 flex-shrink-0 text-sidebar-foreground',
-              isActive && 'text-sidebar-primary-foreground'
+              'flex h-7 w-7 items-center justify-center rounded-md flex-shrink-0 transition-colors',
+              isActive ? cn(c.activeTile, 'text-white') : cn(c.tile, c.icon)
             )}
-          />
+          >
+            <Icon className="h-4 w-4" />
+          </span>
           {!sidebarCollapsed && <span className="flex-1 truncate">{item.label}</span>}
         </NavLink>
         {!sidebarCollapsed && (
@@ -169,7 +195,7 @@ export function Sidebar() {
               toggle(item.path, item.label);
             }}
             className={cn(
-              'absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover/item:opacity-100 hover:bg-sidebar-accent transition-opacity',
+              'absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover/item:opacity-100 hover:bg-sidebar-accent transition-opacity',
               fav && 'opacity-100'
             )}
             title={fav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
@@ -308,7 +334,7 @@ export function Sidebar() {
               ) : (
                 <div className="h-px bg-sidebar-border my-2" />
               )}
-              {show && <ul className="space-y-1 mt-1">{group.items.map(renderItem)}</ul>}
+              {show && <ul className="space-y-0.5 mt-1">{group.items.map((it) => renderItem(it, group.color))}</ul>}
             </div>
           );
         })}
