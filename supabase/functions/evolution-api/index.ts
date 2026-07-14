@@ -42,16 +42,16 @@ async function evo(path: string, init: RequestInit = {}) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: buildCors(req) });
   try {
     const authHeader = req.headers.get('Authorization') || '';
-    if (!authHeader.startsWith('Bearer ')) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (!authHeader.startsWith('Bearer ')) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
     const token = authHeader.slice(7);
     const { data: userData, error: authErr } = await sbAdmin.auth.getUser(token);
-    if (authErr || !userData.user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (authErr || !userData.user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
     const userId = userData.user.id;
     const { data: profile } = await sbAdmin.from('profiles').select('account_id').eq('user_id', userId).maybeSingle();
-    if (!profile?.account_id) return new Response(JSON.stringify({ error: 'No account' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (!profile?.account_id) return new Response(JSON.stringify({ error: 'No account' }), { status: 400, headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
     const accountId = profile.account_id;
 
     const body = await req.json().catch(() => ({}));
@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
       const qrRes = await evo(`/instance/connect/${instanceName}`).catch(() => null);
       const qr = qrRes?.base64 || qrRes?.qrcode?.base64 || null;
       if (qr) await sbAdmin.from('whatsapp_instances').update({ qr_code: qr, status: 'connecting' }).eq('instance_name', instanceName);
-      return new Response(JSON.stringify({ ok: true, instance_name: instanceName, qr }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ ok: true, instance_name: instanceName, qr }), { headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
     }
 
     async function ensureWebhook(instanceName: string) {
@@ -93,14 +93,14 @@ Deno.serve(async (req) => {
 
     if (action === 'status') {
       const { data: inst } = await sbAdmin.from('whatsapp_instances').select('*').eq('account_id', accountId).maybeSingle();
-      if (!inst) return new Response(JSON.stringify({ status: 'none' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!inst) return new Response(JSON.stringify({ status: 'none' }), { headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
       const state = await evo(`/instance/connectionState/${inst.instance_name}`).catch(() => null);
       const st = state?.instance?.state || state?.state || null;
       const status = st === 'open' ? 'connected' : (st === 'connecting' ? 'connecting' : 'disconnected');
       await sbAdmin.from('whatsapp_instances').update({ status }).eq('id', inst.id);
       // Re-registrar webhook siempre por si no quedó suscrito a MESSAGES_UPSERT
       await ensureWebhook(inst.instance_name);
-      return new Response(JSON.stringify({ status, instance: inst.instance_name }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ status, instance: inst.instance_name }), { headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
     }
 
     if (action === 'logout') {
@@ -109,16 +109,16 @@ Deno.serve(async (req) => {
         await evo(`/instance/logout/${inst.instance_name}`, { method: 'DELETE' }).catch(() => null);
         await sbAdmin.from('whatsapp_instances').update({ status: 'disconnected', qr_code: null }).eq('id', inst.id);
       }
-      return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ ok: true }), { headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
     }
 
     if (action === 'send_message') {
       const { conversation_id, text } = body;
-      if (!conversation_id || !text) return new Response(JSON.stringify({ error: 'missing params' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!conversation_id || !text) return new Response(JSON.stringify({ error: 'missing params' }), { status: 400, headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
       const { data: conv } = await sbAdmin.from('whatsapp_conversations').select('*, whatsapp_instances(instance_name)').eq('id', conversation_id).eq('account_id', accountId).maybeSingle();
-      if (!conv) return new Response(JSON.stringify({ error: 'conversation not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!conv) return new Response(JSON.stringify({ error: 'conversation not found' }), { status: 404, headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
       const instanceName = (conv as any).whatsapp_instances?.instance_name;
-      if (!instanceName) return new Response(JSON.stringify({ error: 'no instance' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!instanceName) return new Response(JSON.stringify({ error: 'no instance' }), { status: 400, headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
       const result = await evo(`/message/sendText/${instanceName}`, {
         method: 'POST', body: JSON.stringify({ number: conv.remote_jid.split('@')[0], text }),
       });
@@ -130,14 +130,14 @@ Deno.serve(async (req) => {
       await sbAdmin.from('whatsapp_conversations').update({
         last_message: text, last_message_at: new Date().toISOString(), unread_count: 0,
       }).eq('id', conversation_id);
-      return new Response(JSON.stringify({ ok: true, result }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ ok: true, result }), { headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
     }
 
     if (action === 'start_conversation') {
       const { phone, initial_message } = body;
-      if (!phone) return new Response(JSON.stringify({ error: 'phone required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!phone) return new Response(JSON.stringify({ error: 'phone required' }), { status: 400, headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
       const { data: inst } = await sbAdmin.from('whatsapp_instances').select('*').eq('account_id', accountId).maybeSingle();
-      if (!inst) return new Response(JSON.stringify({ error: 'no instance' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!inst) return new Response(JSON.stringify({ error: 'no instance' }), { status: 400, headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
       const cleanPhone = String(phone).replace(/\D/g, '');
       const remoteJid = `${cleanPhone}@s.whatsapp.net`;
       const { data: conv } = await sbAdmin.from('whatsapp_conversations').upsert({
@@ -155,21 +155,21 @@ Deno.serve(async (req) => {
           status: 'sent', sender_user_id: userId, timestamp: new Date().toISOString(),
         });
       }
-      return new Response(JSON.stringify({ ok: true, conversation: conv }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ ok: true, conversation: conv }), { headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
     }
 
     if (action === 'send_template') {
       const { type, appointment_id, sale_id, phone: overridePhone, extra_vars } = body as any;
-      if (!type) return new Response(JSON.stringify({ error: 'type required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!type) return new Response(JSON.stringify({ error: 'type required' }), { status: 400, headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
 
       const { data: tpl } = await sbAdmin.from('whatsapp_templates')
         .select('*').eq('account_id', accountId).eq('type', type).maybeSingle();
-      if (!tpl) return new Response(JSON.stringify({ skipped: true, reason: 'no_template' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      if (tpl.enabled === false) return new Response(JSON.stringify({ skipped: true, reason: 'disabled' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!tpl) return new Response(JSON.stringify({ skipped: true, reason: 'no_template' }), { headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
+      if (tpl.enabled === false) return new Response(JSON.stringify({ skipped: true, reason: 'disabled' }), { headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
 
       const { data: inst } = await sbAdmin.from('whatsapp_instances').select('*').eq('account_id', accountId).maybeSingle();
       if (!inst || inst.status !== 'connected') {
-        return new Response(JSON.stringify({ skipped: true, reason: 'not_connected' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ skipped: true, reason: 'not_connected' }), { headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
       }
 
       const { data: account } = await sbAdmin.from('accounts').select('name').eq('id', accountId).maybeSingle();
@@ -208,7 +208,7 @@ Deno.serve(async (req) => {
       }
 
       if (!recipientPhone) {
-        return new Response(JSON.stringify({ skipped: true, reason: 'no_phone' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ skipped: true, reason: 'no_phone' }), { headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
       }
 
       const cleanPhone = String(recipientPhone).replace(/\D/g, '');
@@ -231,12 +231,12 @@ Deno.serve(async (req) => {
         status: 'sent', sender_user_id: userId, timestamp: new Date().toISOString(), raw: { template_type: type, result },
       });
 
-      return new Response(JSON.stringify({ ok: true, sent_to: cleanPhone, rendered }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ ok: true, sent_to: cleanPhone, rendered }), { headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
     }
 
-    return new Response(JSON.stringify({ error: 'unknown action' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: 'unknown action' }), { status: 400, headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
   } catch (e) {
     console.error(e);
-    return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
   }
 });
