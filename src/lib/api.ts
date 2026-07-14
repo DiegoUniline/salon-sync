@@ -89,7 +89,6 @@ const normalizeAppointmentPayload = async (apptData: any, isUpdate = false) => {
   if (has("notes") || !isUpdate) payload.notes = apptData.notes || null;
   if (has("status") || !isUpdate) payload.status = apptData.status || "scheduled";
   if (has("payment_status")) payload.payment_status = apptData.payment_status;
-  if (has("discount_percent")) payload.discount_percent = apptData.discount_percent;
 
   if (has("client_id") || !isUpdate) {
     const clientId = apptData.client_id;
