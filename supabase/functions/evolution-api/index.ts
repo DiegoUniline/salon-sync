@@ -141,6 +141,82 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, conversation: conv }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    if (action === 'send_template') {
+      const { type, appointment_id, sale_id, phone: overridePhone, extra_vars } = body as any;
+      if (!type) return new Response(JSON.stringify({ error: 'type required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+      const { data: tpl } = await sbAdmin.from('whatsapp_templates')
+        .select('*').eq('account_id', accountId).eq('type', type).maybeSingle();
+      if (!tpl) return new Response(JSON.stringify({ skipped: true, reason: 'no_template' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (tpl.enabled === false) return new Response(JSON.stringify({ skipped: true, reason: 'disabled' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+      const { data: inst } = await sbAdmin.from('whatsapp_instances').select('*').eq('account_id', accountId).maybeSingle();
+      if (!inst || inst.status !== 'connected') {
+        return new Response(JSON.stringify({ skipped: true, reason: 'not_connected' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      const { data: account } = await sbAdmin.from('accounts').select('name').eq('id', accountId).maybeSingle();
+      const vars: Record<string, string> = { negocio: account?.name || '', ...(extra_vars || {}) };
+      let recipientPhone = overridePhone as string | undefined;
+
+      if (appointment_id) {
+        const { data: appt } = await sbAdmin.from('appointments')
+          .select('*, clients(name, phone), services(name), profiles!appointments_employee_id_fkey(full_name), branches(name)')
+          .eq('id', appointment_id).eq('account_id', accountId).maybeSingle();
+        if (appt) {
+          vars.cliente = appt.client_name || (appt as any).clients?.name || '';
+          vars.fecha = appt.date || '';
+          vars.hora = (appt.time || '').slice(0, 5);
+          vars.servicio = (appt as any).services?.name || '';
+          vars.estilista = (appt as any).profiles?.full_name || '';
+          vars.sucursal = (appt as any).branches?.name || '';
+          vars.total = String(appt.total || '');
+          recipientPhone = recipientPhone || appt.client_phone || (appt as any).clients?.phone || undefined;
+        }
+      }
+
+      if (sale_id) {
+        const { data: sale } = await sbAdmin.from('sales')
+          .select('*, clients(name, phone), branches(name)')
+          .eq('id', sale_id).eq('account_id', accountId).maybeSingle();
+        if (sale) {
+          vars.cliente = sale.client_name || (sale as any).clients?.name || '';
+          vars.folio = sale.folio || sale.id;
+          vars.total = String(sale.total || '');
+          vars.fecha = sale.date || '';
+          vars.hora = (sale.time || '').slice(0, 5);
+          vars.sucursal = (sale as any).branches?.name || '';
+          recipientPhone = recipientPhone || sale.client_phone || (sale as any).clients?.phone || undefined;
+        }
+      }
+
+      if (!recipientPhone) {
+        return new Response(JSON.stringify({ skipped: true, reason: 'no_phone' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      const cleanPhone = String(recipientPhone).replace(/\D/g, '');
+      const rendered = String(tpl.content || '').replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, k) => vars[k] ?? '');
+
+      const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+      const { data: conv } = await sbAdmin.from('whatsapp_conversations').upsert({
+        account_id: accountId, instance_id: inst.id, remote_jid: remoteJid,
+        contact_phone: cleanPhone, contact_name: vars.cliente || cleanPhone,
+        last_message: rendered, last_message_at: new Date().toISOString(),
+      }, { onConflict: 'account_id,remote_jid' }).select().single();
+
+      const result = await evo(`/message/sendText/${inst.instance_name}`, {
+        method: 'POST', body: JSON.stringify({ number: cleanPhone, text: rendered }),
+      });
+
+      await sbAdmin.from('whatsapp_messages').insert({
+        account_id: accountId, conversation_id: conv?.id, instance_id: inst.id,
+        message_id: result?.key?.id || null, from_me: true, message_type: 'text', content: rendered,
+        status: 'sent', sender_user_id: userId, timestamp: new Date().toISOString(), raw: { template_type: type, result },
+      });
+
+      return new Response(JSON.stringify({ ok: true, sent_to: cleanPhone, rendered }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     return new Response(JSON.stringify({ error: 'unknown action' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     console.error(e);
