@@ -492,19 +492,24 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                 {loadingRange ? (
                   <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin" /></div>
                 ) : (
-                  <div className="grid grid-cols-4 gap-1.5 max-h-64 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-4 gap-1.5 max-h-64 overflow-y-auto pr-1 select-none">
                     {daySlots.map((s) => {
+                      const minute = toMin(s.time);
                       const selected = time === s.time;
+                      const inDrag = drag && drag.date === date && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin);
                       return (
                         <button
                           key={s.time}
                           disabled={s.busy}
-                          onClick={() => setTime(s.time)}
+                          onMouseDown={(e) => { e.preventDefault(); setDrag({ date, startMin: minute, endMin: minute, step: SLOT }); }}
+                          onMouseEnter={() => { if (drag && drag.date === date) setDrag({ ...drag, endMin: minute }); }}
+                          onClick={() => { if (!drag) setTime(s.time); }}
                           className={cn(
                             "text-xs py-1.5 rounded-md border font-medium transition-colors",
                             selected && "bg-primary text-primary-foreground border-primary",
-                            !selected && s.busy && "bg-destructive/10 text-destructive border-destructive/30 line-through cursor-not-allowed",
-                            !selected && !s.busy && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20",
+                            inDrag && "bg-primary/40 border-primary text-primary-foreground",
+                            !selected && !inDrag && s.busy && "bg-destructive/10 text-destructive border-destructive/30 line-through cursor-not-allowed",
+                            !selected && !inDrag && !s.busy && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20",
                           )}
                         >
                           {s.time}
