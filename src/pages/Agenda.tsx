@@ -132,7 +132,7 @@ export default function Agenda() {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState<{ time: string; stylistId: string; date: Date } | null>(null);
+  const [dragStart, setDragStart] = useState<{ time: string; stylistId: string; date: Date; dayKey?: string } | null>(null);
   const [dragEnd, setDragEnd] = useState<{ time: string } | null>(null);
   const dragRef = useRef<boolean>(false);
 
