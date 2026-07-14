@@ -249,75 +249,16 @@ export const auth = {
     if (authError) throw new Error(authError.message);
     if (!authData.user) throw new Error("Error creando usuario");
 
-    // 2. Create account
-    const { data: account, error: accError } = await supabase
-      .from("accounts")
-      .insert({ name: data.account_name, email: data.admin_email, phone: data.admin_phone || null })
-      .select()
-      .single();
-    if (accError) throw new Error(accError.message);
-
-    // 3. Create branch
-    const { data: branch, error: brError } = await supabase
-      .from("branches")
-      .insert({ account_id: account.id, name: data.branch_name })
-      .select()
-      .single();
-    if (brError) throw new Error(brError.message);
-
-    // 4. Update profile with account and branch
-    const { error: profError } = await supabase
-      .from("profiles")
-      .update({
-        account_id: account.id,
-        branch_id: branch.id,
-        full_name: data.admin_name,
-        phone: data.admin_phone || null,
-      })
-      .eq("user_id", authData.user.id);
-    if (profError) throw new Error(profError.message);
-
-    // 5. Assign account_admin role
-    const { error: roleError } = await supabase
-      .from("user_roles")
-      .insert({ user_id: authData.user.id, role: "account_admin" as any });
-    if (roleError) throw new Error(roleError.message);
-
-    // 6. Create trial subscription
-    let planId = data.plan_id;
-    if (!planId) {
-      const { data: defaultPlan } = await supabase
-        .from("subscription_plans")
-        .select("id")
-        .eq("is_active", true)
-        .order("price", { ascending: true })
-        .limit(1)
-        .single();
-      planId = defaultPlan?.id;
-    }
-
-    if (planId) {
-      const trialEnd = new Date();
-      trialEnd.setDate(trialEnd.getDate() + 14);
-      await supabase
-        .from("account_subscriptions")
-        .insert({
-          account_id: account.id,
-          plan_id: planId,
-          status: "trial" as any,
-          expires_at: trialEnd.toISOString(),
-        });
-    }
-
-    // 7. Create default custom roles
-    const defaultRoles = [
-      { name: "Administrador", description: "Acceso total al sistema", color: "#EF4444", is_system: true, permissions: {} },
-      { name: "Recepcionista", description: "Gestión de citas y clientes", color: "#3B82F6", is_system: true, permissions: {} },
-      { name: "Estilista", description: "Ver agenda y registrar servicios", color: "#10B981", is_system: true, permissions: {} },
-    ];
-    for (const role of defaultRoles) {
-      await supabase.from("custom_roles").insert({ ...role, account_id: account.id });
-    }
+    // 2. Complete account setup in the database so account, branch, admin role,
+    // subscription, and default roles are created atomically and securely.
+    const { error: setupError } = await (supabase as any).rpc("complete_signup", {
+      p_account_name: data.account_name,
+      p_branch_name: data.branch_name,
+      p_admin_name: data.admin_name,
+      p_admin_phone: data.admin_phone || null,
+      p_plan_id: data.plan_id || null,
+    });
+    if (setupError) throw new Error(setupError.message);
 
     const profile = await getCurrentProfile();
     const user = {
