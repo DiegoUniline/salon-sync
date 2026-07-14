@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Send, Phone, QrCode, RefreshCw, Power, MessageSquare, Search, User } from "lucide-react";
+import { Loader2, Send, Phone, QrCode, RefreshCw, Power, MessageSquare, Search, User, CalendarPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { QuickAppointmentSheet } from "@/components/QuickAppointmentSheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Instance { id: string; instance_name: string; phone_number: string | null; status: string; qr_code: string | null; }
