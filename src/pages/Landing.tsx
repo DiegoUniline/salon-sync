@@ -347,6 +347,38 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ============ PARA QUIÉN ============ */}
+      <section id="for-who" className="py-20 md:py-28">
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
+          <div className="max-w-2xl mx-auto text-center mb-14">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary text-secondary-foreground text-xs font-medium mb-4">
+              Para quién es Salon Pro
+            </div>
+            <h2 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-foreground mb-4">
+              Un sistema pensado para tu tipo de negocio
+            </h2>
+            <p className="text-lg text-muted-foreground">
+              Barberías, estéticas, spas, salones unisex y cadenas. Cada uno con lo que necesita para operar mejor.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+            {businessTypes.map((b) => (
+              <div
+                key={b.label}
+                className="p-6 rounded-2xl bg-card border border-border/70 hover:border-accent/40 hover:shadow-lg transition-all"
+              >
+                <div className="h-11 w-11 rounded-xl bg-accent/10 flex items-center justify-center mb-4">
+                  <b.icon className="h-5 w-5 text-accent" />
+                </div>
+                <h3 className="font-display font-semibold text-lg mb-2 text-foreground">{b.label}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{b.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ============ TESTIMONIALS ============ */}
       <section id="testimonials" className="py-20 md:py-28">
         <div className="max-w-7xl mx-auto px-4 md:px-6">
