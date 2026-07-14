@@ -16,9 +16,13 @@ import {
   Building2,
   Users,
   Loader2,
+  Lock,
+  X,
 } from 'lucide-react';
 import { AppointmentDetailView } from '@/components/AppointmentDetailView';
+import { BlockTimeDialog } from '@/components/BlockTimeDialog';
 import { AnimatePresence } from 'framer-motion';
+import { useToast } from '@/hooks/use-toast';
 
 type ViewMode = 'day' | 'week' | 'month';
 
