@@ -554,8 +554,9 @@ export default function Landing() {
             </span>
           </div>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
-            <a href="#features" className="hover:text-foreground">Producto</a>
+            <a href="#top" className="hover:text-foreground">Inicio</a>
             <a href="#pricing" className="hover:text-foreground">Precios</a>
+            <a href="#about" className="hover:text-foreground">Quiénes somos</a>
             <Link to="/login" className="hover:text-foreground">Iniciar sesión</Link>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
