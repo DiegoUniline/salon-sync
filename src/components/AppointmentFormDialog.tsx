@@ -212,6 +212,14 @@ export function AppointmentFormDialog({
   const generalDiscountAmount = subtotal * generalDiscount / 100;
   const total = subtotal - generalDiscountAmount;
   const totalDuration = serviceLines.reduce((sum, line) => sum + (line.duration || 0), 0);
+  const effectiveDuration = Math.max(0, toMin(endTime) - toMin(time));
+
+  // Auto-sync end time when start or service durations change
+  useEffect(() => {
+    const base = totalDuration || initialDuration || 30;
+    setEndTime(toTime(toMin(time) + base));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [time, totalDuration]);
 
   // Column configs with discount
   const serviceColumns: ColumnConfig[] = [
