@@ -240,7 +240,7 @@ export function Sidebar() {
         {visibleFavorites.length > 0 && (
           <div className="mb-3">
             {!sidebarCollapsed && (
-              <div className="flex items-center gap-2 px-2 py-1 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/60">
+              <div className="flex items-center gap-2 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-sidebar-foreground/80">
                 <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
                 Favoritos
               </div>
@@ -297,7 +297,7 @@ export function Sidebar() {
               {!sidebarCollapsed ? (
                 <button
                   onClick={() => toggleGroup(group.title)}
-                  className="w-full flex items-center gap-2 px-2 py-1 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
+                  className="w-full flex items-center gap-2 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-sidebar-foreground/80 hover:text-sidebar-foreground transition-colors"
                 >
                   <GroupIcon className="h-3.5 w-3.5" />
                   <span className="flex-1 text-left">{group.title}</span>
