@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,11 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CalendarPlus, User } from "lucide-react";
+import { Loader2, CalendarPlus, User, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { useApp } from "@/contexts/AppContext";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 interface Props {
   open: boolean;
@@ -24,9 +25,16 @@ interface Props {
 
 interface Svc { id: string; name: string; price: number; duration: number; }
 interface Stylist { id: string; name: string; color: string; role: string; }
+interface ApptRow { date: string; time: string; duration: number; employee_id?: string; stylist_id?: string; status?: string; }
 
 const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return (h || 0) * 60 + (m || 0); };
 const toTime = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const DAY_START = 9 * 60;   // 09:00
+const DAY_END = 20 * 60;    // 20:00
+const SLOT = 15;            // 15-min grid
+const MONTHS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const WEEKDAYS = ["L", "M", "M", "J", "V", "S", "D"];
 
 export function QuickAppointmentSheet({ open, onOpenChange, contactName, contactPhone, existingClientId, conversationId, onScheduled }: Props) {
   const { currentBranch } = useApp();
@@ -41,10 +49,16 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
 
   const [serviceId, setServiceId] = useState("");
   const [stylistId, setStylistId] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [time, setTime] = useState("09:00");
   const [duration, setDuration] = useState(30);
   const [notes, setNotes] = useState("");
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const [viewMonth, setViewMonth] = useState<Date>(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [date, setDate] = useState<string>(ymd(today));
+  const [time, setTime] = useState<string>("");
+
+  const [monthAppts, setMonthAppts] = useState<ApptRow[]>([]);
+  const [loadingMonth, setLoadingMonth] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -54,9 +68,11 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
     setNotes("");
     setServiceId("");
     setStylistId("");
-    setDate(new Date().toISOString().split("T")[0]);
-    setTime("09:00");
     setDuration(30);
+    setTime("");
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    setDate(ymd(t));
+    setViewMonth(new Date(t.getFullYear(), t.getMonth(), 1));
 
     (async () => {
       setLoading(true);
@@ -72,15 +88,11 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
         })));
         setStylists((usrs || []).filter((u: any) => u.role !== "Recepcionista"));
 
-        // Try to match client by phone if no id provided
         if (!existingClientId && contactPhone) {
           const digits = contactPhone.replace(/\D/g, "");
           const all = await api.clients.getAll();
           const found = (all || []).find((c: any) => (c.phone || "").replace(/\D/g, "").endsWith(digits.slice(-8)));
-          if (found) {
-            setClientId(found.id);
-            setClientName(found.name);
-          }
+          if (found) { setClientId(found.id); setClientName(found.name); }
         }
       } catch (e: any) {
         toast.error(e?.message || "Error cargando datos");
@@ -95,24 +107,94 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
     if (svc) setDuration(svc.duration || 30);
   }, [serviceId, services]);
 
-  const endTime = toTime(toMin(time) + duration);
+  // Fetch appointments for the viewed month for the selected stylist
+  useEffect(() => {
+    if (!stylistId || !open) { setMonthAppts([]); return; }
+    (async () => {
+      setLoadingMonth(true);
+      try {
+        const start = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
+        const end = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0);
+        const data = await api.appointments.getAll({
+          stylist_id: stylistId,
+          start_date: ymd(start),
+          end_date: ymd(end),
+        });
+        const rows: ApptRow[] = (data || [])
+          .filter((a: any) => a.status !== "cancelled")
+          .map((a: any) => ({
+            date: a.date || (a.scheduled_at || "").split("T")[0],
+            time: (a.time || "").slice(0, 5),
+            duration: Number(a.duration_minutes || a.duration || 30),
+            employee_id: a.employee_id,
+            stylist_id: a.stylist_id,
+            status: a.status,
+          }));
+        setMonthAppts(rows);
+      } catch (e: any) {
+        console.error(e);
+      } finally {
+        setLoadingMonth(false);
+      }
+    })();
+  }, [stylistId, viewMonth, open]);
+
+  const endTime = time ? toTime(toMin(time) + duration) : "";
+
+  // Build month grid (Mon-first)
+  const monthGrid = useMemo(() => {
+    const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
+    const startWeekday = (first.getDay() + 6) % 7; // Mon=0
+    const daysInMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).getDate();
+    const cells: Array<{ date: Date | null; key: string }> = [];
+    for (let i = 0; i < startWeekday; i++) cells.push({ date: null, key: `e${i}` });
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dt = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), d);
+      cells.push({ date: dt, key: ymd(dt) });
+    }
+    while (cells.length % 7 !== 0) cells.push({ date: null, key: `f${cells.length}` });
+    return cells;
+  }, [viewMonth]);
+
+  const countByDay = useMemo(() => {
+    const m: Record<string, number> = {};
+    monthAppts.forEach((a) => { if (a.date) m[a.date] = (m[a.date] || 0) + 1; });
+    return m;
+  }, [monthAppts]);
+
+  // Time slots for selected day
+  const daySlots = useMemo(() => {
+    const dayAppts = monthAppts.filter((a) => a.date === date);
+    const slots: Array<{ time: string; busy: boolean }> = [];
+    for (let m = DAY_START; m + duration <= DAY_END; m += SLOT) {
+      const end = m + duration;
+      const busy = dayAppts.some((a) => {
+        const s = toMin(a.time);
+        const e = s + (a.duration || 30);
+        return m < e && end > s;
+      });
+      slots.push({ time: toTime(m), busy });
+    }
+    return slots;
+  }, [monthAppts, date, duration]);
+
+  const shiftMonth = (delta: number) => {
+    setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + delta, 1));
+  };
 
   const handleSave = async () => {
     if (!clientName.trim()) return toast.error("Nombre del cliente requerido");
     if (!serviceId) return toast.error("Selecciona un servicio");
     if (!stylistId) return toast.error("Selecciona un estilista");
+    if (!time) return toast.error("Selecciona un horario disponible");
 
     setSaving(true);
     try {
       let finalClientId = clientId;
       if (!finalClientId) {
-        const created = await api.clients.create({
-          name: clientName.trim(),
-          phone: clientPhone.trim(),
-        });
+        const created = await api.clients.create({ name: clientName.trim(), phone: clientPhone.trim() });
         finalClientId = created.id;
       }
-
       const svc = services.find((s) => s.id === serviceId)!;
       await api.appointments.create({
         client_id: finalClientId,
@@ -130,12 +212,9 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
         total: svc.price,
         notes: notes || `Agendado desde WhatsApp (${contactPhone || ""})`,
       });
-
-      // Link client to conversation for next time
       if (conversationId && finalClientId && !existingClientId) {
         await supabase.from("whatsapp_conversations").update({ client_id: finalClientId }).eq("id", conversationId);
       }
-
       toast.success("Cita agendada correctamente");
       onOpenChange(false);
       onScheduled?.();
@@ -149,7 +228,7 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <CalendarPlus className="h-5 w-5 text-primary" />
@@ -159,9 +238,7 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
         </SheetHeader>
 
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
+          <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin" /></div>
         ) : (
           <div className="space-y-4 mt-4">
             <div className="rounded-lg border p-3 bg-muted/30 space-y-2">
@@ -176,60 +253,150 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Servicio</Label>
-              <Select value={serviceId} onValueChange={setServiceId}>
-                <SelectTrigger><SelectValue placeholder="Selecciona un servicio" /></SelectTrigger>
-                <SelectContent>
-                  {services.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name} · ${s.price} · {s.duration}min</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Estilista</Label>
-              <Select value={stylistId} onValueChange={setStylistId}>
-                <SelectTrigger><SelectValue placeholder="Selecciona un estilista" /></SelectTrigger>
-                <SelectContent>
-                  {stylists.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-3">
               <div className="space-y-1.5">
-                <Label>Fecha</Label>
-                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                <Label>Servicio</Label>
+                <Select value={serviceId} onValueChange={setServiceId}>
+                  <SelectTrigger><SelectValue placeholder="Selecciona un servicio" /></SelectTrigger>
+                  <SelectContent>
+                    {services.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name} · ${s.price} · {s.duration}min</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Hora</Label>
-                <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+                <Label>Estilista</Label>
+                <Select value={stylistId} onValueChange={setStylistId}>
+                  <SelectTrigger><SelectValue placeholder="Selecciona un estilista" /></SelectTrigger>
+                  <SelectContent>
+                    {stylists.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1.5">
-                <Label>Duración (min)</Label>
-                <Input type="number" value={duration} min={5} step={5} onChange={(e) => setDuration(Number(e.target.value) || 30)} />
+            {/* Calendar */}
+            <div className="rounded-lg border p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => shiftMonth(-1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="text-sm font-semibold capitalize">
+                  {MONTHS[viewMonth.getMonth()]} {viewMonth.getFullYear()}
+                </div>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => shiftMonth(1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
-              <div className="space-y-1.5">
-                <Label>Termina</Label>
-                <Input value={endTime} readOnly disabled />
+
+              <div className="grid grid-cols-7 gap-1 text-[10px] text-center text-muted-foreground">
+                {WEEKDAYS.map((d, i) => <div key={i}>{d}</div>)}
               </div>
+
+              <div className="grid grid-cols-7 gap-1">
+                {monthGrid.map((cell) => {
+                  if (!cell.date) return <div key={cell.key} />;
+                  const key = ymd(cell.date);
+                  const isPast = cell.date < today;
+                  const isSelected = key === date;
+                  const count = countByDay[key] || 0;
+                  return (
+                    <button
+                      key={cell.key}
+                      disabled={isPast || !stylistId}
+                      onClick={() => { setDate(key); setTime(""); }}
+                      className={cn(
+                        "relative aspect-square rounded-md text-xs flex flex-col items-center justify-center transition-colors",
+                        "border",
+                        isSelected
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background hover:bg-accent border-border",
+                        isPast && "opacity-40 cursor-not-allowed hover:bg-background",
+                        !stylistId && !isSelected && "opacity-60",
+                      )}
+                    >
+                      <span className="font-medium">{cell.date.getDate()}</span>
+                      {count > 0 && (
+                        <span className={cn(
+                          "absolute bottom-0.5 text-[9px] leading-none px-1 rounded-full",
+                          isSelected ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground",
+                        )}>{count}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {!stylistId && (
+                <p className="text-[11px] text-center text-muted-foreground">Selecciona un estilista para ver disponibilidad</p>
+              )}
+
+              {stylistId && (
+                <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1 border-t">
+                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />Libre</span>
+                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />Ocupado</span>
+                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />Seleccionado</span>
+                </div>
+              )}
             </div>
+
+            {/* Time slots */}
+            {stylistId && (
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs uppercase text-muted-foreground">Horarios · {new Date(date + "T00:00:00").toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "short" })}</Label>
+                  <div className="flex items-center gap-1">
+                    <Label className="text-[10px] text-muted-foreground">Dur.</Label>
+                    <Input type="number" value={duration} min={5} step={5} className="h-7 w-16 text-xs"
+                      onChange={(e) => { setDuration(Number(e.target.value) || 30); setTime(""); }} />
+                    <span className="text-[10px] text-muted-foreground">min</span>
+                  </div>
+                </div>
+
+                {loadingMonth ? (
+                  <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin" /></div>
+                ) : (
+                  <div className="grid grid-cols-4 gap-1.5 max-h-64 overflow-y-auto pr-1">
+                    {daySlots.map((s) => {
+                      const selected = time === s.time;
+                      return (
+                        <button
+                          key={s.time}
+                          disabled={s.busy}
+                          onClick={() => setTime(s.time)}
+                          className={cn(
+                            "text-xs py-1.5 rounded-md border font-medium transition-colors",
+                            selected && "bg-primary text-primary-foreground border-primary",
+                            !selected && s.busy && "bg-destructive/10 text-destructive border-destructive/30 line-through cursor-not-allowed",
+                            !selected && !s.busy && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20",
+                          )}
+                        >
+                          {s.time}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {time && (
+                  <p className="text-[11px] text-muted-foreground text-center pt-1">
+                    De <strong>{time}</strong> a <strong>{endTime}</strong> ({duration} min)
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label>Notas</Label>
-              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notas opcionales..." rows={3} />
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notas opcionales..." rows={2} />
             </div>
 
             <div className="flex gap-2 pt-2 sticky bottom-0 bg-background pb-2">
               <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
-              <Button className="flex-1" onClick={handleSave} disabled={saving}>
+              <Button className="flex-1" onClick={handleSave} disabled={saving || !time}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CalendarPlus className="h-4 w-4 mr-2" />}
                 Agendar
               </Button>
