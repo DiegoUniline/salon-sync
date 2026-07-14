@@ -804,6 +804,17 @@ export default function Agenda() {
           />
         )}
       </AnimatePresence>
+
+      <BlockTimeDialog
+        open={blockDialogOpen}
+        onOpenChange={setBlockDialogOpen}
+        stylists={filteredStylists}
+        initialDate={blockPrefill.date}
+        initialStartTime={blockPrefill.startTime}
+        initialEndTime={blockPrefill.endTime}
+        initialStylistId={blockPrefill.stylistId}
+        onCreated={reloadBlocks}
+      />
     </div>
   );
 }
