@@ -502,7 +502,7 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
 
               {view === "day" && (
                 <p className="text-[11px] text-center text-muted-foreground">
-                  Selecciona el horario en el panel inferior
+                  Arrastra sobre la columna para seleccionar rango
                 </p>
               )}
 
@@ -511,11 +511,27 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
               )}
 
               {stylistId && (
-                <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1 border-t">
-                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />Libre</span>
-                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />Ocupado</span>
-                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />Seleccionado</span>
+                <div className="flex items-center justify-between gap-3 pt-2 border-t">
+                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />Libre</span>
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />Ocupado</span>
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />Seleccionado</span>
+                  </div>
+                  {view !== "month" && (
+                    <div className="flex items-center gap-1">
+                      <Label className="text-[10px] text-muted-foreground">Dur.</Label>
+                      <Input type="number" value={duration} min={5} step={5} className="h-7 w-16 text-xs"
+                        onChange={(e) => setDuration(Number(e.target.value) || 30)} />
+                      <span className="text-[10px] text-muted-foreground">min</span>
+                    </div>
+                  )}
                 </div>
+              )}
+
+              {stylistId && view !== "month" && time && (
+                <p className="text-[11px] text-muted-foreground text-center">
+                  {new Date(date + "T00:00:00").toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "short" })} · <strong>{time}</strong> a <strong>{endTime}</strong> ({duration} min)
+                </p>
               )}
             </div>
 
