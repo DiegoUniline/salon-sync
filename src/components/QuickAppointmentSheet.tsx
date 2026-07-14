@@ -61,6 +61,20 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
   const [rangeAppts, setRangeAppts] = useState<ApptRow[]>([]);
   const [loadingRange, setLoadingRange] = useState(false);
 
+  // Drag-to-select state
+  const [drag, setDrag] = useState<{ date: string; startMin: number; endMin: number; step: number } | null>(null);
+
+  const commitDrag = (d: { date: string; startMin: number; endMin: number; step: number } | null) => {
+    if (!d) return;
+    const a = Math.min(d.startMin, d.endMin);
+    const b = Math.max(d.startMin, d.endMin) + d.step;
+    setDate(d.date);
+    setAnchor(new Date(d.date + "T00:00:00"));
+    setTime(toTime(a));
+    setDuration(Math.max(d.step, b - a));
+    setDrag(null);
+  };
+
   useEffect(() => {
     if (!open) return;
     setClientName(contactName || "");
@@ -262,7 +276,7 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+      <SheetContent side="right" className="w-full sm:max-w-[50vw] sm:min-w-[560px] overflow-y-auto" onMouseUp={() => commitDrag(drag)} onMouseLeave={() => commitDrag(drag)}>
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <CalendarPlus className="h-5 w-5 text-primary" />
@@ -421,10 +435,13 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                                 <button
                                   key={i}
                                   disabled={isPast || !stylistId || busy}
-                                  onClick={() => { setDate(key); setTime(toTime(minute)); setAnchor(d); }}
+                                  onMouseDown={(e) => { e.preventDefault(); setDrag({ date: key, startMin: minute, endMin: minute, step: 30 }); }}
+                                  onMouseEnter={() => { if (drag && drag.date === key) setDrag({ ...drag, endMin: minute }); }}
+                                  onClick={() => { if (!drag) { setDate(key); setTime(toTime(minute)); setAnchor(d); } }}
                                   className={cn(
-                                    "h-6 rounded border text-[9px] transition-colors",
+                                    "h-6 rounded border text-[9px] transition-colors select-none",
                                     isSel && "bg-primary text-primary-foreground border-primary",
+                                    drag && drag.date === key && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin) && "bg-primary/40 border-primary",
                                     !isSel && busy && "bg-destructive/15 border-destructive/30 cursor-not-allowed",
                                     !isSel && !busy && "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/25",
                                     isPast && "opacity-30 cursor-not-allowed",
@@ -475,19 +492,24 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                 {loadingRange ? (
                   <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin" /></div>
                 ) : (
-                  <div className="grid grid-cols-4 gap-1.5 max-h-64 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-4 gap-1.5 max-h-64 overflow-y-auto pr-1 select-none">
                     {daySlots.map((s) => {
+                      const minute = toMin(s.time);
                       const selected = time === s.time;
+                      const inDrag = drag && drag.date === date && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin);
                       return (
                         <button
                           key={s.time}
                           disabled={s.busy}
-                          onClick={() => setTime(s.time)}
+                          onMouseDown={(e) => { e.preventDefault(); setDrag({ date, startMin: minute, endMin: minute, step: SLOT }); }}
+                          onMouseEnter={() => { if (drag && drag.date === date) setDrag({ ...drag, endMin: minute }); }}
+                          onClick={() => { if (!drag) setTime(s.time); }}
                           className={cn(
                             "text-xs py-1.5 rounded-md border font-medium transition-colors",
                             selected && "bg-primary text-primary-foreground border-primary",
-                            !selected && s.busy && "bg-destructive/10 text-destructive border-destructive/30 line-through cursor-not-allowed",
-                            !selected && !s.busy && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20",
+                            inDrag && "bg-primary/40 border-primary text-primary-foreground",
+                            !selected && !inDrag && s.busy && "bg-destructive/10 text-destructive border-destructive/30 line-through cursor-not-allowed",
+                            !selected && !inDrag && !s.busy && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20",
                           )}
                         >
                           {s.time}
