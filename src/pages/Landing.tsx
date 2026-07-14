@@ -117,10 +117,9 @@ const plans = [
     description: 'Para cadenas y franquicias',
     features: [
       'Sucursales ilimitadas',
+      'Usuarios ilimitados',
+      'Agente IA (asistente inteligente)',
       'Todo lo de Pro',
-      'API y integraciones',
-      'Onboarding dedicado',
-      'SLA 99.9%',
     ],
     highlighted: false,
   },
