@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -6,10 +6,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Printer, Download } from "lucide-react";
+import { Printer, Download, MessageCircle, CalendarPlus, Loader2 } from "lucide-react";
 import { getBusinessConfig, type BusinessConfig } from "@/lib/businessConfig";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import api from "@/lib/api";
+import { toast } from "sonner";
 
 export interface TicketItem {
   name: string;
