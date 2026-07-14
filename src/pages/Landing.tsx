@@ -192,7 +192,6 @@ export default function Landing() {
             <a href="#top" className="hover:text-foreground transition-colors">Inicio</a>
             <a href="#pricing" className="hover:text-foreground transition-colors">Precios</a>
             <a href="#about" className="hover:text-foreground transition-colors">Quiénes somos</a>
-            <a href="#testimonials" className="hover:text-foreground transition-colors">Clientes</a>
           </nav>
           <div className="flex items-center gap-2">
             <Link to="/login">

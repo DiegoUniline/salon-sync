@@ -58,7 +58,7 @@ export default function Pricing() {
             <Link to="/#top" className="hover:text-foreground transition-colors">Inicio</Link>
             <Link to="/#pricing" className="hover:text-foreground transition-colors">Precios</Link>
             <Link to="/#about" className="hover:text-foreground transition-colors">Quiénes somos</Link>
-            <Link to="/#testimonials" className="hover:text-foreground transition-colors">Clientes</Link>
+            
           </nav>
           <div className="flex items-center gap-2">
             <Link to="/login">
