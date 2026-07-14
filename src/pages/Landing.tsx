@@ -271,7 +271,7 @@ export default function Landing() {
         </div>
 
         {/* Business types strip */}
-        <div id="for-who" className="border-y border-border/60 bg-card/40">
+        <div className="border-y border-border/60 bg-card/40">
           <div className="max-w-7xl mx-auto px-4 md:px-6 py-8">
             <p className="text-center text-xs uppercase tracking-wider text-muted-foreground mb-5 font-medium">
               Diseñado para todo tipo de negocio de belleza
