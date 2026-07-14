@@ -501,9 +501,37 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
               )}
 
               {view === "day" && (
-                <p className="text-[11px] text-center text-muted-foreground">
-                  Arrastra sobre la columna para seleccionar rango
-                </p>
+                <div className="max-h-80 overflow-y-auto touch-none select-none" onPointerDown={onGridPointerDown} onPointerMove={onGridPointerMove}>
+                  {Array.from({ length: Math.ceil((DAY_END - DAY_START) / SLOT) }).map((_, rowIdx) => {
+                    const minute = DAY_START + rowIdx * SLOT;
+                    const key = ymd(anchor);
+                    const isPast = anchor < today;
+                    const busy = stylistId ? isSlotBusy(key, minute) : false;
+                    const isSel = key === date && time === toTime(minute);
+                    const inDrag = !!(drag && drag.date === key && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin));
+                    const disabled = isPast || !stylistId || busy;
+                    return (
+                      <div key={minute} className="grid grid-cols-[56px_1fr] gap-1 mb-0.5">
+                        <div className="text-[10px] text-muted-foreground text-right pr-1 pt-1">{toTime(minute)}</div>
+                        <div
+                          data-slot-date={disabled ? undefined : key}
+                          data-slot-min={disabled ? undefined : minute}
+                          data-slot-step={SLOT}
+                          data-slot-busy={busy ? "1" : "0"}
+                          onClick={() => { if (!disabled && !drag) { setDate(key); setTime(toTime(minute)); } }}
+                          className={cn(
+                            "h-6 rounded border text-[10px] transition-colors",
+                            isSel && "bg-primary text-primary-foreground border-primary",
+                            inDrag && "bg-primary/50 border-primary",
+                            !isSel && !inDrag && busy && "bg-destructive/15 border-destructive/30 cursor-not-allowed",
+                            !isSel && !inDrag && !busy && "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/25 cursor-pointer",
+                            isPast && "opacity-30 cursor-not-allowed",
+                          )}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               )}
 
               {!stylistId && (
