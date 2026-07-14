@@ -130,7 +130,7 @@ function AppointmentCard({ appointment, delay }: { appointment: Appointment; del
         </div>
         
         <p className="text-sm text-muted-foreground mt-1">
-          {appointment.services?.map(s => s.name).join(', ') || 'Sin servicios'}
+          {servicesArray.map(s => s.name).join(', ') || 'Sin servicios'}
         </p>
 
         <div className="flex items-center gap-2 mt-2">
