@@ -19,6 +19,8 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Global search (Ctrl+K) */}
+      <GlobalSearch />
       {/* Welcome tour for first-time users */}
       <WelcomeTour userName={currentUser?.name?.split(' ')[0]} />
       
