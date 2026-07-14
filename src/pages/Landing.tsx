@@ -579,6 +579,9 @@ export default function Landing() {
             © {new Date().getFullYear()} Salon Pro · Todos los derechos reservados
           </div>
         </div>
+        <div className="max-w-7xl mx-auto px-4 md:px-6 mt-6 pt-6 border-t border-border/60 text-center text-xs text-muted-foreground">
+          Sistema desarrollado por <span className="font-semibold text-foreground">Uniline</span> · Innovación en la nube
+        </div>
       </footer>
     </div>
   );
