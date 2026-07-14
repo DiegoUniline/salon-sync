@@ -223,10 +223,10 @@ export default function Landing() {
               </div>
               <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight leading-[1.05] text-foreground">
                 Administra tu salón
-                <span className="block text-accent">sin caos y sin perder citas.</span>
+                <span className="block shimmer-text">sin caos y sin perder citas.</span>
               </h1>
               <p className="text-lg text-muted-foreground max-w-xl leading-relaxed">
-                Agenda, WhatsApp automático, punto de venta e inventario en un solo sistema.
+                Agenda, <span className="inline-flex items-center gap-1 font-semibold text-foreground"><WhatsAppIcon className="h-4 w-4 text-[#25D366]" /> WhatsApp automático</span>, punto de venta e inventario en un solo sistema.
                 Llena tu agenda, cobra rápido y sabe cuánto ganas cada día.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
