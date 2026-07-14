@@ -53,7 +53,7 @@ const groups: NavGroup[] = [
     ],
   },
   {
-    title: 'Día a día',
+    title: 'Operación',
     icon: Calendar,
     items: [
       { path: '/agenda', icon: Calendar, label: 'Agenda', moduleId: 'agenda' },
