@@ -213,7 +213,7 @@
   .nav-item.active {
     background: rgba(255, 255, 255, 0.12);
     color: #FFFFFF;
-    border-left: 3px solid hsl(var(--brand-rose));
+    border-left: 3px solid hsl(var(--accent));
   }
 
   .badge-status {
@@ -234,7 +234,7 @@
   }
 
   .input-styled:focus {
-    outline: 3px solid rgba(75, 31, 61, 0.12);
+    outline: 3px solid rgba(20, 184, 166, 0.18);
     outline-offset: 0;
   }
 
