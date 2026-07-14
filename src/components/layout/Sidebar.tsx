@@ -41,12 +41,13 @@ import {
 } from 'lucide-react';
 
 type NavItem = { path: string; icon: typeof LayoutDashboard; label: string; moduleId: ModuleId };
-type NavGroup = { title: string; icon: typeof LayoutDashboard; items: NavItem[] };
+type NavGroup = { title: string; icon: typeof LayoutDashboard; color: string; items: NavItem[] };
 
 const groups: NavGroup[] = [
   {
     title: 'Inicio',
     icon: Home,
+    color: 'sky',
     items: [
       { path: '/', icon: LayoutDashboard, label: 'Dashboard', moduleId: 'dashboard' },
       { path: '/superadmin', icon: Crown, label: 'Super Admin', moduleId: 'superadmin' },
@@ -55,6 +56,7 @@ const groups: NavGroup[] = [
   {
     title: 'Operación',
     icon: Calendar,
+    color: 'violet',
     items: [
       { path: '/agenda', icon: Calendar, label: 'Agenda', moduleId: 'agenda' },
       { path: '/citas', icon: CalendarCheck, label: 'Citas', moduleId: 'agenda' },
@@ -66,6 +68,7 @@ const groups: NavGroup[] = [
   {
     title: 'Catálogo',
     icon: FolderOpen,
+    color: 'emerald',
     items: [
       { path: '/servicios', icon: Scissors, label: 'Servicios', moduleId: 'servicios' },
       { path: '/productos', icon: Package, label: 'Productos', moduleId: 'productos' },
@@ -75,6 +78,7 @@ const groups: NavGroup[] = [
   {
     title: 'Almacén y compras',
     icon: Warehouse,
+    color: 'amber',
     items: [
       { path: '/inventario', icon: Warehouse, label: 'Inventario', moduleId: 'inventario' },
       { path: '/compras', icon: ShoppingCart, label: 'Compras', moduleId: 'compras' },
@@ -85,6 +89,7 @@ const groups: NavGroup[] = [
   {
     title: 'Equipo',
     icon: Users,
+    color: 'rose',
     items: [
       { path: '/horarios', icon: CalendarClock, label: 'Horarios', moduleId: 'horarios' },
       { path: '/turnos', icon: Clock, label: 'Turnos', moduleId: 'turnos' },
@@ -95,6 +100,7 @@ const groups: NavGroup[] = [
   {
     title: 'Análisis',
     icon: BarChart3,
+    color: 'cyan',
     items: [
       { path: '/reportes', icon: TrendingUp, label: 'Reportes', moduleId: 'reportes' },
       { path: '/auditoria', icon: History, label: 'Bitácora', moduleId: 'auditoria' },
@@ -103,12 +109,23 @@ const groups: NavGroup[] = [
   {
     title: 'Administración',
     icon: Cog,
+    color: 'slate',
     items: [
       { path: '/permisos', icon: Shield, label: 'Permisos', moduleId: 'permisos' },
       { path: '/configuracion', icon: Settings, label: 'Configuración', moduleId: 'configuracion' },
     ],
   },
 ];
+
+const colorMap: Record<string, { tile: string; icon: string; label: string; activeTile: string }> = {
+  sky:     { tile: 'bg-sky-100',     icon: 'text-sky-600',     label: 'text-sky-700',     activeTile: 'bg-sky-500' },
+  violet:  { tile: 'bg-violet-100',  icon: 'text-violet-600',  label: 'text-violet-700',  activeTile: 'bg-violet-500' },
+  emerald: { tile: 'bg-emerald-100', icon: 'text-emerald-600', label: 'text-emerald-700', activeTile: 'bg-emerald-500' },
+  amber:   { tile: 'bg-amber-100',   icon: 'text-amber-600',   label: 'text-amber-700',   activeTile: 'bg-amber-500' },
+  rose:    { tile: 'bg-rose-100',    icon: 'text-rose-600',    label: 'text-rose-700',    activeTile: 'bg-rose-500' },
+  cyan:    { tile: 'bg-cyan-100',    icon: 'text-cyan-600',    label: 'text-cyan-700',    activeTile: 'bg-cyan-500' },
+  slate:   { tile: 'bg-slate-200',   icon: 'text-slate-700',   label: 'text-slate-700',   activeTile: 'bg-slate-600' },
+};
 
 export function Sidebar() {
   const location = useLocation();
