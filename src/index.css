@@ -53,14 +53,14 @@
 
     --radius: 0.625rem;                    /* 10px */
 
-    /* Sidebar (grafito con acento teal) */
-    --sidebar-background: 222 47% 11%;    /* #0F172A */
-    --sidebar-foreground: 210 40% 96%;
+    /* Sidebar (blanco limpio con acento teal) */
+    --sidebar-background: 0 0% 100%;      /* #FFFFFF */
+    --sidebar-foreground: 222 47% 11%;    /* #0F172A */
     --sidebar-primary: 173 80% 40%;
-    --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 217 33% 17%;        /* #1E293B */
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 217 33% 20%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 214 32% 94%;        /* #E9EEF5 hover suave */
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 20% 90%;        /* #E2E8F0 */
     --sidebar-ring: 173 80% 40%;
 
     /* Gradient autorizado (logo, portadas, elementos especiales) */
