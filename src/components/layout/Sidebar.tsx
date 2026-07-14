@@ -25,6 +25,9 @@ import {
   Store,
   Crown,
   FolderOpen,
+  TrendingUp,
+  Wallet,
+  History,
 } from 'lucide-react';
 
 const navItems: { path: string; icon: typeof LayoutDashboard; label: string; moduleId: ModuleId }[] = [
