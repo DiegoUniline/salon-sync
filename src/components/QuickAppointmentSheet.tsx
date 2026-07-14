@@ -341,7 +341,7 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Servicio</Label>
                 <Select value={serviceId} onValueChange={setServiceId}>
