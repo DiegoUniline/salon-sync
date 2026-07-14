@@ -63,8 +63,23 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
 
   // Drag-to-select state
   const [drag, setDrag] = useState<{ date: string; startMin: number; endMin: number; step: number } | null>(null);
+  const dragRef = useRef<typeof drag>(null);
+  useEffect(() => { dragRef.current = drag; }, [drag]);
 
-  const commitDrag = (d: { date: string; startMin: number; endMin: number; step: number } | null) => {
+  const cellUnderPointer = (e: { clientX: number; clientY: number }) => {
+    const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+    if (!el) return null;
+    const cell = el.closest<HTMLElement>("[data-slot-date]");
+    if (!cell) return null;
+    const date = cell.dataset.slotDate!;
+    const min = Number(cell.dataset.slotMin);
+    const step = Number(cell.dataset.slotStep || SLOT);
+    const busy = cell.dataset.slotBusy === "1";
+    return { date, min, step, busy };
+  };
+
+  const commitDrag = () => {
+    const d = dragRef.current;
     if (!d) return;
     const a = Math.min(d.startMin, d.endMin);
     const b = Math.max(d.startMin, d.endMin) + d.step;
@@ -73,6 +88,31 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
     setTime(toTime(a));
     setDuration(Math.max(d.step, b - a));
     setDrag(null);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const up = () => commitDrag();
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    return () => {
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
+  }, [open]);
+
+  const onGridPointerDown = (e: React.PointerEvent) => {
+    const c = cellUnderPointer(e);
+    if (!c || c.busy) return;
+    e.preventDefault();
+    setDrag({ date: c.date, startMin: c.min, endMin: c.min, step: c.step });
+  };
+  const onGridPointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const c = cellUnderPointer(e);
+    if (!c || c.date !== d.date) return;
+    if (c.min !== d.endMin) setDrag({ ...d, endMin: c.min });
   };
 
   useEffect(() => {
