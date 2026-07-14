@@ -1757,6 +1757,16 @@ export type Database = {
           status: Database["public"]["Enums"]["subscription_status"]
         }[]
       }
+      complete_signup: {
+        Args: {
+          p_account_name: string
+          p_admin_name: string
+          p_admin_phone?: string
+          p_branch_name: string
+          p_plan_id?: string
+        }
+        Returns: Json
+      }
       create_sale_atomic: {
         Args: { p_sale: Json }
         Returns: {
