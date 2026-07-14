@@ -236,7 +236,7 @@ export function Sidebar() {
           </div>
           {!sidebarCollapsed && (
             <span className="font-display font-semibold text-[15px] tracking-tight text-sidebar-foreground whitespace-nowrap">
-              Salon <span className="text-[hsl(var(--brand-rose))]">Pro</span>
+              Salon <span className="text-[hsl(var(--accent))]">Pro</span>
             </span>
           )}
         </div>

@@ -6,131 +6,132 @@
 
 @layer base {
   :root {
-    /* ===== Salon Pro Brand Tokens (Light) ===== */
-    /* Backgrounds */
-    --background: 320 17% 97%;            /* #FAF8F9 */
-    --foreground: 240 6% 13%;             /* #1F1F23 carbón */
+    /* ===== Salon Pro Brand Tokens — Teal Profesional (Light) ===== */
+    --background: 210 40% 98%;            /* #F8FAFC */
+    --foreground: 222 47% 11%;            /* #0F172A grafito */
 
-    --card: 0 0% 100%;                    /* #FFFFFF */
-    --card-foreground: 240 6% 13%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 6% 13%;
+    --popover-foreground: 222 47% 11%;
 
-    /* Purple principal */
-    --primary: 317 41% 21%;               /* #4B1F3D */
-    --primary-foreground: 0 0% 100%;
-    --primary-hover: 317 45% 15%;         /* #39162E */
+    /* Grafito principal (buttons, sidebar) */
+    --primary: 222 47% 11%;               /* #0F172A */
+    --primary-foreground: 210 40% 98%;
+    --primary-hover: 217 33% 20%;         /* #1E293B */
 
-    /* Rose secundario */
-    --secondary: 340 36% 95%;             /* #F6EDEF */
-    --secondary-foreground: 317 41% 21%;
+    /* Slate secundario */
+    --secondary: 210 40% 96%;             /* #F1F5F9 */
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 320 13% 92%;
-    --muted-foreground: 300 4% 42%;       /* #706670 */
+    --muted: 214 32% 94%;
+    --muted-foreground: 215 16% 47%;      /* #64748B */
 
-    /* Turquesa tecnológico (acento) */
-    --accent: 177 84% 35%;                /* #0FA7A0 */
+    /* Teal acento (acciones positivas, tecnología) */
+    --accent: 173 80% 40%;                /* #14B8A6 */
     --accent-foreground: 0 0% 100%;
-    --accent-soft: 170 52% 93%;           /* #E5F7F5 */
+    --accent-soft: 166 76% 94%;           /* #CCFBF1 */
 
-    --destructive: 353 54% 54%;           /* #C94C5C */
+    --destructive: 0 72% 51%;             /* #DC2626 */
     --destructive-foreground: 0 0% 100%;
 
-    --success: 173 82% 34%;               /* #0F9D8A */
+    --success: 173 80% 36%;               /* #0D9488 teal-deep */
     --success-foreground: 0 0% 100%;
-    --warning: 39 68% 51%;                /* #D89B2B */
+    --warning: 38 92% 45%;                /* #D97706 */
     --warning-foreground: 0 0% 100%;
-    --info: 217 54% 55%;                  /* #4F7CCB */
+    --info: 199 89% 45%;                  /* #0EA5E9 */
     --info-foreground: 0 0% 100%;
 
     /* Brand extras */
-    --brand-rose: 350 42% 75%;            /* #D8A7B1 */
-    --brand-rose-soft: 340 36% 95%;       /* #F6EDEF */
+    --brand-teal-deep: 177 61% 19%;       /* #134E4A */
+    --brand-teal: 173 80% 40%;            /* #14B8A6 */
 
-    --border: 320 13% 90%;                /* #E8E1E5 */
-    --input: 320 10% 86%;                 /* #DED6DB */
-    --ring: 317 41% 21%;
+    --border: 214 20% 90%;                /* #E2E8F0 */
+    --input: 214 20% 88%;
+    --ring: 173 80% 40%;
 
-    --radius: 0.625rem;                    /* 10px botones; 14px tarjetas via clase */
+    --radius: 0.625rem;                    /* 10px */
 
-    /* Sidebar (púrpura profundo) */
-    --sidebar-background: 317 41% 21%;    /* #4B1F3D */
-    --sidebar-foreground: 340 36% 95%;
-    --sidebar-primary: 350 42% 75%;
-    --sidebar-primary-foreground: 317 41% 21%;
-    --sidebar-accent: 317 45% 15%;
+    /* Sidebar (grafito con acento teal) */
+    --sidebar-background: 222 47% 11%;    /* #0F172A */
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-primary: 173 80% 40%;
+    --sidebar-primary-foreground: 222 47% 11%;
+    --sidebar-accent: 217 33% 17%;        /* #1E293B */
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 317 45% 15%;
-    --sidebar-ring: 350 42% 75%;
+    --sidebar-border: 217 33% 20%;
+    --sidebar-ring: 173 80% 40%;
 
-    /* Gradient autorizado (solo logo / portada / especiales) */
-    --gradient-primary: linear-gradient(135deg, #4B1F3D 0%, #7A285F 55%, #D87991 100%);
-    --gradient-accent: linear-gradient(135deg, #0FA7A0 0%, #3FC7BE 100%);
-    --gradient-card: linear-gradient(145deg, #FFFFFF 0%, #FAF8F9 100%);
+    /* Gradient autorizado (logo, portadas, elementos especiales) */
+    --gradient-primary: linear-gradient(135deg, #0F172A 0%, #134E4A 55%, #14B8A6 100%);
+    --gradient-accent: linear-gradient(135deg, #14B8A6 0%, #2DD4BF 100%);
+    --gradient-card: linear-gradient(145deg, #FFFFFF 0%, #F8FAFC 100%);
 
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgba(75, 31, 61, 0.04);
-    --shadow-md: 0 4px 18px rgba(75, 31, 61, 0.06);
-    --shadow-lg: 0 10px 30px -8px rgba(75, 31, 61, 0.10);
-    --shadow-xl: 0 20px 40px -12px rgba(75, 31, 61, 0.14);
-    --shadow-glow: 0 0 0 3px rgba(75, 31, 61, 0.12);
+    --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+    --shadow-md: 0 4px 18px rgba(15, 23, 42, 0.06);
+    --shadow-lg: 0 10px 30px -8px rgba(15, 23, 42, 0.10);
+    --shadow-xl: 0 20px 40px -12px rgba(15, 23, 42, 0.14);
+    --shadow-glow: 0 0 0 3px rgba(20, 184, 166, 0.20);
   }
 
   .dark {
-    /* ===== Salon Pro Brand Tokens (Dark) ===== */
-    --background: 270 9% 9%;              /* #171418 */
-    --foreground: 320 27% 97%;            /* #F8F5F7 */
+    /* ===== Salon Pro Brand Tokens — Teal Profesional (Dark) ===== */
+    --background: 222 47% 7%;             /* #0B1220 */
+    --foreground: 210 40% 96%;
 
-    --card: 300 8% 15%;                   /* #292229 */
-    --card-foreground: 320 27% 97%;
+    --card: 222 44% 11%;                  /* #111827 */
+    --card-foreground: 210 40% 96%;
 
-    --popover: 300 8% 13%;
-    --popover-foreground: 320 27% 97%;
+    --popover: 222 44% 11%;
+    --popover-foreground: 210 40% 96%;
 
-    --primary: 323 42% 63%;               /* #C879A7 */
-    --primary-foreground: 270 9% 9%;
-    --primary-hover: 323 42% 55%;
+    --primary: 173 80% 45%;               /* teal brillante */
+    --primary-foreground: 222 47% 7%;
+    --primary-hover: 173 80% 55%;
 
-    --secondary: 300 8% 18%;
-    --secondary-foreground: 320 27% 97%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 96%;
 
-    --muted: 300 8% 15%;
-    --muted-foreground: 316 8% 72%;       /* #BEB4BB */
+    --muted: 217 33% 15%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 176 53% 52%;                /* #3FC7BE */
-    --accent-foreground: 270 9% 9%;
-    --accent-soft: 176 30% 20%;
+    --accent: 173 80% 45%;
+    --accent-foreground: 222 47% 7%;
+    --accent-soft: 177 60% 15%;
 
-    --destructive: 353 60% 58%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 173 60% 48%;
-    --success-foreground: 270 9% 9%;
-    --warning: 39 75% 58%;
-    --warning-foreground: 270 9% 9%;
-    --info: 217 65% 65%;
-    --info-foreground: 270 9% 9%;
+    --success: 173 70% 45%;
+    --success-foreground: 222 47% 7%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 222 47% 7%;
+    --info: 199 89% 55%;
+    --info-foreground: 0 0% 100%;
 
-    --brand-rose: 350 42% 75%;
-    --brand-rose-soft: 300 8% 18%;
+    --brand-teal-deep: 177 61% 25%;
+    --brand-teal: 173 80% 45%;
 
-    --border: 311 8% 21%;                 /* #3C323A */
-    --input: 311 8% 21%;
-    --ring: 323 42% 63%;
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 173 80% 45%;
 
-    --sidebar-background: 300 8% 13%;
-    --sidebar-foreground: 320 27% 97%;
-    --sidebar-primary: 323 42% 63%;
-    --sidebar-primary-foreground: 270 9% 9%;
-    --sidebar-accent: 311 8% 21%;
-    --sidebar-accent-foreground: 320 27% 97%;
-    --sidebar-border: 311 8% 21%;
-    --sidebar-ring: 323 42% 63%;
+    --sidebar-background: 222 47% 9%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-primary: 173 80% 45%;
+    --sidebar-primary-foreground: 222 47% 7%;
+    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent-foreground: 210 40% 96%;
+    --sidebar-border: 217 33% 17%;
+    --sidebar-ring: 173 80% 45%;
 
-    --gradient-primary: linear-gradient(135deg, #4B1F3D 0%, #7A285F 55%, #C879A7 100%);
-    --gradient-accent: linear-gradient(135deg, #0FA7A0 0%, #3FC7BE 100%);
-    --gradient-card: linear-gradient(145deg, #292229 0%, #221D22 100%);
+    --gradient-primary: linear-gradient(135deg, #0F172A 0%, #134E4A 55%, #2DD4BF 100%);
+    --gradient-accent: linear-gradient(135deg, #14B8A6 0%, #2DD4BF 100%);
+    --gradient-card: linear-gradient(145deg, #111827 0%, #0B1220 100%);
+
+
 
     --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.3);
     --shadow-md: 0 4px 18px rgba(0,0,0,0.35);
@@ -212,7 +213,7 @@
   .nav-item.active {
     background: rgba(255, 255, 255, 0.12);
     color: #FFFFFF;
-    border-left: 3px solid hsl(var(--brand-rose));
+    border-left: 3px solid hsl(var(--accent));
   }
 
   .badge-status {
@@ -233,7 +234,7 @@
   }
 
   .input-styled:focus {
-    outline: 3px solid rgba(75, 31, 61, 0.12);
+    outline: 3px solid rgba(20, 184, 166, 0.18);
     outline-offset: 0;
   }
 
