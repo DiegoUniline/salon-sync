@@ -32,6 +32,7 @@ export type ModuleId =
   | "reportes"
   | "comisiones"
   | "auditoria"
+  | "whatsapp"
   | "superadmin";
 
 export type ActionId = "view" | "create" | "edit" | "delete";
