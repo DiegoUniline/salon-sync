@@ -388,6 +388,55 @@ export default function Agenda() {
     return stylist?.name || 'Sin asignar';
   };
 
+  // ============ BLOQUEOS ============
+  const reloadBlocks = async () => {
+    try {
+      const list = await api.schedules.getBlocked({});
+      setBlocks(list || []);
+    } catch (e) { console.error(e); }
+  };
+
+  const dateStr = (d: Date) => d.toISOString().split('T')[0];
+
+  // Devuelve los bloques activos para una fecha + (opcional) stylist
+  const getBlocksForDate = (date: Date, stylistId?: string) => {
+    const s = dateStr(date);
+    return blocks.filter((b: any) => {
+      if (s < b.start_date || s > b.end_date) return false;
+      if (b.type === 'account') return true;
+      if (b.type === 'employee') return stylistId ? b.target_id === stylistId : true;
+      return false;
+    });
+  };
+
+  // Indica si un slot (time 'HH:MM') está bloqueado
+  const isSlotBlocked = (date: Date, time: string, stylistId?: string) => {
+    const dayBlocks = getBlocksForDate(date, stylistId);
+    return dayBlocks.find((b: any) => {
+      if (!b.start_time || !b.end_time) return true; // día completo
+      const t = time + ':00';
+      return t >= b.start_time && t < b.end_time;
+    });
+  };
+
+  const handleUnblock = async (blockId: string) => {
+    if (!confirm('¿Quitar este bloqueo?')) return;
+    try {
+      await api.schedules.deleteBlocked(blockId);
+      toast({ title: 'Bloqueo eliminado' });
+      reloadBlocks();
+    } catch (e: any) {
+      toast({ title: 'No se pudo eliminar', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const openBlockDialog = (prefill: typeof blockPrefill = {}) => {
+    setBlockPrefill(prefill);
+    setBlockDialogOpen(true);
+  };
+
+
+
   if (loading) {
     return (
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center">
