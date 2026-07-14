@@ -1043,6 +1043,10 @@ export default function Configuracion() {
             </Card>
           </div>
         </TabsContent>
+
+        <TabsContent value="whatsapp" className="space-y-6">
+          <WhatsAppTemplatesTab />
+        </TabsContent>
       </Tabs>
 
       {/* Branch Dialog */}
