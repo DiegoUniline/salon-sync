@@ -39,15 +39,47 @@ interface TicketPrinterProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   data: TicketData;
+  saleId?: string;
+  onRebook?: () => void;
 }
 
 export function TicketPrinter({
   open,
   onOpenChange,
   data,
+  saleId,
+  onRebook,
 }: TicketPrinterProps) {
   const ticketRef = useRef<HTMLDivElement>(null);
   const config = getBusinessConfig();
+  const [sendingWA, setSendingWA] = useState(false);
+
+  const canWA = !!(data.clientPhone && data.clientPhone.replace(/\D/g, '').length >= 8);
+
+  const sendReceiptWA = async () => {
+    if (!canWA) { toast.error('El cliente no tiene teléfono'); return; }
+    setSendingWA(true);
+    try {
+      const res: any = await api.whatsappTemplates.sendTemplate({
+        type: 'payment_receipt',
+        sale_id: saleId,
+        phone: data.clientPhone,
+        extra_vars: {
+          cliente: data.clientName || 'Cliente',
+          folio: data.folio,
+          total: String(data.total),
+          fecha: data.date ? format(data.date, 'dd/MM/yyyy') : '',
+          hora: data.date ? format(data.date, 'HH:mm') : '',
+        },
+      });
+      if (res?.skipped) toast.warning(`No se envió: ${res.reason}`);
+      else toast.success('Recibo enviado por WhatsApp');
+    } catch (e: any) {
+      toast.error(e?.message || 'Error al enviar');
+    } finally {
+      setSendingWA(false);
+    }
+  };
 
   const isFieldEnabled = (fieldId: string) => {
     const field = config.ticketFields.find((f) => f.id === fieldId);
