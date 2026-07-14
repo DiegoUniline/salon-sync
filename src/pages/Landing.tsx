@@ -16,23 +16,42 @@ import {
   Clock,
   Shield,
   Cloud,
+  Bell,
+  Bot,
+  Heart,
+  Store,
 } from 'lucide-react';
 
 const features = [
   {
     icon: Calendar,
     title: 'Agenda inteligente',
-    description: 'Citas, recordatorios y confirmaciones automáticas por WhatsApp. Cero huecos, cero olvidos.',
+    description: 'Citas, recordatorios y confirmaciones automáticas. Cero huecos, cero olvidos.',
+  },
+  {
+    icon: MessageCircle,
+    title: 'WhatsApp integrado',
+    description: 'Confirma, reprograma y envía recibos desde el mismo WhatsApp de tu negocio.',
+  },
+  {
+    icon: Bell,
+    title: 'Notificaciones por WhatsApp',
+    description: 'Recordatorios 24h y 2h antes de la cita. Menos no-shows, más clientes atendidos.',
+  },
+  {
+    icon: Bot,
+    title: 'Agenda desde WhatsApp',
+    description: 'Tus clientes agendan solos por WhatsApp. El sistema valida horarios y confirma al instante.',
+  },
+  {
+    icon: Sparkles,
+    title: 'Agente de IA',
+    description: 'Un asistente inteligente que responde, agenda y resuelve dudas de tus clientes 24/7.',
   },
   {
     icon: CreditCard,
     title: 'Punto de venta',
     description: 'Cobra servicios y productos en segundos. Múltiples métodos de pago y cortes de caja automáticos.',
-  },
-  {
-    icon: MessageCircle,
-    title: 'WhatsApp integrado',
-    description: 'Confirmaciones, recordatorios 24h/2h, recibos y reprogramaciones sin salir del sistema.',
   },
   {
     icon: Package,
@@ -52,10 +71,26 @@ const features = [
 ];
 
 const businessTypes = [
-  { icon: Scissors, label: 'Barberías' },
-  { icon: Sparkles, label: 'Estéticas' },
-  { icon: Star, label: 'Spas' },
-  { icon: Users, label: 'Salones unisex' },
+  {
+    icon: Scissors,
+    label: 'Barberías',
+    description: 'Turnos rápidos, comisiones por barbero y agenda pública para tus clientes.',
+  },
+  {
+    icon: Sparkles,
+    label: 'Estéticas y salones',
+    description: 'Servicios largos, paquetes, seguimiento de clientes y control de productos.',
+  },
+  {
+    icon: Heart,
+    label: 'Spas y wellness',
+    description: 'Cabinas, terapeutas, membresías y experiencias personalizadas.',
+  },
+  {
+    icon: Store,
+    label: 'Cadenas y franquicias',
+    description: 'Varias sucursales, roles, reportes consolidados y control central.',
+  },
 ];
 
 // Real photos from Unsplash — barbería, estética, salones
@@ -236,7 +271,7 @@ export default function Landing() {
         </div>
 
         {/* Business types strip */}
-        <div id="for-who" className="border-y border-border/60 bg-card/40">
+        <div className="border-y border-border/60 bg-card/40">
           <div className="max-w-7xl mx-auto px-4 md:px-6 py-8">
             <p className="text-center text-xs uppercase tracking-wider text-muted-foreground mb-5 font-medium">
               Diseñado para todo tipo de negocio de belleza
@@ -308,6 +343,38 @@ export default function Landing() {
             <p className="text-lg text-muted-foreground">
               No importa si son 2 sillas o 3 sucursales. Salon Pro se adapta al ritmo de tu día.
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ============ PARA QUIÉN ============ */}
+      <section id="for-who" className="py-20 md:py-28">
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
+          <div className="max-w-2xl mx-auto text-center mb-14">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary text-secondary-foreground text-xs font-medium mb-4">
+              Para quién es Salon Pro
+            </div>
+            <h2 className="font-display text-3xl md:text-4xl font-semibold tracking-tight text-foreground mb-4">
+              Un sistema pensado para tu tipo de negocio
+            </h2>
+            <p className="text-lg text-muted-foreground">
+              Barberías, estéticas, spas, salones unisex y cadenas. Cada uno con lo que necesita para operar mejor.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+            {businessTypes.map((b) => (
+              <div
+                key={b.label}
+                className="p-6 rounded-2xl bg-card border border-border/70 hover:border-accent/40 hover:shadow-lg transition-all"
+              >
+                <div className="h-11 w-11 rounded-xl bg-accent/10 flex items-center justify-center mb-4">
+                  <b.icon className="h-5 w-5 text-accent" />
+                </div>
+                <h3 className="font-display font-semibold text-lg mb-2 text-foreground">{b.label}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{b.description}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
