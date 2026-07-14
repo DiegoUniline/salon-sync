@@ -182,7 +182,11 @@ export function Sidebar() {
           <span
             className={cn(
               'flex h-7 w-7 items-center justify-center rounded-md flex-shrink-0 transition-colors',
-              isActive ? cn(c.activeTile, 'text-white') : cn(c.tile, c.icon)
+              item.brand
+                ? 'bg-[#25D366] text-white'
+                : isActive
+                ? cn(c.activeTile, 'text-white')
+                : cn(c.tile, c.icon)
             )}
           >
             <Icon className="h-4 w-4" />
