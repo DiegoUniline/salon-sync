@@ -162,6 +162,21 @@ const plans = [
 ];
 
 export default function Landing() {
+  const location = useLocation();
+  useEffect(() => {
+    if (location.hash) {
+      const id = location.hash.slice(1);
+      // Wait for layout, then smooth-scroll to the target section
+      const t = setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
+      return () => clearTimeout(t);
+    } else {
+      window.scrollTo({ top: 0 });
+    }
+  }, [location.hash, location.pathname]);
+
   return (
     <div className="min-h-screen bg-background">
       {/* ============ NAV ============ */}
