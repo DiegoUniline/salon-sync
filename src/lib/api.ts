@@ -800,13 +800,13 @@ export const appointments = {
   },
   create: async (apptData: any) => {
     const payload = await normalizeAppointmentPayload(apptData);
-    const { data, error } = await supabase.from("appointments").insert(payload).select().single();
+    const { data, error } = await supabase.from("appointments").insert(payload as any).select().single();
     if (error) throw error;
     return data;
   },
   update: async (id: string, updates: any) => {
     const payload = await normalizeAppointmentPayload(updates, true);
-    const { data, error } = await supabase.from("appointments").update(payload).eq("id", id).select().single();
+    const { data, error } = await supabase.from("appointments").update(payload as any).eq("id", id).select().single();
     if (error) throw error;
     return data;
   },
