@@ -237,6 +237,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/whatsapp"
+          element={
+            <ProtectedRoute moduleId="whatsapp">
+              <WhatsApp />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/proveedores"
           element={
             <ProtectedRoute moduleId="proveedores">
