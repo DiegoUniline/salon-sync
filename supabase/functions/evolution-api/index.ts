@@ -1,6 +1,22 @@
 // Proxy autenticado hacia Evolution API self-hosted
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+
+const ALLOWED_ORIGINS = [
+  'https://unilineagenda.lovable.app',
+  'https://id-preview--20957c29-e65e-46be-838f-83982459eadb.lovable.app',
+  'http://localhost:8080',
+  'http://localhost:5173',
+];
+function buildCors(req: Request) {
+  const origin = req.headers.get('origin') || '';
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  };
+}
 
 const EVOLUTION_URL = (Deno.env.get('EVOLUTION_API_URL') || '').replace(/\/$/, '');
 const EVOLUTION_KEY = Deno.env.get('EVOLUTION_API_KEY') || '';
@@ -10,6 +26,7 @@ const sbAdmin = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 );
+
 
 async function evo(path: string, init: RequestInit = {}) {
   if (!EVOLUTION_URL || !EVOLUTION_KEY) throw new Error('EVOLUTION_API_URL / EVOLUTION_API_KEY no configurados');
