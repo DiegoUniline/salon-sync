@@ -12,13 +12,13 @@ Deno.serve(async (req) => {
   try {
     const payload = await req.json();
     const instanceName = payload?.instance;
+    const event = (payload?.event as string | undefined)?.toLowerCase().replace(/_/g, '.');
+    console.log('[webhook] event:', event, 'instance:', instanceName);
     if (!instanceName) return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     const { data: instance } = await supabase
       .from('whatsapp_instances').select('id, account_id').eq('instance_name', instanceName).maybeSingle();
-    if (!instance) return new Response(JSON.stringify({ ok: true, skip: 'unknown' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-
-    const event = payload?.event as string;
+    if (!instance) { console.warn('[webhook] unknown instance', instanceName); return new Response(JSON.stringify({ ok: true, skip: 'unknown' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }); }
 
     if (event === 'qrcode.updated' || event === 'connection.update') {
       const qr = payload?.data?.qrcode?.base64 || payload?.data?.qr || null;
@@ -30,10 +30,16 @@ Deno.serve(async (req) => {
       }).eq('id', instance.id);
     }
 
-    if (event === 'messages.upsert' || event === 'send.message') {
-      const msgs = Array.isArray(payload.data) ? payload.data : [payload.data];
+    // Aceptar todas las variantes: messages.upsert, messages.update, send.message, message.any
+    const isMsgEvent = event && (event.startsWith('messages.') || event === 'send.message' || event === 'message.upsert');
+    if (isMsgEvent) {
+      const raw = payload.data;
+      const msgs = Array.isArray(raw) ? raw : (raw?.messages && Array.isArray(raw.messages) ? raw.messages : [raw]);
+      console.log('[webhook] processing', msgs.length, 'msgs');
       for (const m of msgs) {
-        if (!m?.key?.remoteJid) continue;
+        if (!m?.key?.remoteJid) { console.log('[webhook] skip no remoteJid'); continue; }
+        // Ignorar grupos y broadcast
+        if (m.key.remoteJid.endsWith('@g.us') || m.key.remoteJid.endsWith('@broadcast')) continue;
         const remoteJid = m.key.remoteJid as string;
         const fromMe = !!m.key.fromMe;
         const messageId = m.key.id as string;
