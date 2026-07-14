@@ -387,13 +387,13 @@ export function Sidebar() {
             sidebarCollapsed && 'justify-center'
           )}
         >
-          {currentUser && currentRole ? (
+          {currentUser ? (
             <>
               <div
                 className="h-4 w-4 rounded-full flex-shrink-0"
-                style={{ backgroundColor: currentRole.color }}
+                style={{ backgroundColor: currentRole?.color || currentUser.color || 'hsl(var(--primary))' }}
               />
-              {!sidebarCollapsed && <span className="truncate">{currentUser.name}</span>}
+              {!sidebarCollapsed && <span className="truncate">{currentUser.name || currentUser.email}</span>}
             </>
           ) : (
             <>
