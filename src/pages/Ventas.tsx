@@ -3,6 +3,7 @@ import { useApp } from '@/contexts/AppContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import api from '@/lib/api';
 import { TicketPrinter, type TicketData } from '@/components/TicketPrinter';
+import { QuickAppointmentSheet } from '@/components/QuickAppointmentSheet';
 import { ShiftRequiredAlert } from '@/components/ShiftRequiredAlert';
 import { useShift } from '@/hooks/useShift';
 import { useIsMobile } from '@/hooks/use-mobile';
