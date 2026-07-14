@@ -118,7 +118,7 @@ const statusLabels = {
 export default function Agenda() {
   const { toast } = useToast();
   const { currentBranch } = useApp();
-  const [viewMode, setViewMode] = useState<ViewMode>('day');
+  const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [blocks, setBlocks] = useState<any[]>([]);
