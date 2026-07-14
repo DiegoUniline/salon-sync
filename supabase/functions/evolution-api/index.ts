@@ -61,6 +61,19 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, instance_name: instanceName, qr }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    async function ensureWebhook(instanceName: string) {
+      const events = ['QRCODE_UPDATED', 'MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE', 'SEND_MESSAGE'];
+      // Evolution v2: /webhook/set/{instance}
+      for (const attempt of [
+        { webhook: { url: WEBHOOK_URL, enabled: true, webhookByEvents: false, events } },
+        { url: WEBHOOK_URL, enabled: true, webhook_by_events: false, events },
+        { url: WEBHOOK_URL, events },
+      ]) {
+        try { await evo(`/webhook/set/${instanceName}`, { method: 'POST', body: JSON.stringify(attempt) }); return; }
+        catch (e: any) { console.warn('webhook set attempt failed:', e.message); }
+      }
+    }
+
     if (action === 'status') {
       const { data: inst } = await sbAdmin.from('whatsapp_instances').select('*').eq('account_id', accountId).maybeSingle();
       if (!inst) return new Response(JSON.stringify({ status: 'none' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -68,6 +81,8 @@ Deno.serve(async (req) => {
       const st = state?.instance?.state || state?.state || null;
       const status = st === 'open' ? 'connected' : (st === 'connecting' ? 'connecting' : 'disconnected');
       await sbAdmin.from('whatsapp_instances').update({ status }).eq('id', inst.id);
+      // Re-registrar webhook siempre por si no quedó suscrito a MESSAGES_UPSERT
+      await ensureWebhook(inst.instance_name);
       return new Response(JSON.stringify({ status, instance: inst.instance_name }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
