@@ -564,30 +564,47 @@ export default function Agenda() {
                   const slotHour = parseInt(time.split(':')[0]);
                   const appointment = filteredAppointments.find(a => {
                     if (a.stylist_id !== stylist.id) return false;
-                    // Handle time format "HH:MM:SS" or "HH:MM"
                     const timeStr = (a.time || '').slice(0, 5);
                     return timeStr === time;
                   });
                   const isInDragRange = isSlotInDragRange(time, stylist.id);
+                  const block = !appointment ? isSlotBlocked(selectedDate, time, stylist.id) : null;
 
                   return (
-                    <div 
-                      key={stylist.id} 
+                    <div
+                      key={stylist.id}
                       className={cn(
-                        'flex-1 border-l border-border/30 cursor-pointer transition-colors relative',
+                        'flex-1 border-l border-border/30 transition-colors relative',
                         isInDragRange && 'bg-primary/20',
-                        !appointment && 'hover:bg-muted/40'
+                        !appointment && !block && 'cursor-pointer hover:bg-muted/40',
+                        block && 'cursor-not-allowed',
                       )}
-                      onMouseDown={() => !appointment && handleMouseDown(time, stylist.id, selectedDate)}
+                      onMouseDown={() => !appointment && !block && handleMouseDown(time, stylist.id, selectedDate)}
                       onMouseEnter={() => handleMouseEnter(time)}
-                      onClick={() => !appointment && !dragRef.current && handleSlotClick(time, stylist.id, selectedDate)}
+                      onClick={() => {
+                        if (dragRef.current) return;
+                        if (block) { handleUnblock((block as any).id); return; }
+                        if (!appointment) handleSlotClick(time, stylist.id, selectedDate);
+                      }}
                     >
                       {appointment && (
-                        <AppointmentChip 
+                        <AppointmentChip
                           appointment={appointment}
                           stylistColor={getStylistColor(appointment.stylist_id)}
                           onClick={() => setSelectedAppointment(appointment)}
                         />
+                      )}
+                      {block && (
+                        <div
+                          className="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-warning-foreground bg-warning/40 border border-warning/60"
+                          style={{
+                            backgroundImage:
+                              'repeating-linear-gradient(45deg, hsl(var(--warning) / 0.35) 0 6px, hsl(var(--warning) / 0.15) 6px 12px)',
+                          }}
+                          title={(block as any).reason || 'Bloqueado'}
+                        >
+                          <Lock className="h-3 w-3 opacity-80" />
+                        </div>
                       )}
                     </div>
                   );
