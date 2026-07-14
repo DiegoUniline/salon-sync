@@ -519,8 +519,8 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
               )}
             </div>
 
-            {/* Time slots */}
-            {stylistId && (
+            {/* Time slots — only for Month view (week/day grid already handles time selection) */}
+            {stylistId && view === "month" && (
               <div className="rounded-lg border p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs uppercase text-muted-foreground">Horarios · {new Date(date + "T00:00:00").toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "short" })}</Label>
