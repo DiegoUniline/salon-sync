@@ -246,9 +246,21 @@ export default function WhatsApp() {
               <div className="p-3 border-b flex items-center gap-3">
                 <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center"><User className="h-5 w-5" /></div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{selected.contact_name || selected.contact_phone}</p>
-                  <p className="text-xs text-muted-foreground">+{selected.contact_phone}</p>
+                  <p className="font-medium truncate flex items-center gap-1.5">
+                    {selected.client_name || selected.contact_name || selected.contact_phone}
+                    {selected.client_id && <Badge variant="secondary" className="text-[10px] gap-1"><Link2 className="h-3 w-3" />Cliente</Badge>}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    +{selected.contact_phone}
+                    {selected.client_name && selected.contact_name && selected.client_name !== selected.contact_name && (
+                      <span className="ml-1">· WA: {selected.contact_name}</span>
+                    )}
+                  </p>
                 </div>
+                <Button size="sm" variant="outline" onClick={openLinkClient} className="gap-1">
+                  <Link2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">{selected.client_id ? "Cambiar" : "Vincular"}</span>
+                </Button>
                 <Button size="sm" variant="default" onClick={() => setScheduleOpen(true)} className="gap-1">
                   <CalendarPlus className="h-4 w-4" />
                   <span className="hidden sm:inline">Agendar</span>
