@@ -16,6 +16,10 @@ import {
   Clock,
   Shield,
   Cloud,
+  Bell,
+  Bot,
+  Heart,
+  Store,
 } from 'lucide-react';
 
 const features = [
