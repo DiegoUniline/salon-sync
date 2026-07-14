@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { TrialBanner } from '@/components/TrialBanner';
 import { SubscriptionBlockedModal } from '@/components/SubscriptionBlockedModal';
 import { WelcomeTour } from '@/components/WelcomeTour';
+import { GlobalSearch } from '@/components/GlobalSearch';
 
 interface LayoutProps {
   children: ReactNode;
