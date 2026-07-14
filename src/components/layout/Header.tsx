@@ -47,14 +47,16 @@ export function Header() {
         {/* Mobile menu trigger */}
         <MobileNav />
         
-        {/* Search - hidden on small mobile, visible from sm up */}
-        <div className="relative flex-1 max-w-md hidden sm:block">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar..."
-            className="pl-10 bg-secondary/50 border-0 focus-visible:ring-1"
-          />
-        </div>
+        {/* Search - opens global command palette (Ctrl+K) */}
+        <button
+          type="button"
+          onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}
+          className="relative flex-1 max-w-md hidden sm:flex items-center bg-secondary/50 border-0 rounded-md h-9 px-3 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+        >
+          <Search className="mr-2 h-4 w-4" />
+          <span>Buscar clientes, productos, servicios...</span>
+          <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">Ctrl K</kbd>
+        </button>
 
         {/* Right side */}
         <div className="flex items-center gap-2 md:gap-3">
