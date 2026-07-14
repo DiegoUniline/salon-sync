@@ -73,7 +73,8 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
     setTime("");
     const t = new Date(); t.setHours(0, 0, 0, 0);
     setDate(ymd(t));
-    setViewMonth(new Date(t.getFullYear(), t.getMonth(), 1));
+    setAnchor(new Date(t));
+    setView("month");
 
     (async () => {
       setLoading(true);
