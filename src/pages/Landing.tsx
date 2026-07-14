@@ -267,21 +267,24 @@ export default function Landing() {
                 <div className="absolute inset-0 bg-gradient-to-t from-primary/40 via-transparent to-transparent" />
               </div>
 
-              {/* Floating card 1 — cita confirmada */}
-              <div className="absolute -left-4 md:-left-10 top-8 md:top-16 bg-card border border-border/70 rounded-2xl shadow-xl p-4 w-56 backdrop-blur hidden md:block">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-accent/15 flex items-center justify-center flex-shrink-0">
-                    <Check className="h-5 w-5 text-accent" />
+              {/* Floating card 1 — WhatsApp confirmación */}
+              <div className="absolute -left-4 md:-left-10 top-8 md:top-14 bg-card border border-border/70 rounded-2xl shadow-xl p-3.5 w-64 backdrop-blur hidden md:block floaty">
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="h-9 w-9 rounded-full bg-[#25D366]/15 flex items-center justify-center flex-shrink-0 glow-ring">
+                    <WhatsAppIcon className="h-5 w-5 text-[#25D366]" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xs text-muted-foreground">Cita confirmada</div>
-                    <div className="text-sm font-medium truncate">María López — 4:30 pm</div>
+                    <div className="text-xs font-semibold text-foreground truncate">María López</div>
+                    <div className="text-[10px] text-muted-foreground">vía WhatsApp · ahora</div>
                   </div>
+                </div>
+                <div className="bg-[#25D366]/10 text-foreground text-xs rounded-xl rounded-tl-sm px-3 py-2 wa-pop">
+                  ¡Confirmada tu cita para hoy 4:30 pm! ✂️
                 </div>
               </div>
 
               {/* Floating card 2 — ingresos hoy */}
-              <div className="absolute -right-4 md:-right-8 bottom-10 md:bottom-16 bg-card border border-border/70 rounded-2xl shadow-xl p-4 w-52 backdrop-blur hidden md:block">
+              <div className="absolute -right-4 md:-right-8 bottom-10 md:bottom-16 bg-card border border-border/70 rounded-2xl shadow-xl p-4 w-52 backdrop-blur hidden md:block floaty" style={{ animationDelay: '1.5s' }}>
                 <div className="text-xs text-muted-foreground mb-1">Ingresos hoy</div>
                 <div className="text-2xl font-display font-semibold text-foreground">$8,450</div>
                 <div className="text-xs text-success font-medium mt-1">↑ 24% vs ayer</div>
