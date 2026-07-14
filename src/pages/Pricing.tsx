@@ -164,7 +164,10 @@ export default function Pricing() {
             Salon <span className="text-accent">Pro</span>
           </span>
         </div>
-        © {new Date().getFullYear()} Salon Pro · Todos los derechos reservados
+        <div>© {new Date().getFullYear()} Salon Pro · Todos los derechos reservados</div>
+        <div className="text-xs mt-2">
+          Sistema desarrollado por <span className="font-semibold text-foreground">Uniline</span> · Innovación en la nube
+        </div>
       </footer>
     </div>
   );
