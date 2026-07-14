@@ -61,6 +61,20 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
   const [rangeAppts, setRangeAppts] = useState<ApptRow[]>([]);
   const [loadingRange, setLoadingRange] = useState(false);
 
+  // Drag-to-select state
+  const [drag, setDrag] = useState<{ date: string; startMin: number; endMin: number; step: number } | null>(null);
+
+  const commitDrag = (d: { date: string; startMin: number; endMin: number; step: number } | null) => {
+    if (!d) return;
+    const a = Math.min(d.startMin, d.endMin);
+    const b = Math.max(d.startMin, d.endMin) + d.step;
+    setDate(d.date);
+    setAnchor(new Date(d.date + "T00:00:00"));
+    setTime(toTime(a));
+    setDuration(Math.max(d.step, b - a));
+    setDrag(null);
+  };
+
   useEffect(() => {
     if (!open) return;
     setClientName(contactName || "");
