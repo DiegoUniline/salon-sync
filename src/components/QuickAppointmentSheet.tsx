@@ -535,28 +535,29 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                 {loadingRange ? (
                   <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin" /></div>
                 ) : (
-                  <div className="grid grid-cols-4 gap-1.5 max-h-64 overflow-y-auto pr-1 select-none">
+                  <div className="grid grid-cols-4 gap-1.5 max-h-64 overflow-y-auto pr-1 select-none touch-none" onPointerDown={onGridPointerDown} onPointerMove={onGridPointerMove}>
                     {daySlots.map((s) => {
                       const minute = toMin(s.time);
                       const selected = time === s.time;
-                      const inDrag = drag && drag.date === date && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin);
+                      const inDrag = !!(drag && drag.date === date && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin));
                       return (
-                        <button
+                        <div
                           key={s.time}
-                          disabled={s.busy}
-                          onMouseDown={(e) => { e.preventDefault(); setDrag({ date, startMin: minute, endMin: minute, step: SLOT }); }}
-                          onMouseEnter={() => { if (drag && drag.date === date) setDrag({ ...drag, endMin: minute }); }}
-                          onClick={() => { if (!drag) setTime(s.time); }}
+                          data-slot-date={s.busy ? undefined : date}
+                          data-slot-min={s.busy ? undefined : minute}
+                          data-slot-step={SLOT}
+                          data-slot-busy={s.busy ? "1" : "0"}
+                          onClick={() => { if (!s.busy && !drag) setTime(s.time); }}
                           className={cn(
-                            "text-xs py-1.5 rounded-md border font-medium transition-colors",
+                            "text-xs py-1.5 rounded-md border font-medium transition-colors text-center",
                             selected && "bg-primary text-primary-foreground border-primary",
-                            inDrag && "bg-primary/40 border-primary text-primary-foreground",
+                            inDrag && "bg-primary/50 border-primary text-primary-foreground",
                             !selected && !inDrag && s.busy && "bg-destructive/10 text-destructive border-destructive/30 line-through cursor-not-allowed",
-                            !selected && !inDrag && !s.busy && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20",
+                            !selected && !inDrag && !s.busy && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 cursor-pointer",
                           )}
                         >
                           {s.time}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
