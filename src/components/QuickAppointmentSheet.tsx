@@ -109,18 +109,33 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
     if (svc) setDuration(svc.duration || 30);
   }, [serviceId, services]);
 
-  // Fetch appointments for the viewed month for the selected stylist
+  // Compute visible range depending on view
+  const range = useMemo(() => {
+    if (view === "day") {
+      return { start: new Date(anchor), end: new Date(anchor) };
+    }
+    if (view === "week") {
+      const d = new Date(anchor);
+      const dow = (d.getDay() + 6) % 7; // Mon=0
+      const start = new Date(d); start.setDate(d.getDate() - dow);
+      const end = new Date(start); end.setDate(start.getDate() + 6);
+      return { start, end };
+    }
+    const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+    const end = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
+    return { start, end };
+  }, [view, anchor]);
+
+  // Fetch appointments for the visible range for the selected stylist
   useEffect(() => {
-    if (!stylistId || !open) { setMonthAppts([]); return; }
+    if (!stylistId || !open) { setRangeAppts([]); return; }
     (async () => {
-      setLoadingMonth(true);
+      setLoadingRange(true);
       try {
-        const start = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
-        const end = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0);
         const data = await api.appointments.getAll({
           stylist_id: stylistId,
-          start_date: ymd(start),
-          end_date: ymd(end),
+          start_date: ymd(range.start),
+          end_date: ymd(range.end),
         });
         const rows: ApptRow[] = (data || [])
           .filter((a: any) => a.status !== "cancelled")
@@ -132,56 +147,73 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
             stylist_id: a.stylist_id,
             status: a.status,
           }));
-        setMonthAppts(rows);
+        setRangeAppts(rows);
       } catch (e: any) {
         console.error(e);
       } finally {
-        setLoadingMonth(false);
+        setLoadingRange(false);
       }
     })();
-  }, [stylistId, viewMonth, open]);
+  }, [stylistId, range.start, range.end, open]);
 
   const endTime = time ? toTime(toMin(time) + duration) : "";
 
-  // Build month grid (Mon-first)
+  // Month grid (Mon-first)
   const monthGrid = useMemo(() => {
-    const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
-    const startWeekday = (first.getDay() + 6) % 7; // Mon=0
-    const daysInMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).getDate();
+    const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+    const startWeekday = (first.getDay() + 6) % 7;
+    const daysInMonth = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate();
     const cells: Array<{ date: Date | null; key: string }> = [];
     for (let i = 0; i < startWeekday; i++) cells.push({ date: null, key: `e${i}` });
     for (let d = 1; d <= daysInMonth; d++) {
-      const dt = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), d);
+      const dt = new Date(anchor.getFullYear(), anchor.getMonth(), d);
       cells.push({ date: dt, key: ymd(dt) });
     }
     while (cells.length % 7 !== 0) cells.push({ date: null, key: `f${cells.length}` });
     return cells;
-  }, [viewMonth]);
+  }, [anchor]);
+
+  // Week days (Mon-Sun)
+  const weekDays = useMemo(() => {
+    const days: Date[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(range.start); d.setDate(range.start.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }, [range.start]);
 
   const countByDay = useMemo(() => {
     const m: Record<string, number> = {};
-    monthAppts.forEach((a) => { if (a.date) m[a.date] = (m[a.date] || 0) + 1; });
+    rangeAppts.forEach((a) => { if (a.date) m[a.date] = (m[a.date] || 0) + 1; });
     return m;
-  }, [monthAppts]);
+  }, [rangeAppts]);
 
-  // Time slots for selected day
+  const isSlotBusy = (dateKey: string, minute: number) => {
+    const end = minute + duration;
+    return rangeAppts.some((a) => {
+      if (a.date !== dateKey) return false;
+      const s = toMin(a.time);
+      const e = s + (a.duration || 30);
+      return minute < e && end > s;
+    });
+  };
+
+  // Time slots for selected day (day-view + fallback picker)
   const daySlots = useMemo(() => {
-    const dayAppts = monthAppts.filter((a) => a.date === date);
     const slots: Array<{ time: string; busy: boolean }> = [];
     for (let m = DAY_START; m + duration <= DAY_END; m += SLOT) {
-      const end = m + duration;
-      const busy = dayAppts.some((a) => {
-        const s = toMin(a.time);
-        const e = s + (a.duration || 30);
-        return m < e && end > s;
-      });
-      slots.push({ time: toTime(m), busy });
+      slots.push({ time: toTime(m), busy: isSlotBusy(date, m) });
     }
     return slots;
-  }, [monthAppts, date, duration]);
+  }, [rangeAppts, date, duration]);
 
-  const shiftMonth = (delta: number) => {
-    setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + delta, 1));
+  const shift = (delta: number) => {
+    const d = new Date(anchor);
+    if (view === "day") d.setDate(d.getDate() + delta);
+    else if (view === "week") d.setDate(d.getDate() + delta * 7);
+    else d.setMonth(d.getMonth() + delta);
+    setAnchor(d);
   };
 
   const handleSave = async () => {
