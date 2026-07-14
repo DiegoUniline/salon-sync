@@ -53,12 +53,13 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
   const [notes, setNotes] = useState("");
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const [viewMonth, setViewMonth] = useState<Date>(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [view, setView] = useState<"day" | "week" | "month">("month");
+  const [anchor, setAnchor] = useState<Date>(new Date(today));
   const [date, setDate] = useState<string>(ymd(today));
   const [time, setTime] = useState<string>("");
 
-  const [monthAppts, setMonthAppts] = useState<ApptRow[]>([]);
-  const [loadingMonth, setLoadingMonth] = useState(false);
+  const [rangeAppts, setRangeAppts] = useState<ApptRow[]>([]);
+  const [loadingRange, setLoadingRange] = useState(false);
 
   useEffect(() => {
     if (!open) return;
