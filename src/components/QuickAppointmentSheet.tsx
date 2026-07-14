@@ -472,7 +472,7 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                   </div>
                 </div>
 
-                {loadingMonth ? (
+                {loadingRange ? (
                   <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin" /></div>
                 ) : (
                   <div className="grid grid-cols-4 gap-1.5 max-h-64 overflow-y-auto pr-1">
