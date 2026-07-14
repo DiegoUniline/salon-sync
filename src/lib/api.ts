@@ -743,6 +743,11 @@ export const appointments = {
     const { data, error } = await supabase.from("appointments").insert(payload as any).select().single();
     if (error) throw error;
     import("@/lib/audit").then(({ logAudit }) => logAudit({ action: "create", entity_table: "appointments", entity_id: (data as any)?.id, summary: `Cita creada para ${(data as any)?.client_name || "cliente"} el ${(data as any)?.date}`, new_data: data }));
+    // Auto-send WhatsApp confirmation (non-blocking)
+    try {
+      supabase.functions.invoke('evolution-api', { body: { action: 'send_template', type: 'appointment_confirmed', appointment_id: (data as any)?.id } })
+        .catch((e) => console.warn('WA confirm skipped:', e?.message));
+    } catch {}
     return data;
   },
   update: async (id: string, updates: any) => {
@@ -756,6 +761,12 @@ export const appointments = {
     const { data, error } = await supabase.from("appointments").update({ status }).eq("id", id).select().single();
     if (error) throw error;
     import("@/lib/audit").then(({ logAudit }) => logAudit({ action: "update", entity_table: "appointments", entity_id: id, summary: `Estado cambiado a ${status}` }));
+    if (status === 'cancelled') {
+      try {
+        supabase.functions.invoke('evolution-api', { body: { action: 'send_template', type: 'appointment_cancelled', appointment_id: id } })
+          .catch((e) => console.warn('WA cancel skipped:', e?.message));
+      } catch {}
+    }
     return data;
   },
   delete: async (id: string) => {
@@ -1305,6 +1316,58 @@ export const categories = {
   },
 };
 
+// ============ WHATSAPP TEMPLATES ============
+export const WA_TEMPLATE_TYPES = [
+  { type: 'appointment_confirmed', label: 'Confirmación al agendar', defaultBody: 'Hola {{cliente}} 👋, tu cita en {{negocio}} quedó confirmada para el {{fecha}} a las {{hora}} con {{estilista}} para {{servicio}}. ¡Te esperamos!' },
+  { type: 'appointment_reminder_24h', label: 'Recordatorio 24h antes', defaultBody: 'Hola {{cliente}} 😊, te recordamos tu cita mañana {{fecha}} a las {{hora}} en {{negocio}}. Si necesitas reprogramar, escríbenos.' },
+  { type: 'appointment_reminder_2h', label: 'Recordatorio 2h antes', defaultBody: '¡Hola {{cliente}}! Tu cita es en 2 horas ({{hora}}) en {{negocio}}. ¡Te esperamos!' },
+  { type: 'appointment_cancelled', label: 'Cancelación de cita', defaultBody: 'Hola {{cliente}}, tu cita del {{fecha}} a las {{hora}} en {{negocio}} fue cancelada. ¿Reagendamos?' },
+  { type: 'payment_receipt', label: 'Recibo de pago', defaultBody: '¡Gracias por tu compra, {{cliente}}! Folio {{folio}} · Total ${{total}} en {{negocio}}. ¡Esperamos verte pronto!' },
+] as const;
+
+export const whatsappTemplates = {
+  getAll: async () => {
+    const accountId = await getAccountId();
+    const { data, error } = await supabase.from('whatsapp_templates').select('*').eq('account_id', accountId);
+    if (error) throw error;
+    return data || [];
+  },
+  seedIfMissing: async () => {
+    const accountId = await getAccountId();
+    const existing = await whatsappTemplates.getAll();
+    const existingTypes = new Set((existing as any[]).map((t: any) => t.type).filter(Boolean));
+    const missing = WA_TEMPLATE_TYPES.filter(t => !existingTypes.has(t.type));
+    if (missing.length === 0) return existing;
+    const rows = missing.map(t => ({
+      account_id: accountId, type: t.type, name: t.label, content: t.defaultBody, enabled: true,
+    }));
+    const { error } = await supabase.from('whatsapp_templates').insert(rows as any);
+    if (error) console.warn('seed templates:', error.message);
+    return whatsappTemplates.getAll();
+  },
+  upsert: async (type: string, patch: { content?: string; enabled?: boolean; name?: string }) => {
+    const accountId = await getAccountId();
+    const { data: existing } = await supabase.from('whatsapp_templates')
+      .select('id').eq('account_id', accountId).eq('type', type).maybeSingle();
+    if (existing?.id) {
+      const { error } = await supabase.from('whatsapp_templates').update(patch as any).eq('id', existing.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from('whatsapp_templates').insert({
+        account_id: accountId, type, name: type, content: patch.content || '', enabled: patch.enabled ?? true,
+      } as any);
+      if (error) throw error;
+    }
+  },
+  sendTemplate: async (payload: { type: string; appointment_id?: string; sale_id?: string; phone?: string; extra_vars?: Record<string, string> }) => {
+    const { data, error } = await supabase.functions.invoke('evolution-api', { body: { action: 'send_template', ...payload } });
+    if (error) throw error;
+    return data;
+  },
+};
+
+
+
 
 // Export all
 export const api: any = {
@@ -1331,6 +1394,7 @@ export const api: any = {
   config,
   dashboard,
   categories,
+  whatsappTemplates,
 };
 
 export default api as any;

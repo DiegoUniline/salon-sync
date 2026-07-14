@@ -150,6 +150,8 @@ export type Database = {
           payment_status: string | null
           payments: Json
           products: Json
+          reminder_24h_sent_at: string | null
+          reminder_2h_sent_at: string | null
           reminder_sent: boolean | null
           scheduled_at: string
           service_id: string | null
@@ -181,6 +183,8 @@ export type Database = {
           payment_status?: string | null
           payments?: Json
           products?: Json
+          reminder_24h_sent_at?: string | null
+          reminder_2h_sent_at?: string | null
           reminder_sent?: boolean | null
           scheduled_at: string
           service_id?: string | null
@@ -212,6 +216,8 @@ export type Database = {
           payment_status?: string | null
           payments?: Json
           products?: Json
+          reminder_24h_sent_at?: string | null
+          reminder_2h_sent_at?: string | null
           reminder_sent?: boolean | null
           scheduled_at?: string
           service_id?: string | null
@@ -1686,25 +1692,34 @@ export type Database = {
           account_id: string
           content: string
           created_at: string
+          enabled: boolean
           id: string
           name: string
           shortcut: string | null
+          type: string | null
+          updated_at: string
         }
         Insert: {
           account_id: string
           content: string
           created_at?: string
+          enabled?: boolean
           id?: string
           name: string
           shortcut?: string | null
+          type?: string | null
+          updated_at?: string
         }
         Update: {
           account_id?: string
           content?: string
           created_at?: string
+          enabled?: boolean
           id?: string
           name?: string
           shortcut?: string | null
+          type?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

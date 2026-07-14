@@ -3,6 +3,7 @@ import { useApp } from '@/contexts/AppContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import api from '@/lib/api';
 import { TicketPrinter, type TicketData } from '@/components/TicketPrinter';
+import { QuickAppointmentSheet } from '@/components/QuickAppointmentSheet';
 import { ShiftRequiredAlert } from '@/components/ShiftRequiredAlert';
 import { useShift } from '@/hooks/useShift';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -141,6 +142,8 @@ export default function Ventas() {
   // Ticket state
   const [showTicket, setShowTicket] = useState(false);
   const [ticketData, setTicketData] = useState<TicketData | null>(null);
+  const [lastSaleId, setLastSaleId] = useState<string | null>(null);
+  const [rebookOpen, setRebookOpen] = useState(false);
 
   // Load data
   useEffect(() => {
@@ -326,6 +329,7 @@ export default function Ventas() {
 
       console.log('[Ventas] Enviando venta con shift_id:', openShift?.id, saleData);
       const newSale = await api.sales.create(saleData);
+      setLastSaleId((newSale as any)?.id || null);
       // Reload sales to get proper structure
       const updatedSales = await api.sales.getAll({ branch_id: currentBranch?.id });
       setSales(updatedSales.map((s: any) => ({
@@ -993,8 +997,17 @@ export default function Ventas() {
           data={ticketData}
           open={showTicket}
           onOpenChange={setShowTicket}
+          saleId={lastSaleId || undefined}
+          onRebook={() => { setShowTicket(false); setRebookOpen(true); }}
         />
       )}
+
+      <QuickAppointmentSheet
+        open={rebookOpen}
+        onOpenChange={setRebookOpen}
+        contactName={ticketData?.clientName || null}
+        contactPhone={ticketData?.clientPhone || null}
+      />
     </div>
   );
 }
