@@ -181,6 +181,16 @@ export function AppointmentFormDialog({
     setPayments([{ id: 'pay-1', method: 'cash', amount: 0 }]);
   };
 
+  // Time helpers
+  const toMin = (t: string) => {
+    const [h, m] = (t || '00:00').split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+  const toTime = (min: number) => {
+    const m = ((min % 1440) + 1440) % 1440;
+    return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  };
+
   // Calculate totals with discounts
   const servicesSubtotal = serviceLines.reduce((sum, line) => sum + (line.price || 0), 0);
   const servicesDiscount = serviceLines.reduce((sum, line) => {
