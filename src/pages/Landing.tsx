@@ -191,6 +191,7 @@ export default function Landing() {
           </Link>
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
             <a href="#top" className="hover:text-foreground transition-colors">Inicio</a>
+            <a href="#whatsapp" className="hover:text-foreground transition-colors inline-flex items-center gap-1"><WhatsAppIcon className="h-3.5 w-3.5 text-[#25D366]" /> WhatsApp</a>
             <a href="#pricing" className="hover:text-foreground transition-colors">Precios</a>
             <a href="#about" className="hover:text-foreground transition-colors">Quiénes somos</a>
           </nav>
