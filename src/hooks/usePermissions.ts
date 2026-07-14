@@ -188,41 +188,50 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Listen for Supabase auth state changes
+    // Listen for Supabase auth state changes.
+    // IMPORTANT: never await inside this callback — it deadlocks the Supabase
+    // auth internal lock and getSession()/refresh calls will time out.
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (event === 'SIGNED_IN' && session) {
-          // Load user data
-          try {
-            const userData = await withTimeout(api.auth.me(), 8000, 'Carga de usuario');
-            applyCurrentUserData(userData);
-            void refreshData();
-            window.dispatchEvent(new Event('auth-state-change'));
-          } catch (error) {
-            console.error('Error loading user after sign in:', error);
-          }
+          // Defer async work to a microtask so the auth lock is released first.
+          setTimeout(async () => {
+            try {
+              const userData = await withTimeout(api.auth.me(), 15000, 'Carga de usuario');
+              applyCurrentUserData(userData);
+              void refreshData();
+              window.dispatchEvent(new Event('auth-state-change'));
+            } catch (error) {
+              console.error('Error loading user after sign in:', error);
+            } finally {
+              setIsLoading(false);
+            }
+          }, 0);
         } else if (event === 'SIGNED_OUT') {
           setCurrentUser(null);
           setSubscription(null);
           localStorage.removeItem(CURRENT_USER_KEY);
           localStorage.removeItem(SUBSCRIPTION_KEY);
+          setIsLoading(false);
+        } else {
+          setIsLoading(false);
         }
-        setIsLoading(false);
       }
     );
+
 
     // Check initial session
     const checkSession = async () => {
       try {
         const { data: { session } } = await withTimeout(
           supabase.auth.getSession(),
-          8000,
+          15000,
           'Verificación de sesión'
         );
 
         if (session) {
           try {
-            const userData = await withTimeout(api.auth.me(), 8000, 'Carga de usuario');
+            const userData = await withTimeout(api.auth.me(), 15000, 'Carga de usuario');
             applyCurrentUserData(userData);
             void refreshData();
             window.dispatchEvent(new Event('auth-state-change'));
