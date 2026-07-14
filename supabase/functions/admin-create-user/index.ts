@@ -5,16 +5,28 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+const ALLOWED_ORIGINS = [
+  'https://unilineagenda.lovable.app',
+  'https://id-preview--20957c29-e65e-46be-838f-83982459eadb.lovable.app',
+  'http://localhost:8080',
+  'http://localhost:5173',
+];
+
+function buildCors(req: Request) {
+  const origin = req.headers.get('origin') || '';
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  };
+}
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: buildCors(req) });
   }
 
   try {
@@ -25,7 +37,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization") || "";
     const token = authHeader.replace("Bearer ", "");
     if (!token) {
-      return json({ error: "No autenticado" }, 401);
+      return json(req, { error: "No autenticado" }, 401);
     }
 
     // Verify caller
@@ -34,7 +46,7 @@ Deno.serve(async (req) => {
     });
     const { data: userData, error: userErr } = await anonClient.auth.getUser();
     if (userErr || !userData.user) {
-      return json({ error: "Sesión inválida" }, 401);
+      return json(req, { error: "Sesión inválida" }, 401);
     }
     const callerId = userData.user.id;
 
@@ -47,7 +59,7 @@ Deno.serve(async (req) => {
       .eq("user_id", callerId)
       .maybeSingle();
     if (!callerProfile?.account_id) {
-      return json({ error: "Sin cuenta asociada" }, 403);
+      return json(req, { error: "Sin cuenta asociada" }, 403);
     }
 
     const { data: rolesList } = await admin
@@ -58,7 +70,7 @@ Deno.serve(async (req) => {
       ["super_admin", "account_admin", "admin"].includes(r.role)
     );
     if (!allowed) {
-      return json({ error: "Sin permisos para crear usuarios" }, 403);
+      return json(req, { error: "Sin permisos para crear usuarios" }, 403);
     }
 
     const body = await req.json();
@@ -75,10 +87,10 @@ Deno.serve(async (req) => {
     } = body || {};
 
     if (!email || !password || !name) {
-      return json({ error: "email, password y name son requeridos" }, 400);
+      return json(req, { error: "email, password y name son requeridos" }, 400);
     }
     if (String(password).length < 8) {
-      return json({ error: "La contraseña debe tener al menos 8 caracteres" }, 400);
+      return json(req, { error: "La contraseña debe tener al menos 8 caracteres" }, 400);
     }
 
     // Create auth user (email pre-confirmed)
@@ -89,7 +101,7 @@ Deno.serve(async (req) => {
       user_metadata: { full_name: name },
     });
     if (createErr || !created.user) {
-      return json({ error: createErr?.message || "No se pudo crear el usuario" }, 400);
+      return json(req, { error: createErr?.message || "No se pudo crear el usuario" }, 400);
     }
     const newUserId = created.user.id;
 
@@ -116,22 +128,37 @@ Deno.serve(async (req) => {
     if (profErr) {
       // Rollback auth user if profile insert failed
       await admin.auth.admin.deleteUser(newUserId);
-      return json({ error: profErr.message }, 400);
+      return json(req, { error: profErr.message }, 400);
     }
 
-    // Assign role (default 'employee')
-    const roleName = role && ["admin", "account_admin", "employee"].includes(role) ? role : "employee";
+    // Whitelist de roles asignables según jerarquía del caller
+    const callerRoles = (rolesList || []).map((r: any) => r.role);
+    const isSuperAdmin = callerRoles.includes("super_admin");
+    const isAccountAdmin = callerRoles.includes("account_admin");
+
+    let assignable: string[];
+    if (isSuperAdmin) assignable = ["super_admin", "account_admin", "admin", "employee"];
+    else if (isAccountAdmin) assignable = ["admin", "employee"]; // NO puede crear account_admin ni super_admin
+    else assignable = ["employee"];
+
+    const requestedRole = typeof role === "string" ? role : "employee";
+    if (role && !assignable.includes(requestedRole)) {
+      await admin.auth.admin.deleteUser(newUserId);
+      return json(req, { error: `No tienes permisos para asignar el rol '${requestedRole}'` }, 403);
+    }
+    const roleName = assignable.includes(requestedRole) ? requestedRole : "employee";
     await admin.from("user_roles").insert({ user_id: newUserId, role: roleName });
 
-    return json({ success: true, profile, user_id: newUserId });
+
+    return json(req, { success: true, profile, user_id: newUserId });
   } catch (e: any) {
-    return json({ error: e?.message || "Error interno" }, 500);
+    return json(req, { error: e?.message || "Error interno" }, 500);
   }
 });
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...buildCors(req), "Content-Type": "application/json" },
   });
 }

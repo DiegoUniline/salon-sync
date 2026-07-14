@@ -1,20 +1,58 @@
 // Public webhook — Evolution API llama aquí en cada evento
+// Autenticado por header `apikey` que Evolution reenvía (== EVOLUTION_API_KEY)
+// o por `x-webhook-token` == WEBHOOK_SHARED_SECRET (fallback opcional).
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+
+// CORS restrictivo: los webhooks los llama Evolution server-to-server (no browser),
+// por lo que no necesitamos permitir orígenes de navegador.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': 'null',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-token',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 );
 
+const EVOLUTION_KEY = Deno.env.get('EVOLUTION_API_KEY') || '';
+const WEBHOOK_SHARED_SECRET = Deno.env.get('EVOLUTION_WEBHOOK_SECRET') || '';
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (!a || !b || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+function isAuthorized(req: Request): boolean {
+  const apikey = req.headers.get('apikey') || '';
+  const token = req.headers.get('x-webhook-token') || '';
+  if (EVOLUTION_KEY && timingSafeEqual(apikey, EVOLUTION_KEY)) return true;
+  if (WEBHOOK_SHARED_SECRET && timingSafeEqual(token, WEBHOOK_SHARED_SECRET)) return true;
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  // 🔒 Rechazar cualquier POST sin firma válida antes de tocar la DB
+  if (!isAuthorized(req)) {
+    console.warn('[webhook] unauthorized request from', req.headers.get('x-forwarded-for'));
+    return new Response(JSON.stringify({ error: 'unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     const payload = await req.json();
     const instanceName = payload?.instance;
     const event = (payload?.event as string | undefined)?.toLowerCase().replace(/_/g, '.');
     console.log('[webhook] event:', event, 'instance:', instanceName);
     if (!instanceName) return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
 
     const { data: instance } = await supabase
       .from('whatsapp_instances').select('id, account_id').eq('instance_name', instanceName).maybeSingle();
