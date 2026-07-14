@@ -86,7 +86,7 @@ const defaultPermissions: Record<ModuleId, ModulePermissions> = {
   reportes: { view: false, create: false, edit: false, delete: false },
   comisiones: { view: false, create: false, edit: false, delete: false },
   auditoria: { view: false, create: false, edit: false, delete: false },
-  whatsapp: { view: false, create: false, edit: false, delete: false },
+      whatsapp: { view: false, create: false, edit: false, delete: false },
 };
 
 // Permisos completos (todos habilitados)
@@ -196,7 +196,7 @@ export const defaultRoles: Role[] = [
       reportes: { view: true, create: false, edit: false, delete: false },
       comisiones: { view: false, create: false, edit: false, delete: false },
       auditoria: { view: false, create: false, edit: false, delete: false },
-  whatsapp: { view: false, create: false, edit: false, delete: false },
+      whatsapp: { view: false, create: false, edit: false, delete: false },
     },
   },
   {
@@ -226,7 +226,7 @@ export const defaultRoles: Role[] = [
       reportes: { view: false, create: false, edit: false, delete: false },
       comisiones: { view: false, create: false, edit: false, delete: false },
       auditoria: { view: false, create: false, edit: false, delete: false },
-  whatsapp: { view: false, create: false, edit: false, delete: false },
+      whatsapp: { view: false, create: false, edit: false, delete: false },
     },
   },
 ];
