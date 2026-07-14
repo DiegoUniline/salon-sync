@@ -132,7 +132,7 @@ export default function Agenda() {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState<{ time: string; stylistId: string; date: Date } | null>(null);
+  const [dragStart, setDragStart] = useState<{ time: string; stylistId: string; date: Date; dayKey?: string } | null>(null);
   const [dragEnd, setDragEnd] = useState<{ time: string } | null>(null);
   const dragRef = useRef<boolean>(false);
 
@@ -551,21 +551,42 @@ export default function Agenda() {
                 
                 {weekDates.map((date, i) => {
                   const dayAppointments = getAppointmentsForDate(date);
-                  const slotHour = parseInt(time.split(':')[0]);
+                  const dayKey = date.toISOString().split('T')[0];
                   const appointment = dayAppointments.find(a => {
-                    const appointmentHour = parseInt((a.time || '').split(':')[0]);
-                    return appointmentHour === slotHour;
+                    const timeStr = (a.time || '').slice(0, 5);
+                    return timeStr === time;
                   });
+                  const inDragRange = isDragging && dragStart?.dayKey === dayKey && (() => {
+                    const s = timeSlots.indexOf(dragStart!.time);
+                    const e = timeSlots.indexOf(dragEnd?.time || dragStart!.time);
+                    const t = timeSlots.indexOf(time);
+                    return t >= Math.min(s, e) && t <= Math.max(s, e);
+                  })();
 
                   return (
-                    <div 
-                      key={i} 
+                    <div
+                      key={i}
                       className={cn(
-                        'border-l border-border/30 cursor-pointer transition-colors p-0.5',
+                        'border-l border-border/30 cursor-pointer transition-colors p-0.5 relative',
                         isToday(date) && 'bg-primary/5',
-                        !appointment && 'hover:bg-muted/30'
+                        inDragRange && 'bg-primary/25',
+                        !appointment && !inDragRange && 'hover:bg-muted/30'
                       )}
+                      onMouseDown={() => {
+                        if (appointment) return;
+                        dragRef.current = false;
+                        setIsDragging(true);
+                        setDragStart({ time, stylistId: displayStylists[0]?.id || '', date, dayKey });
+                        setDragEnd({ time });
+                      }}
+                      onMouseEnter={() => {
+                        if (isDragging && dragStart?.dayKey === dayKey) {
+                          dragRef.current = true;
+                          setDragEnd({ time });
+                        }
+                      }}
                       onClick={() => {
+                        if (dragRef.current) return;
                         if (appointment) {
                           setSelectedAppointment(appointment);
                         } else {
