@@ -107,6 +107,7 @@ export function AppointmentFormDialog({
   const [stylistId, setStylistId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('09:30');
   const [notes, setNotes] = useState('');
   const [generalDiscount, setGeneralDiscount] = useState(0);
   
@@ -172,11 +173,22 @@ export function AppointmentFormDialog({
     setStylistId('');
     setDate(new Date().toISOString().split('T')[0]);
     setTime('09:00');
+    setEndTime('09:30');
     setNotes('');
     setGeneralDiscount(0);
     setServiceLines([]);
     setProductLines([]);
     setPayments([{ id: 'pay-1', method: 'cash', amount: 0 }]);
+  };
+
+  // Time helpers
+  const toMin = (t: string) => {
+    const [h, m] = (t || '00:00').split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+  const toTime = (min: number) => {
+    const m = ((min % 1440) + 1440) % 1440;
+    return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
   };
 
   // Calculate totals with discounts
@@ -200,6 +212,14 @@ export function AppointmentFormDialog({
   const generalDiscountAmount = subtotal * generalDiscount / 100;
   const total = subtotal - generalDiscountAmount;
   const totalDuration = serviceLines.reduce((sum, line) => sum + (line.duration || 0), 0);
+  const effectiveDuration = Math.max(0, toMin(endTime) - toMin(time));
+
+  // Auto-sync end time when start or service durations change
+  useEffect(() => {
+    const base = totalDuration || initialDuration || 30;
+    setEndTime(toTime(toMin(time) + base));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [time, totalDuration]);
 
   // Column configs with discount
   const serviceColumns: ColumnConfig[] = [
@@ -486,7 +506,8 @@ export function AppointmentFormDialog({
       branch_id: currentBranch?.id,
       date,
       time,
-      duration: totalDuration,
+      duration: effectiveDuration || totalDuration,
+      end_time: endTime,
       services: validServices.map(l => ({
         service_id: l.serviceId,
         price: l.price,
@@ -607,7 +628,7 @@ export function AppointmentFormDialog({
             </Tabs>
 
             {/* Stylist, Date, Time */}
-            <div className="grid gap-4 sm:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-5">
               <div className="space-y-2">
                 <Label>Estilista</Label>
                 <EntityCombobox
@@ -616,32 +637,40 @@ export function AppointmentFormDialog({
                   onChange={(id) => setStylistId(id || '')}
                   placeholder="Buscar estilista..."
                 />
-
               </div>
               <div className="space-y-2">
                 <Label>Fecha</Label>
-                <Input 
+                <Input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Hora</Label>
-                <Input 
+                <Label>Hora inicio</Label>
+                <Input
                   type="time"
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
+                <Label>Hora fin</Label>
+                <Input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
                 <Label>Duración</Label>
                 <div className="h-10 px-3 flex items-center bg-muted rounded-md text-sm">
                   <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                  {totalDuration} min
+                  {effectiveDuration} min
                 </div>
               </div>
             </div>
+
 
             {/* Services */}
             <div className="space-y-2">
