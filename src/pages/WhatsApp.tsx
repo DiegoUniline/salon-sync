@@ -131,7 +131,7 @@ export default function WhatsApp() {
             <>
               <p className="text-sm text-muted-foreground">No hay instancia activa. Genera el código QR.</p>
               <Button onClick={connect} className="w-full"><QrCode className="h-4 w-4 mr-2" />Conectar WhatsApp</Button>
-              <p className="text-xs text-muted-foreground">Requiere <code>EVOLUTION_API_URL</code> y <code>EVOLUTION_API_KEY</code> configurados en Secretos.</p>
+              
             </>
           )}
         </Card>
