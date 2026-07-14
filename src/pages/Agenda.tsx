@@ -519,6 +519,16 @@ export default function Agenda() {
             ))}
           </div>
 
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1 text-xs"
+            onClick={() => openBlockDialog({ date: dateStr(selectedDate) })}
+            title="Bloquear día u horas"
+          >
+            <Lock className="h-3.5 w-3.5" /> Bloquear
+          </Button>
+
           <Button size="sm" className="h-8 gradient-bg border-0" onClick={() => openNewAppointmentDialog(selectedDate, '09:00', displayStylists[0]?.id || '')}>
             <Plus className="h-4 w-4" />
           </Button>
