@@ -29,6 +29,10 @@ export default function WhatsApp() {
   const [search, setSearch] = useState("");
   const [newChatPhone, setNewChatPhone] = useState("");
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [clients, setClients] = useState<ClientRow[]>([]);
+  const [clientSearch, setClientSearch] = useState("");
+  const [linking, setLinking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const callFn = async (action: string, params: Record<string, any> = {}) => {
