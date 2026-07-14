@@ -49,11 +49,19 @@ export default function WhatsApp() {
     setLoadingInst(false);
   };
   const loadConversations = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("whatsapp_conversations")
-      .select("*, clients(name)")
+      .select("*")
       .order("last_message_at", { ascending: false, nullsFirst: false });
-    setConversations(((data as any[]) || []).map((c) => ({ ...c, client_name: c.clients?.name || null })));
+    if (error) { console.error("loadConversations", error); return; }
+    const convs = (data as any[]) || [];
+    const clientIds = Array.from(new Set(convs.map((c) => c.client_id).filter(Boolean)));
+    let nameMap: Record<string, string> = {};
+    if (clientIds.length) {
+      const { data: cs } = await supabase.from("clients").select("id,name").in("id", clientIds);
+      nameMap = Object.fromEntries(((cs as any[]) || []).map((c) => [c.id, c.name]));
+    }
+    setConversations(convs.map((c) => ({ ...c, client_name: c.client_id ? nameMap[c.client_id] || null : null })));
   };
   const openLinkClient = async () => {
     setLinkOpen(true);
