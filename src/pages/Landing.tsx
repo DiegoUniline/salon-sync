@@ -192,22 +192,22 @@ export default function Landing() {
       </header>
 
       {/* ============ HERO ============ */}
-      <section className="relative overflow-hidden">
+      <section id="top" className="relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 md:px-6 pt-16 md:pt-24 pb-16 md:pb-20">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Copy */}
             <div className="space-y-6 fade-up">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 text-accent text-xs font-medium">
                 <Cloud className="h-3.5 w-3.5" />
-                100% en la nube · Sin instalación
+                Software en la nube para salones, barberías y spas
               </div>
               <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight leading-[1.05] text-foreground">
-                El sistema que ordena
-                <span className="block text-accent">tu salón, barbería o spa.</span>
+                Administra tu salón
+                <span className="block text-accent">sin caos y sin perder citas.</span>
               </h1>
               <p className="text-lg text-muted-foreground max-w-xl leading-relaxed">
-                Agenda, WhatsApp, punto de venta, inventario y comisiones en un solo lugar.
-                Diseñado para negocios reales, no para hojas de cálculo.
+                Agenda, WhatsApp automático, punto de venta e inventario en un solo sistema.
+                Llena tu agenda, cobra rápido y sabe cuánto ganas cada día.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <Link to="/signup">
