@@ -164,6 +164,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/cobro-express"
+          element={
+            <ProtectedRoute moduleId="ventas">
+              <CobroExpress />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/turnos"
           element={
             <ProtectedRoute moduleId="turnos">
