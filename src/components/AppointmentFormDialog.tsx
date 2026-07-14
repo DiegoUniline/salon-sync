@@ -627,7 +627,7 @@ export function AppointmentFormDialog({
             </Tabs>
 
             {/* Stylist, Date, Time */}
-            <div className="grid gap-4 sm:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-5">
               <div className="space-y-2">
                 <Label>Estilista</Label>
                 <EntityCombobox
@@ -636,32 +636,40 @@ export function AppointmentFormDialog({
                   onChange={(id) => setStylistId(id || '')}
                   placeholder="Buscar estilista..."
                 />
-
               </div>
               <div className="space-y-2">
                 <Label>Fecha</Label>
-                <Input 
+                <Input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Hora</Label>
-                <Input 
+                <Label>Hora inicio</Label>
+                <Input
                   type="time"
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
+                <Label>Hora fin</Label>
+                <Input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
                 <Label>Duración</Label>
                 <div className="h-10 px-3 flex items-center bg-muted rounded-md text-sm">
                   <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                  {totalDuration} min
+                  {effectiveDuration} min
                 </div>
               </div>
             </div>
+
 
             {/* Services */}
             <div className="space-y-2">
