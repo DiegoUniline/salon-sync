@@ -122,6 +122,9 @@ interface Appointment {
   discount_percent?: number;
   total: number;
   notes?: string;
+  duration?: number;
+  duration_minutes?: number;
+  end_time?: string;
 }
 
 interface AppointmentEditorDialogProps {
@@ -147,6 +150,20 @@ const statusColors = {
   completed: "bg-success/20 text-success border-success/30",
   cancelled: "bg-destructive/20 text-destructive border-destructive/30",
 };
+
+const toMinutes = (value: string) => {
+  const [hours, minutes] = (value || "00:00").split(":").map(Number);
+  return (hours || 0) * 60 + (minutes || 0);
+};
+
+const toTime = (minutes: number) => {
+  const normalized = ((minutes % 1440) + 1440) % 1440;
+  return `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
+};
+
+const getDurationFromRange = (start: string, end: string) => Math.max(0, toMinutes(end) - toMinutes(start));
+
+const buildEndTime = (start: string, duration: number) => toTime(toMinutes(start) + (Number(duration) || 30));
 
 export function AppointmentEditorDialog({
   open,
@@ -174,6 +191,7 @@ export function AppointmentEditorDialog({
   const [stylistId, setStylistId] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [time, setTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("09:30");
   const [notes, setNotes] = useState("");
   const [generalDiscount, setGeneralDiscount] = useState(0);
   const [currentStatus, setCurrentStatus] = useState<Appointment["status"]>("scheduled");
@@ -230,7 +248,10 @@ export function AppointmentEditorDialog({
       setClientId(appointment.client_id);
       setStylistId(appointment.stylist_id);
       setDate(appointment.date.split("T")[0]);
-      setTime((appointment.time || "09:00").slice(0, 5));
+      const startTime = (appointment.time || "09:00").slice(0, 5);
+      const savedDuration = Number(appointment.duration_minutes ?? appointment.duration ?? 30) || 30;
+      setTime(startTime);
+      setEndTime(appointment.end_time?.slice(0, 5) || buildEndTime(startTime, savedDuration));
       setNotes(appointment.notes || "");
       setGeneralDiscount(Number(appointment.discount_percent ?? 0));
       setCurrentStatus(appointment.status);
@@ -275,7 +296,10 @@ export function AppointmentEditorDialog({
       // New appointment
       resetForm();
       if (initialDate) setDate(initialDate);
-      if (initialTime) setTime(initialTime);
+      if (initialTime) {
+        setTime(initialTime);
+        setEndTime(buildEndTime(initialTime, 30));
+      }
       if (initialStylistId) setStylistId(initialStylistId);
     }
   }, [open, appointment, initialDate, initialTime, initialStylistId]);
@@ -289,6 +313,7 @@ export function AppointmentEditorDialog({
     setStylistId("");
     setDate(new Date().toISOString().split("T")[0]);
     setTime("09:00");
+    setEndTime("09:30");
     setNotes("");
     setGeneralDiscount(0);
     setCurrentStatus("scheduled");
@@ -304,6 +329,11 @@ export function AppointmentEditorDialog({
   const generalDiscountAmount = (subtotal * generalDiscount) / 100;
   const total = subtotal - generalDiscountAmount;
   const totalDuration = serviceLines.reduce((sum, line) => sum + (line.duration || 0), 0);
+  const effectiveDuration = getDurationFromRange(time, endTime) || totalDuration || 30;
+
+  useEffect(() => {
+    setEndTime(buildEndTime(time, totalDuration || 30));
+  }, [time, totalDuration]);
 
   const serviceColumns: ColumnConfig[] = [
     {
@@ -538,7 +568,8 @@ export function AppointmentEditorDialog({
       branch_id: currentBranch?.id,
       date,
       time,
-      duration: totalDuration,
+      duration: effectiveDuration,
+      end_time: endTime,
       services: validServices.map((l) => ({
         service_id: l.serviceId,
         price: l.price,
@@ -669,7 +700,7 @@ export function AppointmentEditorDialog({
                 </Tabs>
 
                 {/* Stylist, Date, Time */}
-                <div className="grid gap-3 grid-cols-3">
+                <div className="grid gap-3 grid-cols-4">
                   <div className="space-y-1.5">
                     <Label className="text-xs">Estilista</Label>
                     <EntityCombobox
@@ -685,8 +716,25 @@ export function AppointmentEditorDialog({
                     <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-9" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Hora</Label>
+                    <Label className="text-xs">Hora inicio</Label>
                     <Select value={time} onValueChange={setTime}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 26 }, (_, i) => {
+                          const hour = Math.floor(i / 2) + 8;
+                          const minutes = i % 2 === 0 ? "00" : "30";
+                          if (hour > 20) return null;
+                          const t = `${hour.toString().padStart(2, "0")}:${minutes}`;
+                          return <SelectItem key={t} value={t}>{t}</SelectItem>;
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Hora fin</Label>
+                    <Select value={endTime} onValueChange={setEndTime}>
                       <SelectTrigger className="h-9">
                         <SelectValue />
                       </SelectTrigger>
@@ -711,7 +759,7 @@ export function AppointmentEditorDialog({
                     {totalDuration > 0 && (
                       <Badge variant="secondary" className="ml-auto text-xs">
                         <Clock className="h-3 w-3 mr-1" />
-                        {totalDuration} min
+                        {effectiveDuration} min
                       </Badge>
                     )}
                   </Label>
@@ -807,7 +855,7 @@ export function AppointmentEditorDialog({
                     <span>{date}</span>
                     <span className="text-muted-foreground">•</span>
                     <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span>{time}</span>
+                    <span>{time} - {endTime}</span>
                   </div>
                   {stylistId && (
                     <div className="flex items-center gap-2 text-sm">
