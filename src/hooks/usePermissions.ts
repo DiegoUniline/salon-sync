@@ -29,6 +29,9 @@ export type ModuleId =
   | "configuracion"
   | "catalogos"
   | "permisos"
+  | "reportes"
+  | "comisiones"
+  | "auditoria"
   | "superadmin";
 
 export type ActionId = "view" | "create" | "edit" | "delete";
