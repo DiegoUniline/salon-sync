@@ -196,10 +196,14 @@ export default function WhatsApp() {
             <>
               <div className="p-3 border-b flex items-center gap-3">
                 <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center"><User className="h-5 w-5" /></div>
-                <div className="flex-1">
-                  <p className="font-medium">{selected.contact_name || selected.contact_phone}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{selected.contact_name || selected.contact_phone}</p>
                   <p className="text-xs text-muted-foreground">+{selected.contact_phone}</p>
                 </div>
+                <Button size="sm" variant="default" onClick={() => setScheduleOpen(true)} className="gap-1">
+                  <CalendarPlus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Agendar</span>
+                </Button>
               </div>
               <div className="flex-1 overflow-y-auto p-4 bg-muted/20" ref={scrollRef}>
                 <div className="space-y-2">
