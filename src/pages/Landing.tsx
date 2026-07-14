@@ -26,17 +26,32 @@ const features = [
   {
     icon: Calendar,
     title: 'Agenda inteligente',
-    description: 'Citas, recordatorios y confirmaciones automáticas por WhatsApp. Cero huecos, cero olvidos.',
+    description: 'Citas, recordatorios y confirmaciones automáticas. Cero huecos, cero olvidos.',
+  },
+  {
+    icon: MessageCircle,
+    title: 'WhatsApp integrado',
+    description: 'Confirma, reprograma y envía recibos desde el mismo WhatsApp de tu negocio.',
+  },
+  {
+    icon: Bell,
+    title: 'Notificaciones por WhatsApp',
+    description: 'Recordatorios 24h y 2h antes de la cita. Menos no-shows, más clientes atendidos.',
+  },
+  {
+    icon: Bot,
+    title: 'Agenda desde WhatsApp',
+    description: 'Tus clientes agendan solos por WhatsApp. El sistema valida horarios y confirma al instante.',
+  },
+  {
+    icon: Sparkles,
+    title: 'Agente de IA',
+    description: 'Un asistente inteligente que responde, agenda y resuelve dudas de tus clientes 24/7.',
   },
   {
     icon: CreditCard,
     title: 'Punto de venta',
     description: 'Cobra servicios y productos en segundos. Múltiples métodos de pago y cortes de caja automáticos.',
-  },
-  {
-    icon: MessageCircle,
-    title: 'WhatsApp integrado',
-    description: 'Confirmaciones, recordatorios 24h/2h, recibos y reprogramaciones sin salir del sistema.',
   },
   {
     icon: Package,
@@ -56,10 +71,26 @@ const features = [
 ];
 
 const businessTypes = [
-  { icon: Scissors, label: 'Barberías' },
-  { icon: Sparkles, label: 'Estéticas' },
-  { icon: Star, label: 'Spas' },
-  { icon: Users, label: 'Salones unisex' },
+  {
+    icon: Scissors,
+    label: 'Barberías',
+    description: 'Turnos rápidos, comisiones por barbero y agenda pública para tus clientes.',
+  },
+  {
+    icon: Sparkles,
+    label: 'Estéticas y salones',
+    description: 'Servicios largos, paquetes, seguimiento de clientes y control de productos.',
+  },
+  {
+    icon: Heart,
+    label: 'Spas y wellness',
+    description: 'Cabinas, terapeutas, membresías y experiencias personalizadas.',
+  },
+  {
+    icon: Store,
+    label: 'Cadenas y franquicias',
+    description: 'Varias sucursales, roles, reportes consolidados y control central.',
+  },
 ];
 
 // Real photos from Unsplash — barbería, estética, salones
