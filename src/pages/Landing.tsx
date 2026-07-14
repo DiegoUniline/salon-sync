@@ -343,6 +343,111 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ============ WHATSAPP SHOWCASE ============ */}
+      <section id="whatsapp" className="relative py-20 md:py-28 overflow-hidden bg-gradient-to-b from-background to-secondary/30">
+        <div className="blob bg-[#25D366]/25 h-[360px] w-[360px] top-10 -left-24" />
+        <div className="blob bg-accent/20 h-[320px] w-[320px] bottom-0 -right-16" style={{ animationDelay: '3s' }} />
+
+        <div className="relative max-w-7xl mx-auto px-4 md:px-6 grid lg:grid-cols-2 gap-14 items-center">
+          {/* Copy */}
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#25D366]/15 text-[#128C7E] text-xs font-semibold">
+              <WhatsAppIcon className="h-3.5 w-3.5" />
+              WhatsApp que trabaja por ti
+            </div>
+            <h2 className="font-display text-3xl md:text-5xl font-semibold tracking-tight text-foreground leading-[1.05]">
+              Tu WhatsApp se vuelve
+              <span className="block text-[#25D366]">tu mejor recepcionista.</span>
+            </h2>
+            <p className="text-lg text-muted-foreground leading-relaxed max-w-xl">
+              Recordatorios automáticos, confirmaciones al instante y clientes que agendan solos.
+              Menos no-shows, más caja llena — sin que muevas un dedo.
+            </p>
+            <ul className="space-y-3 pt-2">
+              {[
+                'Recordatorio 24h y 2h antes de la cita',
+                'Confirmación con un solo clic desde el chat',
+                'Agente IA que responde y agenda 24/7',
+                'Recibos y encuestas post-servicio automáticas',
+              ].map((t) => (
+                <li key={t} className="flex items-start gap-2.5 text-foreground">
+                  <div className="mt-0.5 h-5 w-5 rounded-full bg-[#25D366]/15 flex items-center justify-center flex-shrink-0">
+                    <Check className="h-3 w-3 text-[#128C7E]" />
+                  </div>
+                  <span className="text-sm md:text-base">{t}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap gap-6 pt-4">
+              <div>
+                <div className="font-display text-3xl font-semibold text-foreground">-72%</div>
+                <div className="text-xs text-muted-foreground">no-shows</div>
+              </div>
+              <div>
+                <div className="font-display text-3xl font-semibold text-foreground">3x</div>
+                <div className="text-xs text-muted-foreground">más confirmaciones</div>
+              </div>
+              <div>
+                <div className="font-display text-3xl font-semibold text-foreground">24/7</div>
+                <div className="text-xs text-muted-foreground">agenda abierta</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Chat mockup */}
+          <div className="relative mx-auto w-full max-w-sm">
+            <div className="absolute inset-0 -m-6 rounded-[3rem] bg-gradient-to-tr from-[#25D366]/25 to-accent/20 blur-2xl" />
+            <div className="relative rounded-[2.2rem] border border-border/70 bg-card shadow-2xl overflow-hidden floaty">
+              {/* WA header */}
+              <div className="flex items-center gap-3 bg-[#075E54] text-white px-4 py-3">
+                <div className="h-10 w-10 rounded-full bg-white/15 flex items-center justify-center">
+                  <WhatsAppIcon className="h-6 w-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold">Salon Pro · Agenda</div>
+                  <div className="text-[10px] text-white/70">en línea</div>
+                </div>
+              </div>
+              {/* Chat body */}
+              <div className="bg-[#ECE5DD] dark:bg-muted p-4 space-y-2.5 min-h-[420px]">
+                <div className="wa-pop max-w-[80%] bg-white text-slate-800 text-sm rounded-2xl rounded-tl-sm px-3 py-2 shadow-sm">
+                  Hola María 👋 Te recordamos tu cita mañana <b>4:30 pm</b> con Carlos.
+                </div>
+                <div className="wa-pop max-w-[80%] bg-white text-slate-800 text-sm rounded-2xl rounded-tl-sm px-3 py-2 shadow-sm" style={{ animationDelay: '0.3s' }}>
+                  ¿Confirmas tu asistencia?
+                </div>
+                <div className="wa-pop max-w-[70%] ml-auto bg-[#DCF8C6] text-slate-800 text-sm rounded-2xl rounded-tr-sm px-3 py-2 shadow-sm" style={{ animationDelay: '0.9s' }}>
+                  ¡Sí, confirmada! ✅
+                </div>
+                <div className="wa-pop max-w-[80%] bg-white text-slate-800 text-sm rounded-2xl rounded-tl-sm px-3 py-2 shadow-sm" style={{ animationDelay: '1.4s' }}>
+                  Perfecto 🙌 Te esperamos. Aquí tu ubicación y contacto.
+                </div>
+                <div className="wa-pop max-w-[60%] ml-auto bg-[#DCF8C6] text-slate-800 text-sm rounded-2xl rounded-tr-sm px-3 py-2 shadow-sm" style={{ animationDelay: '2s' }}>
+                  ¿Puedo mover a las 5:00?
+                </div>
+                <div className="wa-pop max-w-[85%] bg-white text-slate-800 text-sm rounded-2xl rounded-tl-sm px-3 py-2 shadow-sm" style={{ animationDelay: '2.6s' }}>
+                  Reprogramada a las <b>5:00 pm</b> ✨ ¡Nos vemos!
+                </div>
+                <div className="wa-pop inline-flex items-center bg-white text-slate-500 text-sm rounded-2xl rounded-tl-sm px-3 py-2 shadow-sm" style={{ animationDelay: '3.1s' }}>
+                  <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" />
+                </div>
+              </div>
+            </div>
+
+            {/* Floating stat */}
+            <div className="absolute -bottom-6 -left-6 bg-card border border-border/70 rounded-2xl shadow-xl p-3 flex items-center gap-2.5 floaty" style={{ animationDelay: '1s' }}>
+              <div className="h-9 w-9 rounded-full bg-[#25D366]/15 flex items-center justify-center">
+                <Bell className="h-4 w-4 text-[#128C7E]" />
+              </div>
+              <div>
+                <div className="text-[10px] text-muted-foreground">Enviados hoy</div>
+                <div className="text-sm font-semibold text-foreground">128 recordatorios</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ============ VISUAL SHOWCASE ============ */}
       <section className="py-20 md:py-24 bg-secondary/40">
         <div className="max-w-7xl mx-auto px-4 md:px-6">
