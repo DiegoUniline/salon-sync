@@ -435,10 +435,13 @@ export function QuickAppointmentSheet({ open, onOpenChange, contactName, contact
                                 <button
                                   key={i}
                                   disabled={isPast || !stylistId || busy}
-                                  onClick={() => { setDate(key); setTime(toTime(minute)); setAnchor(d); }}
+                                  onMouseDown={(e) => { e.preventDefault(); setDrag({ date: key, startMin: minute, endMin: minute, step: 30 }); }}
+                                  onMouseEnter={() => { if (drag && drag.date === key) setDrag({ ...drag, endMin: minute }); }}
+                                  onClick={() => { if (!drag) { setDate(key); setTime(toTime(minute)); setAnchor(d); } }}
                                   className={cn(
-                                    "h-6 rounded border text-[9px] transition-colors",
+                                    "h-6 rounded border text-[9px] transition-colors select-none",
                                     isSel && "bg-primary text-primary-foreground border-primary",
+                                    drag && drag.date === key && minute >= Math.min(drag.startMin, drag.endMin) && minute <= Math.max(drag.startMin, drag.endMin) && "bg-primary/40 border-primary",
                                     !isSel && busy && "bg-destructive/15 border-destructive/30 cursor-not-allowed",
                                     !isSel && !busy && "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/25",
                                     isPast && "opacity-30 cursor-not-allowed",
