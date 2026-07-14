@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization") || "";
     const token = authHeader.replace("Bearer ", "");
     if (!token) {
-      return json({ error: "No autenticado" }, 401);
+      return json(req, { error: "No autenticado" }, 401);
     }
 
     // Verify caller
@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     });
     const { data: userData, error: userErr } = await anonClient.auth.getUser();
     if (userErr || !userData.user) {
-      return json({ error: "Sesión inválida" }, 401);
+      return json(req, { error: "Sesión inválida" }, 401);
     }
     const callerId = userData.user.id;
 
@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       .eq("user_id", callerId)
       .maybeSingle();
     if (!callerProfile?.account_id) {
-      return json({ error: "Sin cuenta asociada" }, 403);
+      return json(req, { error: "Sin cuenta asociada" }, 403);
     }
 
     const { data: rolesList } = await admin
@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
       ["super_admin", "account_admin", "admin"].includes(r.role)
     );
     if (!allowed) {
-      return json({ error: "Sin permisos para crear usuarios" }, 403);
+      return json(req, { error: "Sin permisos para crear usuarios" }, 403);
     }
 
     const body = await req.json();
@@ -87,10 +87,10 @@ Deno.serve(async (req) => {
     } = body || {};
 
     if (!email || !password || !name) {
-      return json({ error: "email, password y name son requeridos" }, 400);
+      return json(req, { error: "email, password y name son requeridos" }, 400);
     }
     if (String(password).length < 8) {
-      return json({ error: "La contraseña debe tener al menos 8 caracteres" }, 400);
+      return json(req, { error: "La contraseña debe tener al menos 8 caracteres" }, 400);
     }
 
     // Create auth user (email pre-confirmed)
@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
       user_metadata: { full_name: name },
     });
     if (createErr || !created.user) {
-      return json({ error: createErr?.message || "No se pudo crear el usuario" }, 400);
+      return json(req, { error: createErr?.message || "No se pudo crear el usuario" }, 400);
     }
     const newUserId = created.user.id;
 
@@ -128,20 +128,20 @@ Deno.serve(async (req) => {
     if (profErr) {
       // Rollback auth user if profile insert failed
       await admin.auth.admin.deleteUser(newUserId);
-      return json({ error: profErr.message }, 400);
+      return json(req, { error: profErr.message }, 400);
     }
 
     // Assign role (default 'employee')
     const roleName = role && ["admin", "account_admin", "employee"].includes(role) ? role : "employee";
     await admin.from("user_roles").insert({ user_id: newUserId, role: roleName });
 
-    return json({ success: true, profile, user_id: newUserId });
+    return json(req, { success: true, profile, user_id: newUserId });
   } catch (e: any) {
-    return json({ error: e?.message || "Error interno" }, 500);
+    return json(req, { error: e?.message || "Error interno" }, 500);
   }
 });
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...buildCors(req), "Content-Type": "application/json" },
