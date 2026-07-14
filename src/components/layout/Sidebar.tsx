@@ -50,6 +50,7 @@ const navItems: { path: string; icon: typeof LayoutDashboard; label: string; mod
   { path: '/reportes', icon: TrendingUp, label: 'Reportes', moduleId: 'reportes' },
   { path: '/comisiones', icon: Wallet, label: 'Comisiones', moduleId: 'comisiones' },
   { path: '/auditoria', icon: History, label: 'Bitácora', moduleId: 'auditoria' },
+  { path: '/whatsapp', icon: MessageCircle, label: 'WhatsApp', moduleId: 'whatsapp' },
   { path: '/catalogos', icon: FolderOpen, label: 'Catálogos', moduleId: 'catalogos' },
   { path: '/permisos', icon: Shield, label: 'Permisos', moduleId: 'permisos' },
   { path: '/configuracion', icon: Settings, label: 'Configuración', moduleId: 'configuracion' },
