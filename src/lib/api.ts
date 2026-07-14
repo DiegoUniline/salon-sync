@@ -1318,12 +1318,97 @@ export const categories = {
 
 // ============ WHATSAPP TEMPLATES ============
 export const WA_TEMPLATE_TYPES = [
-  { type: 'appointment_confirmed', label: 'Confirmación al agendar', defaultBody: 'Hola {{cliente}} 👋, tu cita en {{negocio}} quedó confirmada para el {{fecha}} a las {{hora}} con {{estilista}} para {{servicio}}. ¡Te esperamos!' },
-  { type: 'appointment_reminder_24h', label: 'Recordatorio 24h antes', defaultBody: 'Hola {{cliente}} 😊, te recordamos tu cita mañana {{fecha}} a las {{hora}} en {{negocio}}. Si necesitas reprogramar, escríbenos.' },
-  { type: 'appointment_reminder_2h', label: 'Recordatorio 2h antes', defaultBody: '¡Hola {{cliente}}! Tu cita es en 2 horas ({{hora}}) en {{negocio}}. ¡Te esperamos!' },
-  { type: 'appointment_cancelled', label: 'Cancelación de cita', defaultBody: 'Hola {{cliente}}, tu cita del {{fecha}} a las {{hora}} en {{negocio}} fue cancelada. ¿Reagendamos?' },
-  { type: 'payment_receipt', label: 'Recibo de pago', defaultBody: '¡Gracias por tu compra, {{cliente}}! Folio {{folio}} · Total ${{total}} en {{negocio}}. ¡Esperamos verte pronto!' },
+  {
+    type: 'appointment_confirmed',
+    label: 'Confirmación al agendar',
+    defaultBody:
+`✨ *¡Cita confirmada!* ✨
+
+Hola *{{cliente}}* 👋
+Tu cita en *{{negocio}}* quedó agendada:
+
+🗓️ *Fecha:* {{fecha}}
+⏰ *Hora:* {{hora}}
+💇 *Servicio:* {{servicio}}
+👤 *Con:* {{estilista}}
+📍 *Sucursal:* {{sucursal}}
+
+Te pedimos llegar 5 min antes 🙌
+Si necesitas *reprogramar o cancelar*, responde a este mensaje.
+
+¡Nos vemos pronto! 💖`,
+  },
+  {
+    type: 'appointment_reminder_24h',
+    label: 'Recordatorio 24h antes',
+    defaultBody:
+`🔔 *Recordatorio de tu cita*
+
+Hola *{{cliente}}* 😊
+Solo para recordarte tu cita de *mañana*:
+
+🗓️ {{fecha}}
+⏰ {{hora}}
+💇 {{servicio}}
+👤 {{estilista}}
+📍 {{sucursal}}
+
+¿Confirmas tu asistencia? Responde:
+✅ *SÍ* para confirmar
+🔄 *CAMBIAR* para reagendar
+
+¡Te esperamos en {{negocio}}! 💫`,
+  },
+  {
+    type: 'appointment_reminder_2h',
+    label: 'Recordatorio 2h antes',
+    defaultBody:
+`⏳ *¡Tu cita es en 2 horas!*
+
+Hola *{{cliente}}* 👋
+Nos vemos hoy a las *{{hora}}* en *{{negocio}}* ({{sucursal}}) para tu *{{servicio}}* con {{estilista}}.
+
+Tips para llegar a tiempo:
+• Sal con 15 min de anticipación 🚗
+• Trae tu método de pago preferido 💳
+• Si tienes alguna referencia visual, ¡mándala! 📸
+
+¡Nos vemos pronto! ✨`,
+  },
+  {
+    type: 'appointment_cancelled',
+    label: 'Cancelación de cita',
+    defaultBody:
+`❌ *Cita cancelada*
+
+Hola *{{cliente}}*,
+Tu cita del *{{fecha}}* a las *{{hora}}* en *{{negocio}}* ha sido cancelada.
+
+Si fue por error o quieres *reagendar*, contáctanos por este medio y con gusto te buscamos un nuevo horario 🗓️
+
+¡Esperamos verte pronto! 💖
+— {{negocio}}`,
+  },
+  {
+    type: 'payment_receipt',
+    label: 'Recibo de pago',
+    defaultBody:
+`🧾 *¡Gracias por tu compra!* 🎉
+
+Hola *{{cliente}}*, aquí tu comprobante:
+
+🔖 *Folio:* {{folio}}
+🗓️ *Fecha:* {{fecha}} {{hora}}
+📍 *Sucursal:* {{sucursal}}
+💰 *Total pagado:* $ {{total}}
+
+Guarda este mensaje como tu recibo digital.
+¡Nos encantaría verte pronto de nuevo! 💖
+
+— *{{negocio}}*`,
+  },
 ] as const;
+
 
 export const whatsappTemplates = {
   getAll: async () => {
