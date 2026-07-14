@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Send, Phone, QrCode, RefreshCw, Power, MessageSquare, Search, User } from "lucide-react";
+import { Loader2, Send, Phone, QrCode, RefreshCw, Power, MessageSquare, Search, User, CalendarPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { QuickAppointmentSheet } from "@/components/QuickAppointmentSheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Instance { id: string; instance_name: string; phone_number: string | null; status: string; qr_code: string | null; }
@@ -24,6 +25,7 @@ export default function WhatsApp() {
   const [sending, setSending] = useState(false);
   const [search, setSearch] = useState("");
   const [newChatPhone, setNewChatPhone] = useState("");
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const callFn = async (action: string, params: Record<string, any> = {}) => {
@@ -194,10 +196,14 @@ export default function WhatsApp() {
             <>
               <div className="p-3 border-b flex items-center gap-3">
                 <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center"><User className="h-5 w-5" /></div>
-                <div className="flex-1">
-                  <p className="font-medium">{selected.contact_name || selected.contact_phone}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{selected.contact_name || selected.contact_phone}</p>
                   <p className="text-xs text-muted-foreground">+{selected.contact_phone}</p>
                 </div>
+                <Button size="sm" variant="default" onClick={() => setScheduleOpen(true)} className="gap-1">
+                  <CalendarPlus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Agendar</span>
+                </Button>
               </div>
               <div className="flex-1 overflow-y-auto p-4 bg-muted/20" ref={scrollRef}>
                 <div className="space-y-2">
@@ -226,6 +232,18 @@ export default function WhatsApp() {
           )}
         </Card>
       </div>
+
+      {selected && (
+        <QuickAppointmentSheet
+          open={scheduleOpen}
+          onOpenChange={setScheduleOpen}
+          contactName={selected.contact_name}
+          contactPhone={selected.contact_phone}
+          existingClientId={selected.client_id}
+          conversationId={selected.id}
+          onScheduled={loadConversations}
+        />
+      )}
     </div>
   );
 }
