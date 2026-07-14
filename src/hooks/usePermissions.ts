@@ -225,13 +225,13 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       try {
         const { data: { session } } = await withTimeout(
           supabase.auth.getSession(),
-          8000,
+          15000,
           'Verificación de sesión'
         );
 
         if (session) {
           try {
-            const userData = await withTimeout(api.auth.me(), 8000, 'Carga de usuario');
+            const userData = await withTimeout(api.auth.me(), 15000, 'Carga de usuario');
             applyCurrentUserData(userData);
             void refreshData();
             window.dispatchEvent(new Event('auth-state-change'));
