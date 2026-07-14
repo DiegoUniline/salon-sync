@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Scissors, Lock, Mail, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Lock, Mail, AlertCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import salonProLogo from '@/assets/salon-pro-logo.png.asset.json';
 
 export default function Login() {
   const { login } = usePermissions();
@@ -39,14 +41,26 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 p-4">
       <div className="w-full max-w-md space-y-6">
+        {/* Back to home */}
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" /> Volver a inicio
+        </Link>
+
         {/* Logo */}
-        <div className="text-center">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl gradient-bg shadow-lg mb-4">
-            <Scissors className="h-8 w-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-foreground">SalonPro</h1>
-          <p className="text-muted-foreground mt-1">Sistema de Gestión</p>
-        </div>
+        <Link to="/" className="text-center block">
+          <img
+            src={salonProLogo.url}
+            alt="Salon Pro"
+            className="mx-auto h-16 w-16 mb-4"
+          />
+          <h1 className="text-3xl font-display font-semibold text-foreground">
+            Salon <span className="text-accent">Pro</span>
+          </h1>
+          <p className="text-muted-foreground mt-1 text-sm">Sistema de gestión</p>
+        </Link>
 
         {/* Login Card */}
         <Card className="border-0 shadow-xl">
