@@ -232,6 +232,18 @@ export default function WhatsApp() {
           )}
         </Card>
       </div>
+
+      {selected && (
+        <QuickAppointmentSheet
+          open={scheduleOpen}
+          onOpenChange={setScheduleOpen}
+          contactName={selected.contact_name}
+          contactPhone={selected.contact_phone}
+          existingClientId={selected.client_id}
+          conversationId={selected.id}
+          onScheduled={loadConversations}
+        />
+      )}
     </div>
   );
 }
