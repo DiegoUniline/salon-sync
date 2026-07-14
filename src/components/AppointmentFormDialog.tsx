@@ -107,6 +107,7 @@ export function AppointmentFormDialog({
   const [stylistId, setStylistId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('09:30');
   const [notes, setNotes] = useState('');
   const [generalDiscount, setGeneralDiscount] = useState(0);
   
