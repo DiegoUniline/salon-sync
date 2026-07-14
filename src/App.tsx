@@ -35,6 +35,7 @@ import Catalogos from "./pages/Catalogos";
 import Reportes from "./pages/Reportes";
 import Comisiones from "./pages/Comisiones";
 import Auditoria from "./pages/Auditoria";
+import WhatsApp from "./pages/WhatsApp";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -232,6 +233,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute moduleId="auditoria">
               <Auditoria />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/whatsapp"
+          element={
+            <ProtectedRoute moduleId="whatsapp">
+              <WhatsApp />
             </ProtectedRoute>
           }
         />

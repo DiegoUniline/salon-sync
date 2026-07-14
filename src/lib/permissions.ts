@@ -17,6 +17,7 @@ export const modules = [
   { id: 'reportes', name: 'Reportes', icon: '📈' },
   { id: 'comisiones', name: 'Comisiones', icon: '💵' },
   { id: 'auditoria', name: 'Bitácora', icon: '📝' },
+  { id: 'whatsapp', name: 'WhatsApp', icon: '💬' },
   { id: 'configuracion', name: 'Configuración', icon: '⚙️' },
   { id: 'permisos', name: 'Permisos', icon: '🔐' },
   { id: 'superadmin', name: 'Super Admin', icon: '👑' },
@@ -86,6 +87,7 @@ const defaultPermissions: Record<ModuleId, ModulePermissions> = {
   reportes: { view: false, create: false, edit: false, delete: false },
   comisiones: { view: false, create: false, edit: false, delete: false },
   auditoria: { view: false, create: false, edit: false, delete: false },
+  whatsapp: { view: false, create: false, edit: false, delete: false },
 };
 
 // Permisos completos (todos habilitados)
@@ -110,6 +112,7 @@ const fullPermissions: Record<ModuleId, ModulePermissions> = {
   reportes: { view: true, create: true, edit: true, delete: true },
   comisiones: { view: true, create: true, edit: true, delete: true },
   auditoria: { view: true, create: true, edit: true, delete: true },
+  whatsapp: { view: true, create: true, edit: true, delete: true },
 };
 
 // Permisos de Super Admin (acceso total incluyendo panel de admin)
@@ -134,6 +137,7 @@ const superAdminPermissions: Record<ModuleId, ModulePermissions> = {
   reportes: { view: true, create: true, edit: true, delete: true },
   comisiones: { view: true, create: true, edit: true, delete: true },
   auditoria: { view: true, create: true, edit: true, delete: true },
+  whatsapp: { view: true, create: true, edit: true, delete: true },
 };
 
 // Roles predefinidos del sistema
@@ -193,6 +197,7 @@ export const defaultRoles: Role[] = [
       reportes: { view: true, create: false, edit: false, delete: false },
       comisiones: { view: false, create: false, edit: false, delete: false },
       auditoria: { view: false, create: false, edit: false, delete: false },
+      whatsapp: { view: false, create: false, edit: false, delete: false },
     },
   },
   {
@@ -222,6 +227,7 @@ export const defaultRoles: Role[] = [
       reportes: { view: false, create: false, edit: false, delete: false },
       comisiones: { view: false, create: false, edit: false, delete: false },
       auditoria: { view: false, create: false, edit: false, delete: false },
+      whatsapp: { view: false, create: false, edit: false, delete: false },
     },
   },
 ];
