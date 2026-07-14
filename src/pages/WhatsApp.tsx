@@ -49,8 +49,44 @@ export default function WhatsApp() {
     setLoadingInst(false);
   };
   const loadConversations = async () => {
-    const { data } = await supabase.from("whatsapp_conversations").select("*").order("last_message_at", { ascending: false, nullsFirst: false });
-    setConversations((data as any[]) || []);
+    const { data } = await supabase
+      .from("whatsapp_conversations")
+      .select("*, clients(name)")
+      .order("last_message_at", { ascending: false, nullsFirst: false });
+    setConversations(((data as any[]) || []).map((c) => ({ ...c, client_name: c.clients?.name || null })));
+  };
+  const openLinkClient = async () => {
+    setLinkOpen(true);
+    try {
+      const all = await api.clients.getAll();
+      setClients((all || []).map((c: any) => ({ id: c.id, name: c.name, phone: c.phone })));
+    } catch (e: any) { toast.error(e?.message || "Error cargando clientes"); }
+  };
+  const linkClient = async (clientId: string | null) => {
+    if (!selectedId) return;
+    setLinking(true);
+    try {
+      await supabase.from("whatsapp_conversations").update({ client_id: clientId }).eq("id", selectedId);
+      toast.success(clientId ? "Cliente vinculado" : "Vínculo eliminado");
+      setLinkOpen(false);
+      await loadConversations();
+    } catch (e: any) { toast.error(e?.message || "Error"); }
+    finally { setLinking(false); }
+  };
+  const createAndLinkClient = async () => {
+    if (!selected) return;
+    setLinking(true);
+    try {
+      const created = await api.clients.create({
+        name: selected.contact_name || selected.contact_phone || "Cliente WhatsApp",
+        phone: selected.contact_phone || "",
+      });
+      await supabase.from("whatsapp_conversations").update({ client_id: created.id }).eq("id", selected.id);
+      toast.success("Cliente creado y vinculado");
+      setLinkOpen(false);
+      await loadConversations();
+    } catch (e: any) { toast.error(e?.message || "Error"); }
+    finally { setLinking(false); }
   };
   const loadMessages = async (convId: string) => {
     const { data } = await supabase.from("whatsapp_messages").select("*").eq("conversation_id", convId).order("timestamp", { ascending: true }).limit(200);
