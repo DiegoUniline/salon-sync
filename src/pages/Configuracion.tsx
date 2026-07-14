@@ -476,7 +476,7 @@ export default function Configuracion() {
       </div>
 
       <Tabs defaultValue="business" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="business" className="gap-2">
             <Briefcase className="h-4 w-4" />
             <span className="hidden sm:inline">Negocio</span>
@@ -496,6 +496,10 @@ export default function Configuracion() {
           <TabsTrigger value="tickets" className="gap-2">
             <Receipt className="h-4 w-4" />
             <span className="hidden sm:inline">Tickets</span>
+          </TabsTrigger>
+          <TabsTrigger value="whatsapp" className="gap-2">
+            <MessageCircle className="h-4 w-4" />
+            <span className="hidden sm:inline">WhatsApp</span>
           </TabsTrigger>
         </TabsList>
 
