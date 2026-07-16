@@ -18,6 +18,7 @@ export const modules = [
   { id: 'comisiones', name: 'Comisiones', icon: '💵' },
   { id: 'auditoria', name: 'Bitácora', icon: '📝' },
   { id: 'whatsapp', name: 'WhatsApp', icon: '💬' },
+  { id: 'promociones', name: 'Promociones', icon: '🎁' },
   { id: 'configuracion', name: 'Configuración', icon: '⚙️' },
   { id: 'permisos', name: 'Permisos', icon: '🔐' },
   { id: 'superadmin', name: 'Super Admin', icon: '👑' },
