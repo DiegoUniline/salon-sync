@@ -1066,6 +1066,69 @@ export type Database = {
           },
         ]
       }
+      promotions: {
+        Row: {
+          account_id: string
+          applies_to: string
+          code: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          end_date: string | null
+          id: string
+          is_active: boolean
+          min_purchase: number
+          name: string
+          start_date: string | null
+          target_ids: Json
+          times_used: number
+          type: string
+          updated_at: string
+          usage_limit: number | null
+          value: number
+        }
+        Insert: {
+          account_id: string
+          applies_to?: string
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          min_purchase?: number
+          name: string
+          start_date?: string | null
+          target_ids?: Json
+          times_used?: number
+          type: string
+          updated_at?: string
+          usage_limit?: number | null
+          value: number
+        }
+        Update: {
+          account_id?: string
+          applies_to?: string
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          min_purchase?: number
+          name?: string
+          start_date?: string | null
+          target_ids?: Json
+          times_used?: number
+          type?: string
+          updated_at?: string
+          usage_limit?: number | null
+          value?: number
+        }
+        Relationships: []
+      }
       purchase_payments: {
         Row: {
           amount: number
@@ -1963,6 +2026,35 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_promo_usage: {
+        Args: { p_promo_id: string }
+        Returns: {
+          account_id: string
+          applies_to: string
+          code: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          end_date: string | null
+          id: string
+          is_active: boolean
+          min_purchase: number
+          name: string
+          start_date: string | null
+          target_ids: Json
+          times_used: number
+          type: string
+          updated_at: string
+          usage_limit: number | null
+          value: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "promotions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       register_commission_payment: {
         Args: {
