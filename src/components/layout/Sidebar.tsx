@@ -39,6 +39,7 @@ import {
   BarChart3,
   Cog,
   ChevronsUpDown,
+  Gift,
 } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import salonProLogo from '@/assets/salon-pro-logo.png.asset.json';
@@ -99,6 +100,7 @@ const groups: NavGroup[] = [
       { path: '/turnos', icon: Clock, label: 'Turnos', moduleId: 'turnos' },
       { path: '/cortes', icon: FileText, label: 'Cortes de caja', moduleId: 'cortes' },
       { path: '/comisiones', icon: Wallet, label: 'Comisiones', moduleId: 'comisiones' },
+      { path: '/promociones', icon: Gift, label: 'Promociones', moduleId: 'promociones' },
     ],
   },
   {

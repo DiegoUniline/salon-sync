@@ -60,6 +60,7 @@ import {
   Minus,
   X,
   Loader2,
+  Gift,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -150,6 +151,13 @@ export default function Ventas() {
   const [tipAmount, setTipAmount] = useState<number>(0);
   const [tipEmployeeId, setTipEmployeeId] = useState<string>('');
 
+  // Discount / promo state
+  const [discountType, setDiscountType] = useState<'none' | 'percentage' | 'fixed'>('none');
+  const [discountValue, setDiscountValue] = useState<number>(0);
+  const [promoCode, setPromoCode] = useState<string>('');
+  const [appliedPromo, setAppliedPromo] = useState<any>(null);
+  const [applyingPromo, setApplyingPromo] = useState(false);
+
   // Load data
   useEffect(() => {
     const loadData = async () => {
@@ -231,11 +239,34 @@ export default function Ventas() {
   const cashToday = todaySales.filter(s => getPaymentMethod(s) === 'cash').reduce((sum, s) => sum + Number(s.total || 0), 0);
   const cardToday = todaySales.filter(s => getPaymentMethod(s) === 'card').reduce((sum, s) => sum + Number(s.total || 0), 0);
 
-  const cartTotal = cart.reduce((sum, item) => {
+  const cartSubtotal = cart.reduce((sum, item) => {
     if (!item || !item.item) return sum;
     const price = item.item && 'price' in item.item ? Number(item.item.price) : 0;
     return sum + (price * item.quantity);
   }, 0);
+
+  // Determine which items the discount applies to
+  const discountBase = (() => {
+    if (!appliedPromo) return cartSubtotal;
+    const applies = appliedPromo.applies_to;
+    if (applies === 'all') return cartSubtotal;
+    return cart.reduce((sum, c) => {
+      if (!c.item) return sum;
+      const matches = (applies === 'service' && c.type === 'service') || (applies === 'product' && c.type === 'product');
+      if (!matches) return sum;
+      const price = 'price' in c.item ? Number(c.item.price) : 0;
+      return sum + price * c.quantity;
+    }, 0);
+  })();
+
+  const discountAmount = (() => {
+    if (discountType === 'none' || !discountValue) return 0;
+    const base = appliedPromo ? discountBase : cartSubtotal;
+    const raw = discountType === 'percentage' ? (base * discountValue) / 100 : discountValue;
+    return Math.min(Math.max(raw, 0), base);
+  })();
+
+  const cartTotal = Math.max(0, cartSubtotal - discountAmount);
 
   const addToCart = (type: 'product' | 'service', item: Product | Service) => {
     setCart(prev => {
@@ -331,7 +362,10 @@ export default function Ventas() {
         payment_method: paymentMethod,
         payments: paymentMethod === 'mixed' ? mixedPayments : [{ method: paymentMethod, amount: cartTotal }],
         total: cartTotal + (Number(tipAmount) || 0),
-        subtotal: cartTotal,
+        subtotal: cartSubtotal,
+        discount: discountAmount,
+        promotion_id: appliedPromo?.id || null,
+        promotion_code: appliedPromo?.code || null,
         tip_amount: Number(tipAmount) || 0,
         tip_employee_id: tipEmployeeId || null,
         tips: tipAmount > 0 && tipEmployeeId
@@ -343,6 +377,9 @@ export default function Ventas() {
       console.log('[Ventas] Enviando venta con shift_id:', openShift?.id, saleData);
       const newSale = await api.sales.create(saleData);
       setLastSaleId((newSale as any)?.id || null);
+      if (appliedPromo?.id) {
+        try { await api.promotions.incrementUsage(appliedPromo.id); } catch {}
+      }
       // Reload sales to get proper structure
       const updatedSales = await api.sales.getAll({ branch_id: currentBranch?.id });
       setSales(updatedSales.map((s: any) => ({
@@ -370,8 +407,8 @@ export default function Ventas() {
         clientName: clientName || 'Cliente mostrador',
         services: serviceItems,
         products: productItems,
-        subtotal: cartTotal,
-        discount: 0,
+        subtotal: cartSubtotal,
+        discount: discountAmount,
         total: cartTotal,
         paymentMethod: paymentLabels[paymentMethod],
         payments: paymentMethod === 'mixed' ? mixedPayments.map(p => ({
@@ -390,6 +427,10 @@ export default function Ventas() {
       setMixedPayments([]);
       setTipAmount(0);
       setTipEmployeeId('');
+      setDiscountType('none');
+      setDiscountValue(0);
+      setPromoCode('');
+      setAppliedPromo(null);
       setIsPOSOpen(false);
     } catch (error: any) {
       console.error('Error creating sale:', error);
@@ -591,10 +632,68 @@ export default function Ventas() {
                 </div>
 
                 <div className="p-3 border-t space-y-3 bg-secondary/30">
+                  {/* Descuento / Promoción */}
+                  <div className="space-y-2 p-3 bg-background rounded-lg border">
+                    <Label className="flex items-center gap-1"><Gift className="h-3 w-3" /> Descuento / Promoción</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Select value={discountType} onValueChange={(v) => { setDiscountType(v as any); if (v === 'none') { setDiscountValue(0); setAppliedPromo(null); } }}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin descuento</SelectItem>
+                          <SelectItem value="percentage">Porcentaje</SelectItem>
+                          <SelectItem value="fixed">Monto fijo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">{discountType === 'percentage' ? '%' : '$'}</span>
+                        <Input type="number" min={0} step="0.01" value={discountValue || ''} onChange={(e) => { setDiscountValue(parseFloat(e.target.value) || 0); setAppliedPromo(null); }} placeholder="0" className="pl-6" disabled={discountType === 'none'} />
+                      </div>
+                      <div className="flex gap-1">
+                        <Input value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} placeholder="CÓDIGO" className="font-mono text-xs" />
+                        <Button size="sm" variant="outline" disabled={!promoCode.trim() || applyingPromo} onClick={async () => {
+                          setApplyingPromo(true);
+                          try {
+                            const promo = await api.promotions.findByCode(promoCode.trim());
+                            if (!promo) { toast.error('Código no encontrado o inactivo'); return; }
+                            if (promo.min_purchase && cartSubtotal < Number(promo.min_purchase)) {
+                              toast.error(`Compra mínima $${Number(promo.min_purchase).toFixed(2)}`); return;
+                            }
+                            if (promo.end_date && promo.end_date < new Date().toISOString().slice(0,10)) { toast.error('Promoción vencida'); return; }
+                            if (promo.usage_limit && promo.times_used >= promo.usage_limit) { toast.error('Promoción agotada'); return; }
+                            setAppliedPromo(promo);
+                            setDiscountType(promo.type);
+                            setDiscountValue(Number(promo.value));
+                            toast.success(`Promoción "${promo.name}" aplicada`);
+                          } catch (e: any) { toast.error(e?.message || 'Error'); }
+                          finally { setApplyingPromo(false); }
+                        }}>{applyingPromo ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Aplicar'}</Button>
+                      </div>
+                    </div>
+                    {appliedPromo && (
+                      <div className="flex items-center justify-between text-xs">
+                        <Badge variant="secondary" className="gap-1"><Gift className="h-3 w-3" />{appliedPromo.name}</Badge>
+                        <button className="text-destructive underline" onClick={() => { setAppliedPromo(null); setDiscountType('none'); setDiscountValue(0); setPromoCode(''); }}>Quitar</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {discountAmount > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Subtotal:</span>
+                      <span>${cartSubtotal.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {discountAmount > 0 && (
+                    <div className="flex items-center justify-between text-sm text-green-600">
+                      <span>Descuento:</span>
+                      <span>-${discountAmount.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-medium">Total:</span>
                     <span className="text-2xl font-bold">${cartTotal.toLocaleString()}</span>
                   </div>
+
 
                   <div className="space-y-2">
                     <Label>Método de Pago</Label>

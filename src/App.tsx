@@ -36,6 +36,7 @@ import SuperAdmin from "./pages/SuperAdmin";
 import Catalogos from "./pages/Catalogos";
 import Reportes from "./pages/Reportes";
 import Comisiones from "./pages/Comisiones";
+import Promociones from "./pages/Promociones";
 import Auditoria from "./pages/Auditoria";
 import WhatsApp from "./pages/WhatsApp";
 import NotFound from "./pages/NotFound";
@@ -236,6 +237,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute moduleId="comisiones">
               <Comisiones />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/promociones"
+          element={
+            <ProtectedRoute moduleId="promociones">
+              <Promociones />
             </ProtectedRoute>
           }
         />

@@ -1140,6 +1140,58 @@ export const commissionPayments = {
   },
 };
 
+// ============ PROMOTIONS ============
+export const promotions = {
+  getAll: async (params?: { active?: boolean }) => {
+    const accountId = await getAccountId();
+    let query = (supabase as any).from("promotions").select("*").eq("account_id", accountId);
+    if (params?.active !== undefined) query = query.eq("is_active", params.active);
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+  findByCode: async (code: string) => {
+    const accountId = await getAccountId();
+    const { data, error } = await (supabase as any)
+      .from("promotions")
+      .select("*")
+      .eq("account_id", accountId)
+      .eq("is_active", true)
+      .ilike("code", code.trim())
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+  create: async (payload: any) => {
+    const accountId = await getAccountId();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await (supabase as any).from("promotions").insert({
+      ...payload,
+      account_id: accountId,
+      created_by: user?.id,
+    }).select().single();
+    if (error) throw error;
+    return data;
+  },
+  update: async (id: string, payload: any) => {
+    const { data, error } = await (supabase as any).from("promotions").update(payload).eq("id", id).select().single();
+    if (error) throw error;
+    return data;
+  },
+  delete: async (id: string) => {
+    const { error } = await (supabase as any).from("promotions").delete().eq("id", id);
+    if (error) throw error;
+  },
+  incrementUsage: async (id: string) => {
+    const { data, error } = await (supabase as any).rpc("increment_promo_usage", { p_promo_id: id });
+    if (error) throw error;
+    return data;
+  },
+};
+
+
+
+
 
 
 // ============ CASH CUTS ============
@@ -1552,6 +1604,8 @@ export const api: any = {
   shifts,
   cashMovements,
   commissionPayments,
+  promotions,
+
 
   cashCuts,
   roles,
