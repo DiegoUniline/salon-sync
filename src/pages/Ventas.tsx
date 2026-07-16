@@ -150,6 +150,13 @@ export default function Ventas() {
   const [tipAmount, setTipAmount] = useState<number>(0);
   const [tipEmployeeId, setTipEmployeeId] = useState<string>('');
 
+  // Discount / promo state
+  const [discountType, setDiscountType] = useState<'none' | 'percentage' | 'fixed'>('none');
+  const [discountValue, setDiscountValue] = useState<number>(0);
+  const [promoCode, setPromoCode] = useState<string>('');
+  const [appliedPromo, setAppliedPromo] = useState<any>(null);
+  const [applyingPromo, setApplyingPromo] = useState(false);
+
   // Load data
   useEffect(() => {
     const loadData = async () => {
