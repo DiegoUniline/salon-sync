@@ -90,6 +90,9 @@ export default function Turnos() {
   const { shifts, openShift, hasOpenShift, openTurn, closeTurn, getShiftsForBranch, loading: shiftsLoading } = useShift(currentBranch?.id || '');
   const [isOpenDialogOpen, setIsOpenDialogOpen] = useState(false);
   const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
+  const [isMovementDialogOpen, setIsMovementDialogOpen] = useState(false);
+  const [movements, setMovements] = useState<any[]>([]);
+  const [movementsRefreshTick, setMovementsRefreshTick] = useState(0);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [shiftSummary, setShiftSummary] = useState<ShiftSummary | null>(null);
