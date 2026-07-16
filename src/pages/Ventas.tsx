@@ -668,6 +668,63 @@ export default function Ventas() {
                     </div>
                   )}
 
+                  {/* Propina */}
+                  <div className="space-y-2 p-3 bg-background rounded-lg border">
+                    <Label className="flex items-center justify-between">
+                      <span>Propina</span>
+                      {tipAmount > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          ({((tipAmount / (cartTotal || 1)) * 100).toFixed(0)}%)
+                        </span>
+                      )}
+                    </Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[0, 10, 15, 20].map((pct) => (
+                        <Button
+                          key={pct}
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setTipAmount(Math.round((cartTotal * pct) / 100 * 100) / 100)}
+                        >
+                          {pct === 0 ? 'Sin' : `${pct}%`}
+                        </Button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={tipAmount || ''}
+                          onChange={(e) => setTipAmount(parseFloat(e.target.value) || 0)}
+                          placeholder="Monto"
+                          className="pl-6"
+                        />
+                      </div>
+                      <Select value={tipEmployeeId || 'none'} onValueChange={(v) => setTipEmployeeId(v === 'none' ? '' : v)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Para..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin asignar</SelectItem>
+                          {stylists.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {tipAmount > 0 && (
+                      <div className="flex justify-between text-sm pt-1 border-t">
+                        <span className="text-muted-foreground">Total con propina:</span>
+                        <span className="font-bold">${(cartTotal + tipAmount).toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+
+
                   <Button
                     className="w-full gradient-bg border-0"
                     size="lg"
