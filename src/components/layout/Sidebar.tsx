@@ -99,6 +99,7 @@ const groups: NavGroup[] = [
       { path: '/turnos', icon: Clock, label: 'Turnos', moduleId: 'turnos' },
       { path: '/cortes', icon: FileText, label: 'Cortes de caja', moduleId: 'cortes' },
       { path: '/comisiones', icon: Wallet, label: 'Comisiones', moduleId: 'comisiones' },
+      { path: '/promociones', icon: Gift, label: 'Promociones', moduleId: 'promociones' },
     ],
   },
   {
