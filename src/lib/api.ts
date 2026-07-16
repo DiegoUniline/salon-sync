@@ -1503,6 +1503,7 @@ export const api: any = {
   purchases,
   inventory,
   shifts,
+  cashMovements,
   cashCuts,
   roles,
   schedules,
