@@ -631,10 +631,68 @@ export default function Ventas() {
                 </div>
 
                 <div className="p-3 border-t space-y-3 bg-secondary/30">
+                  {/* Descuento / Promoción */}
+                  <div className="space-y-2 p-3 bg-background rounded-lg border">
+                    <Label className="flex items-center gap-1"><Gift className="h-3 w-3" /> Descuento / Promoción</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Select value={discountType} onValueChange={(v) => { setDiscountType(v as any); if (v === 'none') { setDiscountValue(0); setAppliedPromo(null); } }}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin descuento</SelectItem>
+                          <SelectItem value="percentage">Porcentaje</SelectItem>
+                          <SelectItem value="fixed">Monto fijo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">{discountType === 'percentage' ? '%' : '$'}</span>
+                        <Input type="number" min={0} step="0.01" value={discountValue || ''} onChange={(e) => { setDiscountValue(parseFloat(e.target.value) || 0); setAppliedPromo(null); }} placeholder="0" className="pl-6" disabled={discountType === 'none'} />
+                      </div>
+                      <div className="flex gap-1">
+                        <Input value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} placeholder="CÓDIGO" className="font-mono text-xs" />
+                        <Button size="sm" variant="outline" disabled={!promoCode.trim() || applyingPromo} onClick={async () => {
+                          setApplyingPromo(true);
+                          try {
+                            const promo = await api.promotions.findByCode(promoCode.trim());
+                            if (!promo) { toast.error('Código no encontrado o inactivo'); return; }
+                            if (promo.min_purchase && cartSubtotal < Number(promo.min_purchase)) {
+                              toast.error(`Compra mínima $${Number(promo.min_purchase).toFixed(2)}`); return;
+                            }
+                            if (promo.end_date && promo.end_date < new Date().toISOString().slice(0,10)) { toast.error('Promoción vencida'); return; }
+                            if (promo.usage_limit && promo.times_used >= promo.usage_limit) { toast.error('Promoción agotada'); return; }
+                            setAppliedPromo(promo);
+                            setDiscountType(promo.type);
+                            setDiscountValue(Number(promo.value));
+                            toast.success(`Promoción "${promo.name}" aplicada`);
+                          } catch (e: any) { toast.error(e?.message || 'Error'); }
+                          finally { setApplyingPromo(false); }
+                        }}>{applyingPromo ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Aplicar'}</Button>
+                      </div>
+                    </div>
+                    {appliedPromo && (
+                      <div className="flex items-center justify-between text-xs">
+                        <Badge variant="secondary" className="gap-1"><Gift className="h-3 w-3" />{appliedPromo.name}</Badge>
+                        <button className="text-destructive underline" onClick={() => { setAppliedPromo(null); setDiscountType('none'); setDiscountValue(0); setPromoCode(''); }}>Quitar</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {discountAmount > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Subtotal:</span>
+                      <span>${cartSubtotal.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {discountAmount > 0 && (
+                    <div className="flex items-center justify-between text-sm text-green-600">
+                      <span>Descuento:</span>
+                      <span>-${discountAmount.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-medium">Total:</span>
                     <span className="text-2xl font-bold">${cartTotal.toLocaleString()}</span>
                   </div>
+
 
                   <div className="space-y-2">
                     <Label>Método de Pago</Label>
