@@ -117,7 +117,7 @@ export default function Comisiones() {
         </CardHeader>
         <CardContent>
           <Table>
-            <TableHeader><TableRow><TableHead>Empleado</TableHead><TableHead className="text-right">Ventas</TableHead><TableHead className="text-right">Total ventas</TableHead><TableHead className="text-right">Registrada</TableHead><TableHead className="text-right">Calculada ({defaultPct}%)</TableHead><TableHead className="text-right">A pagar</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Empleado</TableHead><TableHead className="text-right">Ventas</TableHead><TableHead className="text-right">Total ventas</TableHead><TableHead className="text-right">Registrada</TableHead><TableHead className="text-right">Calculada ({defaultPct}%)</TableHead><TableHead className="text-right">Propinas</TableHead><TableHead className="text-right">A pagar</TableHead></TableRow></TableHeader>
             <TableBody>
               {rows.map((r) => (
                 <TableRow key={r.name}>
@@ -126,13 +126,14 @@ export default function Comisiones() {
                   <TableCell className="text-right">{fmtMoney(r.total)}</TableCell>
                   <TableCell className="text-right text-muted-foreground">{fmtMoney(r.comision_registrada)}</TableCell>
                   <TableCell className="text-right text-muted-foreground">{fmtMoney(r.comision_calculada)}</TableCell>
-                  <TableCell className="text-right font-bold">{fmtMoney(r.comision_registrada || r.comision_calculada)}</TableCell>
+                  <TableCell className="text-right text-success">{fmtMoney(r.propinas)}</TableCell>
+                  <TableCell className="text-right font-bold">{fmtMoney((r.comision_registrada || r.comision_calculada) + r.propinas)}</TableCell>
                 </TableRow>
               ))}
-              {!rows.length && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Sin datos</TableCell></TableRow>}
+              {!rows.length && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Sin datos</TableCell></TableRow>}
             </TableBody>
           </Table>
-          <p className="text-xs text-muted-foreground mt-4">* &quot;Registrada&quot; usa el campo <code>commission</code> guardado con la venta. &quot;Calculada&quot; aplica el % por defecto sobre el total. Se paga la registrada si existe.</p>
+          <p className="text-xs text-muted-foreground mt-4">* &quot;Registrada&quot; usa el campo <code>commission</code> guardado con la venta. &quot;Calculada&quot; aplica el % por defecto sobre el total. Se paga la registrada si existe. Las propinas se suman aparte.</p>
         </CardContent>
       </Card>
     </div>
