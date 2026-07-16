@@ -491,8 +491,90 @@ export default function Turnos() {
               <p className="font-semibold">${openShift.initialCash.toLocaleString()}</p>
             </div>
           </div>
+
+          {/* Cash movements */}
+          <div className="mt-6 pt-4 border-t">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h4 className="font-semibold">Movimientos de caja</h4>
+                <p className="text-xs text-muted-foreground">
+                  Delta en efectivo: <span className={cn(
+                    'font-medium',
+                    movementsCashDelta > 0 && 'text-green-600',
+                    movementsCashDelta < 0 && 'text-red-600'
+                  )}>
+                    {movementsCashDelta >= 0 ? '+' : ''}${movementsCashDelta.toFixed(2)}
+                  </span>
+                </p>
+              </div>
+              <Button size="sm" onClick={() => setIsMovementDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-1" /> Registrar movimiento
+              </Button>
+            </div>
+
+            {movements.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Sin movimientos registrados en este turno
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {movements.map((m) => {
+                  const cfg = movementTypeConfig[m.type as CashMovementType];
+                  const MIcon = cfg?.icon || Banknote;
+                  return (
+                    <div key={m.id} className="flex items-center gap-3 p-3 bg-background/50 rounded-lg">
+                      <MIcon className={cn('h-4 w-4', cfg?.color)} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{cfg?.label || m.type}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        {m.reason && <p className="text-xs text-muted-foreground truncate">{m.reason}</p>}
+                      </div>
+                      <div className={cn(
+                        'font-semibold text-sm',
+                        cfg?.sign === 1 && 'text-green-600',
+                        cfg?.sign === -1 && 'text-red-600'
+                      )}>
+                        {cfg?.sign === 1 ? '+' : cfg?.sign === -1 ? '-' : ''}${Number(m.amount).toFixed(2)}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={async () => {
+                          try {
+                            await api.cashMovements.delete(m.id);
+                            setMovementsRefreshTick(t => t + 1);
+                            toast.success('Movimiento eliminado');
+                          } catch (e: any) {
+                            toast.error(e.message || 'Error al eliminar');
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
+
+      {openShift && (
+        <CashMovementDialog
+          open={isMovementDialogOpen}
+          onOpenChange={setIsMovementDialogOpen}
+          shiftId={openShift.id}
+          branchId={currentBranch?.id}
+          onCreated={() => setMovementsRefreshTick(t => t + 1)}
+        />
+      )}
+
 
       {!openShift && (
         <div className="glass-card rounded-xl p-6 text-center">
