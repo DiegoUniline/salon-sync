@@ -1065,6 +1065,36 @@ export const shifts = {
   },
 };
 
+// ============ CASH MOVEMENTS ============
+export const cashMovements = {
+  getAll: async (params?: { shift_id?: string; branch_id?: string; start_date?: string; end_date?: string }) => {
+    const accountId = await getAccountId();
+    let query = supabase.from("cash_movements").select("*, profiles!cash_movements_user_id_fkey(full_name)").eq("account_id", accountId);
+    if (params?.shift_id) query = query.eq("shift_id", params.shift_id);
+    if (params?.branch_id) query = query.eq("branch_id", params.branch_id);
+    if (params?.start_date) query = query.gte("created_at", `${params.start_date}T00:00:00`);
+    if (params?.end_date) query = query.lte("created_at", `${params.end_date}T23:59:59`);
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+  create: async (movement: { shift_id?: string; branch_id?: string; type: string; amount: number; reason?: string }) => {
+    const accountId = await getAccountId();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase.from("cash_movements").insert({
+      ...movement,
+      account_id: accountId,
+      user_id: user?.id,
+    }).select().single();
+    if (error) throw error;
+    return data;
+  },
+  delete: async (id: string) => {
+    const { error } = await supabase.from("cash_movements").delete().eq("id", id);
+    if (error) throw error;
+  },
+};
+
 // ============ CASH CUTS ============
 export const cashCuts = {
   getAll: async (params?: { branch_id?: string; start_date?: string; end_date?: string }) => {
