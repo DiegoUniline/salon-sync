@@ -506,6 +506,56 @@ export type Database = {
           },
         ]
       }
+      cash_movements: {
+        Row: {
+          account_id: string
+          amount: number
+          branch_id: string | null
+          created_at: string
+          id: string
+          reason: string | null
+          reference_id: string | null
+          shift_id: string | null
+          type: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          branch_id?: string | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          reference_id?: string | null
+          shift_id?: string | null
+          type: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          branch_id?: string | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          reference_id?: string | null
+          shift_id?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_movements_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           account_id: string

@@ -54,6 +54,8 @@ import {
   Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { CashMovementDialog, movementTypeConfig, type CashMovementType } from '@/components/CashMovementDialog';
+import { Plus, Trash2 } from 'lucide-react';
 
 const paymentMethodConfig = {
   cash: { label: 'Efectivo', icon: Banknote, color: 'text-green-600', bg: 'bg-green-500/10' },
@@ -88,6 +90,9 @@ export default function Turnos() {
   const { shifts, openShift, hasOpenShift, openTurn, closeTurn, getShiftsForBranch, loading: shiftsLoading } = useShift(currentBranch?.id || '');
   const [isOpenDialogOpen, setIsOpenDialogOpen] = useState(false);
   const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
+  const [isMovementDialogOpen, setIsMovementDialogOpen] = useState(false);
+  const [movements, setMovements] = useState<any[]>([]);
+  const [movementsRefreshTick, setMovementsRefreshTick] = useState(0);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [shiftSummary, setShiftSummary] = useState<ShiftSummary | null>(null);
@@ -146,6 +151,22 @@ export default function Turnos() {
     loadUsers();
   }, [currentBranch?.id]);
 
+  // Load cash movements for the active shift
+  useEffect(() => {
+    if (!openShift) { setMovements([]); return; }
+    api.cashMovements.getAll({ shift_id: openShift.id })
+      .then((data) => setMovements(data || []))
+      .catch((e) => console.error('Error loading cash movements:', e));
+  }, [openShift, movementsRefreshTick]);
+
+  const movementsCashDelta = useMemo(() => {
+    return movements.reduce((sum, m) => {
+      const sign = movementTypeConfig[m.type as CashMovementType]?.sign ?? 0;
+      return sum + sign * Number(m.amount || 0);
+    }, 0);
+  }, [movements]);
+
+
   // Load shift summary when opening close dialog
   useEffect(() => {
     const loadSummary = async () => {
@@ -173,7 +194,7 @@ export default function Turnos() {
         };
         
         const expectedByMethod: Record<PaymentMethod, number> = {
-          cash: openShift.initialCash + salesByMethod.cash - expensesByMethod.cash - purchasesByMethod.cash,
+          cash: openShift.initialCash + salesByMethod.cash - expensesByMethod.cash - purchasesByMethod.cash + movementsCashDelta,
           card: salesByMethod.card - expensesByMethod.card - purchasesByMethod.card,
           transfer: salesByMethod.transfer - expensesByMethod.transfer - purchasesByMethod.transfer,
         };
@@ -224,7 +245,7 @@ export default function Turnos() {
     };
     
     loadSummary();
-  }, [openShift, isCloseDialogOpen]);
+  }, [openShift, isCloseDialogOpen, movementsCashDelta]);
 
   const handleOpenTurn = async () => {
     if (!openFormData.userId || !openFormData.initialCash) {
@@ -470,8 +491,90 @@ export default function Turnos() {
               <p className="font-semibold">${openShift.initialCash.toLocaleString()}</p>
             </div>
           </div>
+
+          {/* Cash movements */}
+          <div className="mt-6 pt-4 border-t">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h4 className="font-semibold">Movimientos de caja</h4>
+                <p className="text-xs text-muted-foreground">
+                  Delta en efectivo: <span className={cn(
+                    'font-medium',
+                    movementsCashDelta > 0 && 'text-green-600',
+                    movementsCashDelta < 0 && 'text-red-600'
+                  )}>
+                    {movementsCashDelta >= 0 ? '+' : ''}${movementsCashDelta.toFixed(2)}
+                  </span>
+                </p>
+              </div>
+              <Button size="sm" onClick={() => setIsMovementDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-1" /> Registrar movimiento
+              </Button>
+            </div>
+
+            {movements.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Sin movimientos registrados en este turno
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {movements.map((m) => {
+                  const cfg = movementTypeConfig[m.type as CashMovementType];
+                  const MIcon = cfg?.icon || Banknote;
+                  return (
+                    <div key={m.id} className="flex items-center gap-3 p-3 bg-background/50 rounded-lg">
+                      <MIcon className={cn('h-4 w-4', cfg?.color)} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{cfg?.label || m.type}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(m.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        {m.reason && <p className="text-xs text-muted-foreground truncate">{m.reason}</p>}
+                      </div>
+                      <div className={cn(
+                        'font-semibold text-sm',
+                        cfg?.sign === 1 && 'text-green-600',
+                        cfg?.sign === -1 && 'text-red-600'
+                      )}>
+                        {cfg?.sign === 1 ? '+' : cfg?.sign === -1 ? '-' : ''}${Number(m.amount).toFixed(2)}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={async () => {
+                          try {
+                            await api.cashMovements.delete(m.id);
+                            setMovementsRefreshTick(t => t + 1);
+                            toast.success('Movimiento eliminado');
+                          } catch (e: any) {
+                            toast.error(e.message || 'Error al eliminar');
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
+
+      {openShift && (
+        <CashMovementDialog
+          open={isMovementDialogOpen}
+          onOpenChange={setIsMovementDialogOpen}
+          shiftId={openShift.id}
+          branchId={currentBranch?.id}
+          onCreated={() => setMovementsRefreshTick(t => t + 1)}
+        />
+      )}
+
 
       {!openShift && (
         <div className="glass-card rounded-xl p-6 text-center">
