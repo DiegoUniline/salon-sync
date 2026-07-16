@@ -89,6 +89,7 @@ const defaultPermissions: Record<ModuleId, ModulePermissions> = {
   comisiones: { view: false, create: false, edit: false, delete: false },
   auditoria: { view: false, create: false, edit: false, delete: false },
   whatsapp: { view: false, create: false, edit: false, delete: false },
+  promociones: { view: false, create: false, edit: false, delete: false },
 };
 
 // Permisos completos (todos habilitados)
