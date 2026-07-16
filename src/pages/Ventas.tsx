@@ -156,10 +156,11 @@ export default function Ventas() {
       if (!currentBranch?.id) return;
       setLoading(true);
       try {
-        const [salesData, productsData, servicesData] = await Promise.all([
+        const [salesData, productsData, servicesData, usersData] = await Promise.all([
           api.sales.getAll({ branch_id: currentBranch.id }),
           api.products.getAll({ active: true }),
           api.services.getAll({ active: true }),
+          api.users.getAll().catch(() => []),
         ]);
         setSales(salesData.map((s: any) => ({
           ...s,
@@ -168,6 +169,7 @@ export default function Ventas() {
         })));
         setProducts(productsData);
         setServices(servicesData);
+        setStylists((usersData as any[]).filter((u) => u.is_active !== false).map((u) => ({ id: u.id, full_name: u.full_name })));
       } catch (error) {
         console.error('Error loading data:', error);
         toast.error('Error al cargar datos');
