@@ -406,8 +406,8 @@ export default function Ventas() {
         clientName: clientName || 'Cliente mostrador',
         services: serviceItems,
         products: productItems,
-        subtotal: cartTotal,
-        discount: 0,
+        subtotal: cartSubtotal,
+        discount: discountAmount,
         total: cartTotal,
         paymentMethod: paymentLabels[paymentMethod],
         payments: paymentMethod === 'mixed' ? mixedPayments.map(p => ({
