@@ -388,6 +388,8 @@ export default function Ventas() {
       setClientName('');
       setPaymentMethod('cash');
       setMixedPayments([]);
+      setTipAmount(0);
+      setTipEmployeeId('');
       setIsPOSOpen(false);
     } catch (error: any) {
       console.error('Error creating sale:', error);
