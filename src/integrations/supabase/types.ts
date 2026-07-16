@@ -653,6 +653,69 @@ export type Database = {
           },
         ]
       }
+      commission_payments: {
+        Row: {
+          account_id: string
+          branch_id: string | null
+          commission_amount: number
+          created_at: string
+          employee_id: string
+          employee_name: string | null
+          folio: string | null
+          id: string
+          notes: string | null
+          paid_at: string
+          paid_by: string | null
+          payment_method: string
+          period_from: string
+          period_to: string
+          sales_included: Json
+          tips_amount: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          branch_id?: string | null
+          commission_amount?: number
+          created_at?: string
+          employee_id: string
+          employee_name?: string | null
+          folio?: string | null
+          id?: string
+          notes?: string | null
+          paid_at?: string
+          paid_by?: string | null
+          payment_method?: string
+          period_from: string
+          period_to: string
+          sales_included?: Json
+          tips_amount?: number
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          branch_id?: string | null
+          commission_amount?: number
+          created_at?: string
+          employee_id?: string
+          employee_name?: string | null
+          folio?: string | null
+          id?: string
+          notes?: string | null
+          paid_at?: string
+          paid_by?: string | null
+          payment_method?: string
+          period_from?: string
+          period_to?: string
+          sales_included?: Json
+          tips_amount?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       custom_roles: {
         Row: {
           account_id: string
@@ -1900,6 +1963,46 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      register_commission_payment: {
+        Args: {
+          p_branch_id?: string
+          p_commission_amount: number
+          p_employee_id: string
+          p_employee_name: string
+          p_notes?: string
+          p_payment_method?: string
+          p_period_from: string
+          p_period_to: string
+          p_sales_included?: Json
+          p_tips_amount: number
+        }
+        Returns: {
+          account_id: string
+          branch_id: string | null
+          commission_amount: number
+          created_at: string
+          employee_id: string
+          employee_name: string | null
+          folio: string | null
+          id: string
+          notes: string | null
+          paid_at: string
+          paid_by: string | null
+          payment_method: string
+          period_from: string
+          period_to: string
+          sales_included: Json
+          tips_amount: number
+          total: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "commission_payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       register_purchase_payment: {
         Args: {
