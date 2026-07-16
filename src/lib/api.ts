@@ -1095,6 +1095,53 @@ export const cashMovements = {
   },
 };
 
+// ============ COMMISSION PAYMENTS ============
+export const commissionPayments = {
+  getAll: async (params?: { employee_id?: string; start_date?: string; end_date?: string }) => {
+    const accountId = await getAccountId();
+    let query = (supabase as any).from("commission_payments").select("*").eq("account_id", accountId);
+    if (params?.employee_id) query = query.eq("employee_id", params.employee_id);
+    if (params?.start_date) query = query.gte("paid_at", `${params.start_date}T00:00:00`);
+    if (params?.end_date) query = query.lte("paid_at", `${params.end_date}T23:59:59`);
+    const { data, error } = await query.order("paid_at", { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+  register: async (payload: {
+    employee_id: string;
+    employee_name?: string;
+    period_from: string;
+    period_to: string;
+    commission_amount: number;
+    tips_amount: number;
+    payment_method?: string;
+    notes?: string;
+    sales_included?: any[];
+    branch_id?: string;
+  }) => {
+    const { data, error } = await (supabase as any).rpc("register_commission_payment", {
+      p_employee_id: payload.employee_id,
+      p_employee_name: payload.employee_name ?? null,
+      p_period_from: payload.period_from,
+      p_period_to: payload.period_to,
+      p_commission_amount: payload.commission_amount,
+      p_tips_amount: payload.tips_amount,
+      p_payment_method: payload.payment_method ?? "cash",
+      p_notes: payload.notes ?? null,
+      p_sales_included: payload.sales_included ?? [],
+      p_branch_id: payload.branch_id ?? null,
+    });
+    if (error) throw error;
+    return data;
+  },
+  delete: async (id: string) => {
+    const { error } = await (supabase as any).from("commission_payments").delete().eq("id", id);
+    if (error) throw error;
+  },
+};
+
+
+
 // ============ CASH CUTS ============
 export const cashCuts = {
   getAll: async (params?: { branch_id?: string; start_date?: string; end_date?: string }) => {
