@@ -145,6 +145,11 @@ export default function Ventas() {
   const [lastSaleId, setLastSaleId] = useState<string | null>(null);
   const [rebookOpen, setRebookOpen] = useState(false);
 
+  // Tip state
+  const [stylists, setStylists] = useState<{ id: string; full_name: string }[]>([]);
+  const [tipAmount, setTipAmount] = useState<number>(0);
+  const [tipEmployeeId, setTipEmployeeId] = useState<string>('');
+
   // Load data
   useEffect(() => {
     const loadData = async () => {
