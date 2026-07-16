@@ -376,6 +376,9 @@ export default function Ventas() {
       console.log('[Ventas] Enviando venta con shift_id:', openShift?.id, saleData);
       const newSale = await api.sales.create(saleData);
       setLastSaleId((newSale as any)?.id || null);
+      if (appliedPromo?.id) {
+        try { await api.promotions.incrementUsage(appliedPromo.id); } catch {}
+      }
       // Reload sales to get proper structure
       const updatedSales = await api.sales.getAll({ branch_id: currentBranch?.id });
       setSales(updatedSales.map((s: any) => ({
