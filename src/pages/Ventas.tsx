@@ -426,6 +426,10 @@ export default function Ventas() {
       setMixedPayments([]);
       setTipAmount(0);
       setTipEmployeeId('');
+      setDiscountType('none');
+      setDiscountValue(0);
+      setPromoCode('');
+      setAppliedPromo(null);
       setIsPOSOpen(false);
     } catch (error: any) {
       console.error('Error creating sale:', error);
