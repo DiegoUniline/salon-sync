@@ -141,6 +141,7 @@ const superAdminPermissions: Record<ModuleId, ModulePermissions> = {
   comisiones: { view: true, create: true, edit: true, delete: true },
   auditoria: { view: true, create: true, edit: true, delete: true },
   whatsapp: { view: true, create: true, edit: true, delete: true },
+  promociones: { view: true, create: true, edit: true, delete: true },
 };
 
 // Roles predefinidos del sistema
