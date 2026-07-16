@@ -330,7 +330,13 @@ export default function Ventas() {
         }),
         payment_method: paymentMethod,
         payments: paymentMethod === 'mixed' ? mixedPayments : [{ method: paymentMethod, amount: cartTotal }],
-        total: cartTotal,
+        total: cartTotal + (Number(tipAmount) || 0),
+        subtotal: cartTotal,
+        tip_amount: Number(tipAmount) || 0,
+        tip_employee_id: tipEmployeeId || null,
+        tips: tipAmount > 0 && tipEmployeeId
+          ? [{ employee_id: tipEmployeeId, amount: Number(tipAmount) || 0 }]
+          : [],
         client_name: clientName || 'Cliente mostrador',
       };
 
