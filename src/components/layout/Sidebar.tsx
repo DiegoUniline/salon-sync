@@ -39,6 +39,7 @@ import {
   BarChart3,
   Cog,
   ChevronsUpDown,
+  Gift,
 } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import salonProLogo from '@/assets/salon-pro-logo.png.asset.json';
