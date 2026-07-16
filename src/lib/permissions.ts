@@ -89,6 +89,7 @@ const defaultPermissions: Record<ModuleId, ModulePermissions> = {
   comisiones: { view: false, create: false, edit: false, delete: false },
   auditoria: { view: false, create: false, edit: false, delete: false },
   whatsapp: { view: false, create: false, edit: false, delete: false },
+      promociones: { view: false, create: false, edit: false, delete: false },
   promociones: { view: false, create: false, edit: false, delete: false },
 };
 
@@ -202,6 +203,7 @@ export const defaultRoles: Role[] = [
       comisiones: { view: false, create: false, edit: false, delete: false },
       auditoria: { view: false, create: false, edit: false, delete: false },
       whatsapp: { view: false, create: false, edit: false, delete: false },
+      promociones: { view: false, create: false, edit: false, delete: false },
     },
   },
   {
@@ -232,6 +234,7 @@ export const defaultRoles: Role[] = [
       comisiones: { view: false, create: false, edit: false, delete: false },
       auditoria: { view: false, create: false, edit: false, delete: false },
       whatsapp: { view: false, create: false, edit: false, delete: false },
+      promociones: { view: false, create: false, edit: false, delete: false },
     },
   },
 ];
