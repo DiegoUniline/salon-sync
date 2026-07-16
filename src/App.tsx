@@ -241,6 +241,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/promociones"
+          element={
+            <ProtectedRoute moduleId="promociones">
+              <Promociones />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/auditoria"
           element={
             <ProtectedRoute moduleId="auditoria">
