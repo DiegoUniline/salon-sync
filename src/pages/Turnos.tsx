@@ -194,7 +194,7 @@ export default function Turnos() {
         };
         
         const expectedByMethod: Record<PaymentMethod, number> = {
-          cash: openShift.initialCash + salesByMethod.cash - expensesByMethod.cash - purchasesByMethod.cash,
+          cash: openShift.initialCash + salesByMethod.cash - expensesByMethod.cash - purchasesByMethod.cash + movementsCashDelta,
           card: salesByMethod.card - expensesByMethod.card - purchasesByMethod.card,
           transfer: salesByMethod.transfer - expensesByMethod.transfer - purchasesByMethod.transfer,
         };
