@@ -245,7 +245,7 @@ export default function Turnos() {
     };
     
     loadSummary();
-  }, [openShift, isCloseDialogOpen]);
+  }, [openShift, isCloseDialogOpen, movementsCashDelta]);
 
   const handleOpenTurn = async () => {
     if (!openFormData.userId || !openFormData.initialCash) {
