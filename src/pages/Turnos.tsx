@@ -151,6 +151,22 @@ export default function Turnos() {
     loadUsers();
   }, [currentBranch?.id]);
 
+  // Load cash movements for the active shift
+  useEffect(() => {
+    if (!openShift) { setMovements([]); return; }
+    api.cashMovements.getAll({ shift_id: openShift.id })
+      .then((data) => setMovements(data || []))
+      .catch((e) => console.error('Error loading cash movements:', e));
+  }, [openShift, movementsRefreshTick]);
+
+  const movementsCashDelta = useMemo(() => {
+    return movements.reduce((sum, m) => {
+      const sign = movementTypeConfig[m.type as CashMovementType]?.sign ?? 0;
+      return sum + sign * Number(m.amount || 0);
+    }, 0);
+  }, [movements]);
+
+
   // Load shift summary when opening close dialog
   useEffect(() => {
     const loadSummary = async () => {
