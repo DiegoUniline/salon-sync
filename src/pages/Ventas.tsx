@@ -60,6 +60,7 @@ import {
   Minus,
   X,
   Loader2,
+  Gift,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
