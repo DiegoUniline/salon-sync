@@ -54,6 +54,8 @@ import {
   Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { CashMovementDialog, movementTypeConfig, type CashMovementType } from '@/components/CashMovementDialog';
+import { Plus, Trash2 } from 'lucide-react';
 
 const paymentMethodConfig = {
   cash: { label: 'Efectivo', icon: Banknote, color: 'text-green-600', bg: 'bg-green-500/10' },
