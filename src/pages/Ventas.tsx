@@ -238,11 +238,34 @@ export default function Ventas() {
   const cashToday = todaySales.filter(s => getPaymentMethod(s) === 'cash').reduce((sum, s) => sum + Number(s.total || 0), 0);
   const cardToday = todaySales.filter(s => getPaymentMethod(s) === 'card').reduce((sum, s) => sum + Number(s.total || 0), 0);
 
-  const cartTotal = cart.reduce((sum, item) => {
+  const cartSubtotal = cart.reduce((sum, item) => {
     if (!item || !item.item) return sum;
     const price = item.item && 'price' in item.item ? Number(item.item.price) : 0;
     return sum + (price * item.quantity);
   }, 0);
+
+  // Determine which items the discount applies to
+  const discountBase = (() => {
+    if (!appliedPromo) return cartSubtotal;
+    const applies = appliedPromo.applies_to;
+    if (applies === 'all') return cartSubtotal;
+    return cart.reduce((sum, c) => {
+      if (!c.item) return sum;
+      const matches = (applies === 'service' && c.type === 'service') || (applies === 'product' && c.type === 'product');
+      if (!matches) return sum;
+      const price = 'price' in c.item ? Number(c.item.price) : 0;
+      return sum + price * c.quantity;
+    }, 0);
+  })();
+
+  const discountAmount = (() => {
+    if (discountType === 'none' || !discountValue) return 0;
+    const base = appliedPromo ? discountBase : cartSubtotal;
+    const raw = discountType === 'percentage' ? (base * discountValue) / 100 : discountValue;
+    return Math.min(Math.max(raw, 0), base);
+  })();
+
+  const cartTotal = Math.max(0, cartSubtotal - discountAmount);
 
   const addToCart = (type: 'product' | 'service', item: Product | Service) => {
     setCart(prev => {
