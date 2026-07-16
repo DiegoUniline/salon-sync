@@ -1604,6 +1604,8 @@ export const api: any = {
   shifts,
   cashMovements,
   commissionPayments,
+  promotions,
+
 
   cashCuts,
   roles,
