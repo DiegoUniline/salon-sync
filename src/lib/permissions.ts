@@ -115,6 +115,7 @@ const fullPermissions: Record<ModuleId, ModulePermissions> = {
   comisiones: { view: true, create: true, edit: true, delete: true },
   auditoria: { view: true, create: true, edit: true, delete: true },
   whatsapp: { view: true, create: true, edit: true, delete: true },
+  promociones: { view: true, create: true, edit: true, delete: true },
 };
 
 // Permisos de Super Admin (acceso total incluyendo panel de admin)
