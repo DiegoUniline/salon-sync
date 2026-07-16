@@ -1151,6 +1151,9 @@ export type Database = {
           subtotal: number | null
           tax: number | null
           time: string | null
+          tip_amount: number
+          tip_employee_id: string | null
+          tips: Json
           total: number | null
           type: string
         }
@@ -1178,6 +1181,9 @@ export type Database = {
           subtotal?: number | null
           tax?: number | null
           time?: string | null
+          tip_amount?: number
+          tip_employee_id?: string | null
+          tips?: Json
           total?: number | null
           type?: string
         }
@@ -1205,6 +1211,9 @@ export type Database = {
           subtotal?: number | null
           tax?: number | null
           time?: string | null
+          tip_amount?: number
+          tip_employee_id?: string | null
+          tips?: Json
           total?: number | null
           type?: string
         }
@@ -1249,6 +1258,13 @@ export type Database = {
             columns: ["shift_id"]
             isOneToOne: false
             referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_tip_employee_id_fkey"
+            columns: ["tip_employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1864,6 +1880,9 @@ export type Database = {
           subtotal: number | null
           tax: number | null
           time: string | null
+          tip_amount: number
+          tip_employee_id: string | null
+          tips: Json
           total: number | null
           type: string
         }
