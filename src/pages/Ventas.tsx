@@ -145,16 +145,22 @@ export default function Ventas() {
   const [lastSaleId, setLastSaleId] = useState<string | null>(null);
   const [rebookOpen, setRebookOpen] = useState(false);
 
+  // Tip state
+  const [stylists, setStylists] = useState<{ id: string; full_name: string }[]>([]);
+  const [tipAmount, setTipAmount] = useState<number>(0);
+  const [tipEmployeeId, setTipEmployeeId] = useState<string>('');
+
   // Load data
   useEffect(() => {
     const loadData = async () => {
       if (!currentBranch?.id) return;
       setLoading(true);
       try {
-        const [salesData, productsData, servicesData] = await Promise.all([
+        const [salesData, productsData, servicesData, usersData] = await Promise.all([
           api.sales.getAll({ branch_id: currentBranch.id }),
           api.products.getAll({ active: true }),
           api.services.getAll({ active: true }),
+          api.users.getAll().catch(() => []),
         ]);
         setSales(salesData.map((s: any) => ({
           ...s,
@@ -163,6 +169,7 @@ export default function Ventas() {
         })));
         setProducts(productsData);
         setServices(servicesData);
+        setStylists((usersData as any[]).filter((u) => u.is_active !== false).map((u) => ({ id: u.id, full_name: u.full_name })));
       } catch (error) {
         console.error('Error loading data:', error);
         toast.error('Error al cargar datos');
@@ -323,7 +330,13 @@ export default function Ventas() {
         }),
         payment_method: paymentMethod,
         payments: paymentMethod === 'mixed' ? mixedPayments : [{ method: paymentMethod, amount: cartTotal }],
-        total: cartTotal,
+        total: cartTotal + (Number(tipAmount) || 0),
+        subtotal: cartTotal,
+        tip_amount: Number(tipAmount) || 0,
+        tip_employee_id: tipEmployeeId || null,
+        tips: tipAmount > 0 && tipEmployeeId
+          ? [{ employee_id: tipEmployeeId, amount: Number(tipAmount) || 0 }]
+          : [],
         client_name: clientName || 'Cliente mostrador',
       };
 
@@ -375,6 +388,8 @@ export default function Ventas() {
       setClientName('');
       setPaymentMethod('cash');
       setMixedPayments([]);
+      setTipAmount(0);
+      setTipEmployeeId('');
       setIsPOSOpen(false);
     } catch (error: any) {
       console.error('Error creating sale:', error);
@@ -652,6 +667,63 @@ export default function Ventas() {
                       </div>
                     </div>
                   )}
+
+                  {/* Propina */}
+                  <div className="space-y-2 p-3 bg-background rounded-lg border">
+                    <Label className="flex items-center justify-between">
+                      <span>Propina</span>
+                      {tipAmount > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          ({((tipAmount / (cartTotal || 1)) * 100).toFixed(0)}%)
+                        </span>
+                      )}
+                    </Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[0, 10, 15, 20].map((pct) => (
+                        <Button
+                          key={pct}
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setTipAmount(Math.round((cartTotal * pct) / 100 * 100) / 100)}
+                        >
+                          {pct === 0 ? 'Sin' : `${pct}%`}
+                        </Button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={tipAmount || ''}
+                          onChange={(e) => setTipAmount(parseFloat(e.target.value) || 0)}
+                          placeholder="Monto"
+                          className="pl-6"
+                        />
+                      </div>
+                      <Select value={tipEmployeeId || 'none'} onValueChange={(v) => setTipEmployeeId(v === 'none' ? '' : v)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Para..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin asignar</SelectItem>
+                          {stylists.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {tipAmount > 0 && (
+                      <div className="flex justify-between text-sm pt-1 border-t">
+                        <span className="text-muted-foreground">Total con propina:</span>
+                        <span className="font-bold">${(cartTotal + tipAmount).toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+
 
                   <Button
                     className="w-full gradient-bg border-0"

@@ -52,24 +52,42 @@ export default function Comisiones() {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
 
   const rows = useMemo(() => {
-    const map = new Map<string, { name: string; ventas: number; total: number; comision_registrada: number; comision_calculada: number }>();
+    const map = new Map<string, { name: string; ventas: number; total: number; comision_registrada: number; comision_calculada: number; propinas: number }>();
     sales.forEach((s) => {
       const key = s.employee_id || "sin-asignar";
       const name = s.employee_name || "Sin asignar";
       const total = Number(s.total || 0);
       const registrada = Number(s.commission || 0);
       const calculada = total * (defaultPct / 100);
-      const prev = map.get(key) || { name, ventas: 0, total: 0, comision_registrada: 0, comision_calculada: 0 };
+      const prev = map.get(key) || { name, ventas: 0, total: 0, comision_registrada: 0, comision_calculada: 0, propinas: 0 };
       prev.ventas += 1;
       prev.total += total;
       prev.comision_registrada += registrada;
       prev.comision_calculada += calculada;
       map.set(key, prev);
+
+      // Propinas: distribuir por tip_employee_id o por lista `tips`
+      const tips = Array.isArray(s.tips) ? s.tips : [];
+      if (tips.length > 0) {
+        tips.forEach((t: any) => {
+          const empId = t.employee_id || "sin-asignar";
+          const empName = t.employee_name || (empId === "sin-asignar" ? "Sin asignar" : empId);
+          const row = map.get(empId) || { name: empName, ventas: 0, total: 0, comision_registrada: 0, comision_calculada: 0, propinas: 0 };
+          row.propinas += Number(t.amount || 0);
+          map.set(empId, row);
+        });
+      } else if (Number(s.tip_amount || 0) > 0) {
+        const empId = s.tip_employee_id || s.employee_id || "sin-asignar";
+        const empName = s.employee_name || "Sin asignar";
+        const row = map.get(empId) || { name: empName, ventas: 0, total: 0, comision_registrada: 0, comision_calculada: 0, propinas: 0 };
+        row.propinas += Number(s.tip_amount || 0);
+        map.set(empId, row);
+      }
     });
-    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+    return Array.from(map.values()).sort((a, b) => (b.total + b.propinas) - (a.total + a.propinas));
   }, [sales, defaultPct]);
 
-  const totalPagar = rows.reduce((s, r) => s + (r.comision_registrada || r.comision_calculada), 0);
+  const totalPagar = rows.reduce((s, r) => s + (r.comision_registrada || r.comision_calculada) + r.propinas, 0);
 
   return (
     <div className="space-y-6">
@@ -99,7 +117,7 @@ export default function Comisiones() {
         </CardHeader>
         <CardContent>
           <Table>
-            <TableHeader><TableRow><TableHead>Empleado</TableHead><TableHead className="text-right">Ventas</TableHead><TableHead className="text-right">Total ventas</TableHead><TableHead className="text-right">Registrada</TableHead><TableHead className="text-right">Calculada ({defaultPct}%)</TableHead><TableHead className="text-right">A pagar</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Empleado</TableHead><TableHead className="text-right">Ventas</TableHead><TableHead className="text-right">Total ventas</TableHead><TableHead className="text-right">Registrada</TableHead><TableHead className="text-right">Calculada ({defaultPct}%)</TableHead><TableHead className="text-right">Propinas</TableHead><TableHead className="text-right">A pagar</TableHead></TableRow></TableHeader>
             <TableBody>
               {rows.map((r) => (
                 <TableRow key={r.name}>
@@ -108,13 +126,14 @@ export default function Comisiones() {
                   <TableCell className="text-right">{fmtMoney(r.total)}</TableCell>
                   <TableCell className="text-right text-muted-foreground">{fmtMoney(r.comision_registrada)}</TableCell>
                   <TableCell className="text-right text-muted-foreground">{fmtMoney(r.comision_calculada)}</TableCell>
-                  <TableCell className="text-right font-bold">{fmtMoney(r.comision_registrada || r.comision_calculada)}</TableCell>
+                  <TableCell className="text-right text-success">{fmtMoney(r.propinas)}</TableCell>
+                  <TableCell className="text-right font-bold">{fmtMoney((r.comision_registrada || r.comision_calculada) + r.propinas)}</TableCell>
                 </TableRow>
               ))}
-              {!rows.length && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Sin datos</TableCell></TableRow>}
+              {!rows.length && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Sin datos</TableCell></TableRow>}
             </TableBody>
           </Table>
-          <p className="text-xs text-muted-foreground mt-4">* &quot;Registrada&quot; usa el campo <code>commission</code> guardado con la venta. &quot;Calculada&quot; aplica el % por defecto sobre el total. Se paga la registrada si existe.</p>
+          <p className="text-xs text-muted-foreground mt-4">* &quot;Registrada&quot; usa el campo <code>commission</code> guardado con la venta. &quot;Calculada&quot; aplica el % por defecto sobre el total. Se paga la registrada si existe. Las propinas se suman aparte.</p>
         </CardContent>
       </Card>
     </div>
