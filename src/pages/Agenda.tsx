@@ -420,7 +420,17 @@ export default function Agenda() {
   };
 
   const handleUnblock = async (blockId: string) => {
-    if (!confirm('¿Quitar este bloqueo?')) return;
+    const b: any = blocks.find((x: any) => x.id === blockId);
+    let msg = '¿Quitar este bloqueo?';
+    if (b) {
+      const rango = b.start_date === b.end_date ? b.start_date : `${b.start_date} → ${b.end_date}`;
+      const horas = b.start_time && b.end_time
+        ? `${String(b.start_time).slice(0,5)} a ${String(b.end_time).slice(0,5)}`
+        : 'todo el día';
+      const motivo = b.reason ? ` · ${b.reason}` : '';
+      msg = `Este bloqueo cubre ${rango} · ${horas}${motivo}.\n\n¿Liberar TODO el bloqueo?`;
+    }
+    if (!confirm(msg)) return;
     try {
       await api.schedules.deleteBlocked(blockId);
       toast({ title: 'Bloqueo eliminado' });
