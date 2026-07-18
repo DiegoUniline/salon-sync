@@ -63,6 +63,8 @@ const mapApiProduct = (apiProduct: any): Product => ({
   stock: apiProduct.stock || 0,
   minStock: apiProduct.min_stock || 5,
   active: apiProduct.active === 1 || apiProduct.active === true,
+  commission: parseFloat(apiProduct.commission) || 0,
+
 });
 
 export default function Products() {
