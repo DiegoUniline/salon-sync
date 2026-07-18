@@ -6,12 +6,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, DollarSign, Printer, Trash2, Wallet } from "lucide-react";
+import { CalendarRange, Download, DollarSign, Printer, Trash2, Wallet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, subDays, startOfYear, endOfYear } from "date-fns";
 import { getBusinessConfig } from "@/lib/businessConfig";
+import { todayLocalISO } from "@/lib/utils";
 
 const fmtMoney = (n: number) => `$${(n || 0).toFixed(2)}`;
 
@@ -71,11 +72,13 @@ function printReceipt(payment: any) {
 }
 
 export default function Comisiones() {
-  const today = new Date().toISOString().slice(0, 10);
-  const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+  const today = todayLocalISO();
+  const monthAgo = todayLocalISO(new Date(Date.now() - 30 * 86400000));
   const [from, setFrom] = useState(monthAgo);
   const [to, setTo] = useState(today);
-  const [defaultPct, setDefaultPct] = useState(10);
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [draftFrom, setDraftFrom] = useState(monthAgo);
+  const [draftTo, setDraftTo] = useState(today);
   const [sales, setSales] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -105,24 +108,22 @@ export default function Comisiones() {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
 
   const rows = useMemo(() => {
-    const map = new Map<string, { employee_id: string; name: string; ventas: number; total: number; comision_registrada: number; comision_calculada: number; propinas: number; sale_ids: string[] }>();
+    const map = new Map<string, { employee_id: string; name: string; ventas: number; total: number; comision: number; propinas: number; sale_ids: string[] }>();
     sales.forEach((s) => {
       const key = s.employee_id || "sin-asignar";
       const name = s.employee_name || "Sin asignar";
-      // Commission base: exclude tips (they are paid separately) and honor any discount already applied.
-      // Prefer (subtotal - discount) when available, else fall back to (total - tip_amount).
+      // Commission base: exclude tips (paid separately) and honor any discount.
       const gross = Number(s.total || 0);
       const tip = Number(s.tip_amount || 0);
       const subtotal = Number(s.subtotal || 0);
       const discount = Number(s.discount || 0);
       const base = subtotal > 0 ? Math.max(0, subtotal - discount) : Math.max(0, gross - tip);
+      // Commission is registered per product/service at sale time.
       const registrada = Number(s.commission || 0);
-      const calculada = base * (defaultPct / 100);
-      const prev = map.get(key) || { employee_id: key, name, ventas: 0, total: 0, comision_registrada: 0, comision_calculada: 0, propinas: 0, sale_ids: [] };
+      const prev = map.get(key) || { employee_id: key, name, ventas: 0, total: 0, comision: 0, propinas: 0, sale_ids: [] };
       prev.ventas += 1;
       prev.total += base;
-      prev.comision_registrada += registrada;
-      prev.comision_calculada += calculada;
+      prev.comision += registrada;
       prev.sale_ids.push(s.id);
       map.set(key, prev);
 
@@ -131,23 +132,51 @@ export default function Comisiones() {
         tips.forEach((t: any) => {
           const empId = t.employee_id || "sin-asignar";
           const empName = t.employee_name || (empId === "sin-asignar" ? "Sin asignar" : empId);
-          const row = map.get(empId) || { employee_id: empId, name: empName, ventas: 0, total: 0, comision_registrada: 0, comision_calculada: 0, propinas: 0, sale_ids: [] };
+          const row = map.get(empId) || { employee_id: empId, name: empName, ventas: 0, total: 0, comision: 0, propinas: 0, sale_ids: [] };
           row.propinas += Number(t.amount || 0);
           map.set(empId, row);
         });
       } else if (Number(s.tip_amount || 0) > 0) {
         const empId = s.tip_employee_id || s.employee_id || "sin-asignar";
         const empName = s.employee_name || "Sin asignar";
-        const row = map.get(empId) || { employee_id: empId, name: empName, ventas: 0, total: 0, comision_registrada: 0, comision_calculada: 0, propinas: 0, sale_ids: [] };
+        const row = map.get(empId) || { employee_id: empId, name: empName, ventas: 0, total: 0, comision: 0, propinas: 0, sale_ids: [] };
         row.propinas += Number(s.tip_amount || 0);
         map.set(empId, row);
       }
     });
     return Array.from(map.values()).sort((a, b) => (b.total + b.propinas) - (a.total + a.propinas));
-  }, [sales, defaultPct]);
+  }, [sales]);
 
-  const totalPagar = rows.reduce((s, r) => s + (r.comision_registrada || r.comision_calculada) + r.propinas, 0);
+  const totalPagar = rows.reduce((s, r) => s + r.comision + r.propinas, 0);
   const totalPagado = payments.reduce((s, p) => s + Number(p.total || 0), 0);
+
+  const rangeLabel = `${format(new Date(from + 'T00:00'), 'dd MMM yyyy')} → ${format(new Date(to + 'T00:00'), 'dd MMM yyyy')}`;
+
+  const applyQuickRange = (kind: string) => {
+    const now = new Date();
+    let f = now, t = now;
+    switch (kind) {
+      case 'today': f = now; t = now; break;
+      case 'yesterday': { const y = subDays(now, 1); f = y; t = y; break; }
+      case 'last7': f = subDays(now, 6); t = now; break;
+      case 'thisWeek': f = startOfWeek(now, { weekStartsOn: 1 }); t = endOfWeek(now, { weekStartsOn: 1 }); break;
+      case 'lastWeek': { const lw = subDays(now, 7); f = startOfWeek(lw, { weekStartsOn: 1 }); t = endOfWeek(lw, { weekStartsOn: 1 }); break; }
+      case 'thisMonth': f = startOfMonth(now); t = endOfMonth(now); break;
+      case 'lastMonth': { const lm = subMonths(now, 1); f = startOfMonth(lm); t = endOfMonth(lm); break; }
+      case 'last30': f = subDays(now, 29); t = now; break;
+      case 'thisYear': f = startOfYear(now); t = endOfYear(now); break;
+    }
+    setDraftFrom(todayLocalISO(f));
+    setDraftTo(todayLocalISO(t));
+  };
+
+  const applyRange = () => {
+    setFrom(draftFrom);
+    setTo(draftTo);
+    setRangeOpen(false);
+    setTimeout(load, 0);
+  };
+
 
   const openPay = (row: any) => {
     setPayDialog(row);
@@ -157,7 +186,7 @@ export default function Comisiones() {
 
   const confirmPay = async () => {
     if (!payDialog) return;
-    const comision = payDialog.comision_registrada || payDialog.comision_calculada;
+    const comision = payDialog.comision;
     const propinas = payDialog.propinas;
     const total = comision + propinas;
     if (total <= 0) { toast.error("No hay monto por pagar"); return; }
@@ -205,13 +234,66 @@ export default function Comisiones() {
       </div>
 
       <Card>
-        <CardContent className="pt-6 flex flex-wrap gap-3 items-end">
-          <div><label className="text-sm text-muted-foreground">Desde</label><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
-          <div><label className="text-sm text-muted-foreground">Hasta</label><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
-          <div><label className="text-sm text-muted-foreground">% comisión por defecto</label><Input type="number" min={0} max={100} value={defaultPct} onChange={(e) => setDefaultPct(Number(e.target.value) || 0)} /></div>
-          <Button onClick={load} disabled={loading}>{loading ? "Cargando..." : "Aplicar"}</Button>
+        <CardContent className="pt-6 flex flex-wrap gap-3 items-center justify-between">
+          <div>
+            <div className="text-xs text-muted-foreground mb-1">Rango de fechas</div>
+            <Button
+              variant="outline"
+              onClick={() => { setDraftFrom(from); setDraftTo(to); setRangeOpen(true); }}
+              className="min-w-[280px] justify-start"
+            >
+              <CalendarRange className="h-4 w-4 mr-2" />
+              {rangeLabel}
+            </Button>
+          </div>
+          <Button onClick={load} disabled={loading}>{loading ? "Cargando..." : "Actualizar"}</Button>
         </CardContent>
       </Card>
+
+      <Dialog open={rangeOpen} onOpenChange={setRangeOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Seleccionar rango de fechas</DialogTitle></DialogHeader>
+          <div className="grid md:grid-cols-[200px_1fr] gap-6">
+            <div className="space-y-1">
+              <div className="text-xs uppercase text-muted-foreground mb-2">Rápido</div>
+              {[
+                ['today', 'Hoy'],
+                ['yesterday', 'Ayer'],
+                ['last7', 'Últimos 7 días'],
+                ['thisWeek', 'Esta semana'],
+                ['lastWeek', 'Semana anterior'],
+                ['thisMonth', 'Este mes'],
+                ['lastMonth', 'Mes anterior'],
+                ['last30', 'Últimos 30 días'],
+                ['thisYear', 'Este año'],
+              ].map(([k, l]) => (
+                <Button key={k} variant="ghost" size="sm" className="w-full justify-start" onClick={() => applyQuickRange(k)}>
+                  {l}
+                </Button>
+              ))}
+            </div>
+            <div className="space-y-3">
+              <div className="text-xs uppercase text-muted-foreground">Personalizado</div>
+              <div>
+                <label className="text-sm text-muted-foreground">Desde</label>
+                <Input type="date" value={draftFrom} onChange={(e) => setDraftFrom(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground">Hasta</label>
+                <Input type="date" value={draftTo} onChange={(e) => setDraftTo(e.target.value)} />
+              </div>
+              <div className="text-sm text-muted-foreground pt-2">
+                {format(new Date(draftFrom + 'T00:00'), 'dd MMM yyyy')} → {format(new Date(draftTo + 'T00:00'), 'dd MMM yyyy')}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRangeOpen(false)}>Cancelar</Button>
+            <Button onClick={applyRange}>Aplicar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
@@ -231,17 +313,16 @@ export default function Comisiones() {
         </CardHeader>
         <CardContent>
           <Table>
-            <TableHeader><TableRow><TableHead>Empleado</TableHead><TableHead className="text-right">Ventas</TableHead><TableHead className="text-right">Total ventas</TableHead><TableHead className="text-right">Registrada</TableHead><TableHead className="text-right">Calculada ({defaultPct}%)</TableHead><TableHead className="text-right">Propinas</TableHead><TableHead className="text-right">A pagar</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Empleado</TableHead><TableHead className="text-right">Ventas</TableHead><TableHead className="text-right">Total ventas</TableHead><TableHead className="text-right">Comisión</TableHead><TableHead className="text-right">Propinas</TableHead><TableHead className="text-right">A pagar</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
             <TableBody>
               {rows.map((r) => {
-                const aPagar = (r.comision_registrada || r.comision_calculada) + r.propinas;
+                const aPagar = r.comision + r.propinas;
                 return (
                   <TableRow key={r.employee_id}>
                     <TableCell>{r.name}</TableCell>
                     <TableCell className="text-right">{r.ventas}</TableCell>
                     <TableCell className="text-right">{fmtMoney(r.total)}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{fmtMoney(r.comision_registrada)}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{fmtMoney(r.comision_calculada)}</TableCell>
+                    <TableCell className="text-right">{fmtMoney(r.comision)}</TableCell>
                     <TableCell className="text-right text-success">{fmtMoney(r.propinas)}</TableCell>
                     <TableCell className="text-right font-bold">{fmtMoney(aPagar)}</TableCell>
                     <TableCell className="text-right">
@@ -252,10 +333,11 @@ export default function Comisiones() {
                   </TableRow>
                 );
               })}
-              {!rows.length && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Sin datos</TableCell></TableRow>}
+              {!rows.length && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Sin datos</TableCell></TableRow>}
             </TableBody>
           </Table>
-          <p className="text-xs text-muted-foreground mt-4">* &quot;Registrada&quot; usa el campo <code>commission</code> guardado con la venta. &quot;Calculada&quot; aplica el % por defecto sobre el total. Se paga la registrada si existe. Las propinas se suman aparte.</p>
+          <p className="text-xs text-muted-foreground mt-4">* La comisión se calcula por producto/servicio al momento de la venta (campo <code>commission</code>). Las propinas se suman aparte.</p>
+
         </CardContent>
       </Card>
 
@@ -295,9 +377,9 @@ export default function Comisiones() {
               <div className="rounded-lg border p-4 space-y-2">
                 <div className="flex justify-between"><span className="text-muted-foreground">Empleado:</span><span className="font-medium">{payDialog.name}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Periodo:</span><span>{from} → {to}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Comisiones:</span><span>{fmtMoney(payDialog.comision_registrada || payDialog.comision_calculada)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Comisiones:</span><span>{fmtMoney(payDialog.comision)}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Propinas:</span><span className="text-success">{fmtMoney(payDialog.propinas)}</span></div>
-                <div className="flex justify-between border-t pt-2 text-lg font-bold"><span>Total:</span><span>{fmtMoney((payDialog.comision_registrada || payDialog.comision_calculada) + payDialog.propinas)}</span></div>
+                <div className="flex justify-between border-t pt-2 text-lg font-bold"><span>Total:</span><span>{fmtMoney((payDialog.comision) + payDialog.propinas)}</span></div>
               </div>
               <div>
                 <label className="text-sm">Método de pago</label>
