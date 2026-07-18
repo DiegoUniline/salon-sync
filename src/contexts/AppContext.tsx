@@ -8,6 +8,7 @@ import React, {
 import { storage } from "@/lib/storage";
 import type { Branch } from "@/lib/mockData";
 import api from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
 import {
   getBusinessConfig,
   setBusinessConfig,
@@ -37,6 +38,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loadingBranches, setLoadingBranches] = useState(true);
 
   const loadBranches = async () => {
+    // Only fetch when there is a real Supabase session — otherwise the landing
+    // page fires anonymous 401s that pollute the network log.
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setBranches([]);
+      setLoadingBranches(false);
+      return;
+    }
     try {
       const data = await api.branches.getAll();
       setBranches(data as any);
@@ -55,15 +64,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       loadBranches();
     };
 
-    const timeoutId = setTimeout(() => {
+    // Load once on mount (if already signed in) and on every future auth change.
+    loadBranches();
+    const { data: authSub } = supabase.auth.onAuthStateChange((_event, _session) => {
       loadBranches();
-    }, 200);
+    });
 
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('auth-state-change', handleStorageChange);
-    
+
     return () => {
-      clearTimeout(timeoutId);
+      authSub?.subscription?.unsubscribe?.();
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('auth-state-change', handleStorageChange);
     };

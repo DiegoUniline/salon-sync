@@ -155,6 +155,57 @@ export default function CobroExpress() {
         client_phone: clientPhone || null,
       });
 
+      // If the receptionist already picked a reagenda slot on the right panel,
+      // create the appointment in the same flow so the reagenda isn't lost.
+      const hasRebook = !!(rServiceId && rStylistId && rDate && rTime && clientName.trim());
+      let rebookedApptId: string | null = null;
+      if (hasRebook) {
+        try {
+          let clientId = selectedClientId;
+          if (!clientId) {
+            const existing = clients.find(c => c.name.toLowerCase() === clientName.trim().toLowerCase());
+            if (existing) clientId = existing.id;
+            else {
+              const created = await api.clients.create({ name: clientName.trim(), phone: clientPhone || null });
+              clientId = (created as any).id;
+              setClients(prev => [...prev, created as any]);
+            }
+          }
+          const svc = services.find(s => s.id === rServiceId);
+          const appt: any = await api.appointments.create({
+            branch_id: currentBranch?.id,
+            client_id: clientId,
+            client_name: clientName,
+            client_phone: clientPhone || null,
+            stylist_id: rStylistId,
+            employee_id: rStylistId,
+            date: rDate,
+            time: rTime,
+            duration_minutes: rDuration,
+            services: svc ? [{ service_id: svc.id, name: svc.name, price: svc.price, duration: svc.duration }] : [],
+            subtotal: svc?.price || 0,
+            total: svc?.price || 0,
+            notes: rNotes || null,
+            status: 'scheduled',
+          });
+          rebookedApptId = appt?.id || null;
+          try {
+            await api.whatsappTemplates.sendTemplate({
+              type: 'appointment_confirmed',
+              appointment_id: rebookedApptId || undefined,
+              phone: clientPhone || undefined,
+            });
+          } catch { /* WA opt-in / not connected — silent */ }
+          setRServiceId(''); setRStylistId(''); setRTime(''); setRNotes('');
+          const start = ymd(weekAnchor); const end = ymd(addDays(weekAnchor, 6));
+          const data = await api.appointments.getAll({ branch_id: currentBranch?.id, start_date: start, end_date: end });
+          setWeekAppts(data as any);
+        } catch (e: any) {
+          console.error('reagenda auto fail:', e);
+          toast.warning('Cobro registrado, pero la reagenda no se pudo crear');
+        }
+      }
+
       setTicketData({
         folio,
         date: now,
@@ -165,7 +216,7 @@ export default function CobroExpress() {
         paymentMethod: paymentMethod === 'cash' ? 'Efectivo' : paymentMethod === 'card' ? 'Tarjeta' : 'Transferencia',
       });
       setShowTicket(true);
-      toast.success('Cobro registrado. Ahora reagenda a la clienta →');
+      toast.success(hasRebook ? 'Cobro + reagenda registrados' : 'Cobro registrado. Ahora reagenda a la clienta →');
       setCart([]);
     } catch (e: any) {
       console.error(e);

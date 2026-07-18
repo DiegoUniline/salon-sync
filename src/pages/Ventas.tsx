@@ -7,7 +7,7 @@ import { QuickAppointmentSheet } from '@/components/QuickAppointmentSheet';
 import { ShiftRequiredAlert } from '@/components/ShiftRequiredAlert';
 import { useShift } from '@/hooks/useShift';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { cn } from '@/lib/utils';
+import { cn, todayLocalISO } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -318,8 +318,16 @@ export default function Ventas() {
       return;
     }
 
-    if (paymentMethod === 'mixed' && Math.abs(mixedTotal - cartTotal) > 0.01) {
-      toast.error('El total de pagos no coincide con el total de la venta');
+    const tip = Number(tipAmount) || 0;
+    const grandTotal = cartTotal + tip;
+
+    if (tip > 0 && !tipEmployeeId) {
+      toast.error('Selecciona el empleado que recibe la propina');
+      return;
+    }
+
+    if (paymentMethod === 'mixed' && Math.abs(mixedTotal - grandTotal) > 0.01) {
+      toast.error(`El total de pagos ($${mixedTotal.toFixed(2)}) no coincide con el total con propina ($${grandTotal.toFixed(2)})`);
       return;
     }
 
@@ -345,7 +353,7 @@ export default function Ventas() {
       const saleData = {
         branch_id: currentBranch?.id,
         shift_id: openShift?.id,
-        date: now.toISOString().split('T')[0],
+        date: todayLocalISO(now),
         time: now.toTimeString().slice(0, 5),
         type: 'direct',
         items: cart.filter(c => c.item).map(c => {
@@ -360,16 +368,19 @@ export default function Ventas() {
           };
         }),
         payment_method: paymentMethod,
-        payments: paymentMethod === 'mixed' ? mixedPayments : [{ method: paymentMethod, amount: cartTotal }],
-        total: cartTotal + (Number(tipAmount) || 0),
+        // payments must equal the sale total (which INCLUDES the tip) so the cash cut balances.
+        payments: paymentMethod === 'mixed'
+          ? mixedPayments
+          : [{ method: paymentMethod, amount: grandTotal }],
+        total: grandTotal,
         subtotal: cartSubtotal,
         discount: discountAmount,
         promotion_id: appliedPromo?.id || null,
         promotion_code: appliedPromo?.code || null,
-        tip_amount: Number(tipAmount) || 0,
+        tip_amount: tip,
         tip_employee_id: tipEmployeeId || null,
-        tips: tipAmount > 0 && tipEmployeeId
-          ? [{ employee_id: tipEmployeeId, amount: Number(tipAmount) || 0 }]
+        tips: tip > 0 && tipEmployeeId
+          ? [{ employee_id: tipEmployeeId, amount: tip }]
           : [],
         client_name: clientName || 'Cliente mostrador',
       };
@@ -409,7 +420,9 @@ export default function Ventas() {
         products: productItems,
         subtotal: cartSubtotal,
         discount: discountAmount,
-        total: cartTotal,
+        tip,
+        promotionCode: appliedPromo?.code || null,
+        total: grandTotal,
         paymentMethod: paymentLabels[paymentMethod],
         payments: paymentMethod === 'mixed' ? mixedPayments.map(p => ({
           method: paymentLabels[p.method as keyof typeof paymentLabels],
@@ -655,10 +668,13 @@ export default function Ventas() {
                           try {
                             const promo = await api.promotions.findByCode(promoCode.trim());
                             if (!promo) { toast.error('Código no encontrado o inactivo'); return; }
+                            if (promo.is_active === false) { toast.error('Promoción inactiva'); return; }
+                            const today = todayLocalISO();
+                            if (promo.start_date && promo.start_date > today) { toast.error('Promoción aún no vigente'); return; }
+                            if (promo.end_date && promo.end_date < today) { toast.error('Promoción vencida'); return; }
                             if (promo.min_purchase && cartSubtotal < Number(promo.min_purchase)) {
                               toast.error(`Compra mínima $${Number(promo.min_purchase).toFixed(2)}`); return;
                             }
-                            if (promo.end_date && promo.end_date < new Date().toISOString().slice(0,10)) { toast.error('Promoción vencida'); return; }
                             if (promo.usage_limit && promo.times_used >= promo.usage_limit) { toast.error('Promoción agotada'); return; }
                             setAppliedPromo(promo);
                             setDiscountType(promo.type);

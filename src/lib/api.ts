@@ -1152,12 +1152,14 @@ export const promotions = {
   },
   findByCode: async (code: string) => {
     const accountId = await getAccountId();
+    const normalized = (code || "").trim().toUpperCase();
+    if (!normalized) return null;
     const { data, error } = await (supabase as any)
       .from("promotions")
       .select("*")
       .eq("account_id", accountId)
       .eq("is_active", true)
-      .ilike("code", code.trim())
+      .ilike("code", normalized)
       .maybeSingle();
     if (error) throw error;
     return data;
@@ -1165,8 +1167,10 @@ export const promotions = {
   create: async (payload: any) => {
     const accountId = await getAccountId();
     const { data: { user } } = await supabase.auth.getUser();
+    const normalized = payload?.code ? String(payload.code).trim().toUpperCase() : payload?.code;
     const { data, error } = await (supabase as any).from("promotions").insert({
       ...payload,
+      code: normalized,
       account_id: accountId,
       created_by: user?.id,
     }).select().single();
@@ -1174,7 +1178,8 @@ export const promotions = {
     return data;
   },
   update: async (id: string, payload: any) => {
-    const { data, error } = await (supabase as any).from("promotions").update(payload).eq("id", id).select().single();
+    const normalized = payload?.code ? String(payload.code).trim().toUpperCase() : payload?.code;
+    const { data, error } = await (supabase as any).from("promotions").update({ ...payload, ...(payload?.code !== undefined ? { code: normalized } : {}) }).eq("id", id).select().single();
     if (error) throw error;
     return data;
   },

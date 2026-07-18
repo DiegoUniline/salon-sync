@@ -28,6 +28,8 @@ const sbAdmin = createClient(
 );
 
 
+const safe = (m: string) => (EVOLUTION_KEY ? m.replaceAll(EVOLUTION_KEY, '***') : m);
+
 async function evo(path: string, init: RequestInit = {}) {
   if (!EVOLUTION_URL || !EVOLUTION_KEY) throw new Error('EVOLUTION_API_URL / EVOLUTION_API_KEY no configurados');
   const res = await fetch(`${EVOLUTION_URL}${path}`, {
@@ -37,7 +39,7 @@ async function evo(path: string, init: RequestInit = {}) {
   const text = await res.text();
   let body: any = text;
   try { body = JSON.parse(text); } catch {}
-  if (!res.ok) throw new Error(`Evolution API ${res.status}: ${typeof body === 'string' ? body : JSON.stringify(body)}`);
+  if (!res.ok) throw new Error(safe(`Evolution API ${res.status}: ${typeof body === 'string' ? body : JSON.stringify(body)}`));
   return body;
 }
 
@@ -71,7 +73,7 @@ Deno.serve(async (req) => {
               events: ['QRCODE_UPDATED', 'MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'SEND_MESSAGE'] },
           }),
         });
-      } catch (e: any) { if (!/already|exists/i.test(e.message)) console.warn('create warn:', e.message); }
+      } catch (e: any) { if (!/already|exists/i.test(e.message)) console.warn('create warn:', safe(e.message)); }
       const qrRes = await evo(`/instance/connect/${instanceName}`).catch(() => null);
       const qr = qrRes?.base64 || qrRes?.qrcode?.base64 || null;
       if (qr) await sbAdmin.from('whatsapp_instances').update({ qr_code: qr, status: 'connecting' }).eq('instance_name', instanceName);
@@ -87,7 +89,7 @@ Deno.serve(async (req) => {
         { url: WEBHOOK_URL, events },
       ]) {
         try { await evo(`/webhook/set/${instanceName}`, { method: 'POST', body: JSON.stringify(attempt) }); return; }
-        catch (e: any) { console.warn('webhook set attempt failed:', e.message); }
+        catch (e: any) { console.warn('webhook set attempt failed:', safe(e.message)); }
       }
     }
 
@@ -236,7 +238,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ error: 'unknown action' }), { status: 400, headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
   } catch (e) {
-    console.error(e);
-    return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
+    console.error(safe(String((e as Error).message ?? e)));
+    return new Response(JSON.stringify({ error: safe((e as Error).message) }), { status: 500, headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
   }
 });
