@@ -7,7 +7,7 @@ import { QuickAppointmentSheet } from '@/components/QuickAppointmentSheet';
 import { ShiftRequiredAlert } from '@/components/ShiftRequiredAlert';
 import { useShift } from '@/hooks/useShift';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { cn } from '@/lib/utils';
+import { cn, todayLocalISO } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
