@@ -8,6 +8,7 @@ import React, {
 import { storage } from "@/lib/storage";
 import type { Branch } from "@/lib/mockData";
 import api from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
 import {
   getBusinessConfig,
   setBusinessConfig,
