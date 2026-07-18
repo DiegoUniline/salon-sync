@@ -234,13 +234,66 @@ export default function Comisiones() {
       </div>
 
       <Card>
-        <CardContent className="pt-6 flex flex-wrap gap-3 items-end">
-          <div><label className="text-sm text-muted-foreground">Desde</label><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
-          <div><label className="text-sm text-muted-foreground">Hasta</label><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
-          <div><label className="text-sm text-muted-foreground">% comisión por defecto</label><Input type="number" min={0} max={100} value={defaultPct} onChange={(e) => setDefaultPct(Number(e.target.value) || 0)} /></div>
-          <Button onClick={load} disabled={loading}>{loading ? "Cargando..." : "Aplicar"}</Button>
+        <CardContent className="pt-6 flex flex-wrap gap-3 items-center justify-between">
+          <div>
+            <div className="text-xs text-muted-foreground mb-1">Rango de fechas</div>
+            <Button
+              variant="outline"
+              onClick={() => { setDraftFrom(from); setDraftTo(to); setRangeOpen(true); }}
+              className="min-w-[280px] justify-start"
+            >
+              <CalendarRange className="h-4 w-4 mr-2" />
+              {rangeLabel}
+            </Button>
+          </div>
+          <Button onClick={load} disabled={loading}>{loading ? "Cargando..." : "Actualizar"}</Button>
         </CardContent>
       </Card>
+
+      <Dialog open={rangeOpen} onOpenChange={setRangeOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Seleccionar rango de fechas</DialogTitle></DialogHeader>
+          <div className="grid md:grid-cols-[200px_1fr] gap-6">
+            <div className="space-y-1">
+              <div className="text-xs uppercase text-muted-foreground mb-2">Rápido</div>
+              {[
+                ['today', 'Hoy'],
+                ['yesterday', 'Ayer'],
+                ['last7', 'Últimos 7 días'],
+                ['thisWeek', 'Esta semana'],
+                ['lastWeek', 'Semana anterior'],
+                ['thisMonth', 'Este mes'],
+                ['lastMonth', 'Mes anterior'],
+                ['last30', 'Últimos 30 días'],
+                ['thisYear', 'Este año'],
+              ].map(([k, l]) => (
+                <Button key={k} variant="ghost" size="sm" className="w-full justify-start" onClick={() => applyQuickRange(k)}>
+                  {l}
+                </Button>
+              ))}
+            </div>
+            <div className="space-y-3">
+              <div className="text-xs uppercase text-muted-foreground">Personalizado</div>
+              <div>
+                <label className="text-sm text-muted-foreground">Desde</label>
+                <Input type="date" value={draftFrom} onChange={(e) => setDraftFrom(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground">Hasta</label>
+                <Input type="date" value={draftTo} onChange={(e) => setDraftTo(e.target.value)} />
+              </div>
+              <div className="text-sm text-muted-foreground pt-2">
+                {format(new Date(draftFrom + 'T00:00'), 'dd MMM yyyy')} → {format(new Date(draftTo + 'T00:00'), 'dd MMM yyyy')}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRangeOpen(false)}>Cancelar</Button>
+            <Button onClick={applyRange}>Aplicar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
