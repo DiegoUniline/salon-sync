@@ -668,10 +668,13 @@ export default function Ventas() {
                           try {
                             const promo = await api.promotions.findByCode(promoCode.trim());
                             if (!promo) { toast.error('Código no encontrado o inactivo'); return; }
+                            if (promo.is_active === false) { toast.error('Promoción inactiva'); return; }
+                            const today = todayLocalISO();
+                            if (promo.start_date && promo.start_date > today) { toast.error('Promoción aún no vigente'); return; }
+                            if (promo.end_date && promo.end_date < today) { toast.error('Promoción vencida'); return; }
                             if (promo.min_purchase && cartSubtotal < Number(promo.min_purchase)) {
                               toast.error(`Compra mínima $${Number(promo.min_purchase).toFixed(2)}`); return;
                             }
-                            if (promo.end_date && promo.end_date < new Date().toISOString().slice(0,10)) { toast.error('Promoción vencida'); return; }
                             if (promo.usage_limit && promo.times_used >= promo.usage_limit) { toast.error('Promoción agotada'); return; }
                             setAppliedPromo(promo);
                             setDiscountType(promo.type);
