@@ -1001,6 +1001,52 @@ export const suppliers = {
 };
 
 // ============ PURCHASES ============
+const normalizePurchaseWrite = async (accountId: string, input: any) => {
+  const out: any = {};
+  const pass = ["branch_id","supplier_id","items","subtotal","tax","total","amount_paid","status","notes","folio","payments","user_id"];
+  for (const k of pass) if (k in input) out[k] = input[k];
+  if ("date" in input) out.purchase_date = input.date;
+  if ("purchase_date" in input) out.purchase_date = input.purchase_date;
+  if ("due_date" in input) out.expected_date = input.due_date;
+  if ("expected_date" in input) out.expected_date = input.expected_date;
+  // Resolve supplier by name if supplier_id not provided
+  if (!out.supplier_id && input.supplier && typeof input.supplier === "string") {
+    const { data: found } = await supabase.from("suppliers").select("id").eq("account_id", accountId).ilike("name", input.supplier).maybeSingle();
+    if (found?.id) out.supplier_id = found.id;
+    else {
+      const { data: created } = await supabase.from("suppliers").insert({ account_id: accountId, name: input.supplier }).select("id").single();
+      if (created?.id) out.supplier_id = created.id;
+    }
+  }
+  // Derive status/amount_paid from payment_type + payments
+  const paymentsArr = Array.isArray(input.payments) ? input.payments : [];
+  const paidSum = paymentsArr.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+  if ("payment_type" in input) {
+    if (input.payment_type === "credit") {
+      out.status = paidSum > 0 ? "partial" : "pending";
+      out.amount_paid = paidSum;
+    } else {
+      out.status = "paid";
+      out.amount_paid = out.total ?? paidSum;
+    }
+  }
+  // shift_id / supplier(string) are ignored (no columns)
+  return out;
+};
+const enrichPurchaseRow = (row: any) => {
+  if (!row) return row;
+  const total = Number(row.total || 0);
+  const paid = Number(row.amount_paid || 0);
+  return {
+    ...row,
+    date: row.purchase_date,
+    due_date: row.expected_date,
+    balance: Math.max(0, total - paid),
+    supplier: row.suppliers?.name || null,
+    payment_type: row.expected_date ? "credit" : "cash",
+  };
+};
+
 export const purchases = {
   getAll: async (params?: { branch_id?: string; date?: string; start_date?: string; end_date?: string; status?: string; supplier_id?: string }) => {
     const accountId = await getAccountId();
@@ -1012,19 +1058,21 @@ export const purchases = {
     if (params?.end_date) query = query.lte("purchase_date", `${params.end_date}T23:59:59`);
     const { data, error } = await query.order("purchase_date", { ascending: false });
     if (error) throw error;
-    return data;
+    return (data || []).map(enrichPurchaseRow);
   },
   getById: async (id: string) => {
     const { data, error } = await supabase.from("purchases").select("*, suppliers(*), purchase_payments(*)").eq("id", id).single();
     if (error) throw error;
-    return data;
+    return enrichPurchaseRow(data);
   },
   create: async (purchaseData: any) => {
     const accountId = await getAccountId();
-    const { data, error } = await supabase.from("purchases").insert({ ...purchaseData, account_id: accountId }).select().single();
+    const payload = await normalizePurchaseWrite(accountId, purchaseData);
+    const { data, error } = await supabase.from("purchases").insert({ ...payload, account_id: accountId }).select("*, suppliers(name)").single();
     if (error) throw error;
-    return data;
+    return enrichPurchaseRow(data);
   },
+
   addPayment: async (id: string, paymentData: any) => {
     // Atomic RPC: inserts payment + updates purchase status/amount_paid with validation.
     const { data, error } = await supabase.rpc("register_purchase_payment", {
