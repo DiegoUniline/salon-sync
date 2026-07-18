@@ -1227,12 +1227,13 @@ export const cashMovements = {
   },
   create: async (movement: { shift_id?: string; branch_id?: string; type: string; amount: number; reason?: string }) => {
     const accountId = await getAccountId();
-    const { data: { user } } = await supabase.auth.getUser();
+    const userId = await getCurrentUserId();
     const { data, error } = await supabase.from("cash_movements").insert({
       ...movement,
       account_id: accountId,
-      user_id: user?.id,
+      user_id: userId,
     }).select().single();
+
     if (error) throw error;
     return data;
   },
