@@ -488,7 +488,22 @@ export default function Products() {
                     />
                   </div>
                 </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Comisión (%)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      value={formData.commission}
+                      onChange={(e) => setFormData(prev => ({ ...prev, commission: parseFloat(e.target.value) || 0 }))}
+                    />
+                    <p className="text-xs text-muted-foreground">Se paga al empleado al vender este producto.</p>
+                  </div>
+                </div>
                 <div className="flex items-center gap-2">
+
                   <Switch
                     checked={formData.active}
                     onCheckedChange={(checked) => setFormData(prev => ({ ...prev, active: checked }))}
