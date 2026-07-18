@@ -120,7 +120,7 @@ export default function Comisiones() {
       const calculada = base * (defaultPct / 100);
       const prev = map.get(key) || { employee_id: key, name, ventas: 0, total: 0, comision_registrada: 0, comision_calculada: 0, propinas: 0, sale_ids: [] };
       prev.ventas += 1;
-      prev.total += total;
+      prev.total += base;
       prev.comision_registrada += registrada;
       prev.comision_calculada += calculada;
       prev.sale_ids.push(s.id);
