@@ -585,6 +585,67 @@ export const clients = {
 };
 
 // ============ SERVICES ============
+// ---- Normalizers to bridge frontend field names <-> DB columns ----
+const resolveCategoryId = async (accountId: string, type: "service" | "product", name?: string | null) => {
+  if (!name) return null;
+  const { data: existing } = await supabase
+    .from("categories").select("id").eq("account_id", accountId).eq("type", type).ilike("name", name).maybeSingle();
+  if (existing?.id) return existing.id;
+  const { data: created, error } = await supabase
+    .from("categories").insert({ account_id: accountId, type, name }).select("id").single();
+  if (error) return null;
+  return created?.id ?? null;
+};
+
+const normalizeServiceWrite = async (accountId: string, input: any) => {
+  const out: any = {};
+  if ("name" in input) out.name = input.name;
+  if ("description" in input) out.description = input.description;
+  if ("price" in input) out.price = input.price;
+  if ("duration" in input) out.duration_minutes = input.duration;
+  if ("duration_minutes" in input) out.duration_minutes = input.duration_minutes;
+  if ("commission" in input) out.commission_percent = input.commission;
+  if ("commission_percent" in input) out.commission_percent = input.commission_percent;
+  if ("active" in input) out.is_active = input.active === 1 || input.active === true;
+  if ("is_active" in input) out.is_active = input.is_active;
+  if ("color" in input) out.color = input.color;
+  if ("image_url" in input) out.image_url = input.image_url;
+  if ("category_id" in input) out.category_id = input.category_id;
+  else if ("category" in input && input.category) {
+    out.category_id = await resolveCategoryId(accountId, "service", input.category);
+  }
+  return out;
+};
+
+const normalizeProductWrite = async (accountId: string, input: any) => {
+  const out: any = {};
+  const passthrough = ["name","description","price","cost","stock","sku","barcode","unit","brand","image_url","min_stock","max_stock","commission"];
+  for (const k of passthrough) if (k in input) out[k] = input[k];
+  if ("minStock" in input) out.min_stock = input.minStock;
+  if ("maxStock" in input) out.max_stock = input.maxStock;
+  if ("active" in input) out.is_active = input.active === 1 || input.active === true;
+  if ("is_active" in input) out.is_active = input.is_active;
+  if ("category_id" in input) out.category_id = input.category_id;
+  else if ("category" in input && input.category) {
+    out.category_id = await resolveCategoryId(accountId, "product", input.category);
+  }
+  return out;
+};
+
+const enrichServiceRow = (row: any, catMap: Map<string, string>) => ({
+  ...row,
+  active: row.is_active,
+  duration: row.duration_minutes,
+  commission: row.commission_percent,
+  category: row.category_id ? (catMap.get(row.category_id) || "") : "",
+});
+
+const enrichProductRow = (row: any, catMap: Map<string, string>) => ({
+  ...row,
+  active: row.is_active,
+  category: row.category_id ? (catMap.get(row.category_id) || "") : "",
+});
+
 export const services = {
   getAll: async (params?: { category?: string; active?: boolean }) => {
     const accountId = await getAccountId();
@@ -592,7 +653,9 @@ export const services = {
     if (params?.active !== undefined) query = query.eq("is_active", params.active);
     const { data, error } = await query.order("name");
     if (error) throw error;
-    return data;
+    const { data: cats } = await supabase.from("categories").select("id,name").eq("account_id", accountId).eq("type", "service");
+    const catMap = new Map<string, string>((cats || []).map((c: any) => [c.id, c.name]));
+    return (data || []).map(r => enrichServiceRow(r, catMap));
   },
   getCategories: async () => {
     const accountId = await getAccountId();
@@ -607,21 +670,28 @@ export const services = {
   },
   create: async (serviceData: any) => {
     const accountId = await getAccountId();
-    const { data, error } = await supabase.from("services").insert({ ...serviceData, account_id: accountId }).select().single();
+    const payload = await normalizeServiceWrite(accountId, serviceData);
+    const { data, error } = await supabase.from("services").insert({ ...payload, account_id: accountId }).select().single();
     if (error) throw error;
-    return data;
+    const { data: cats } = await supabase.from("categories").select("id,name").eq("account_id", accountId).eq("type", "service");
+    return enrichServiceRow(data, new Map((cats || []).map((c: any) => [c.id, c.name])));
   },
   createBulk: async (servicesList: any[]) => {
     const accountId = await getAccountId();
-    const items = servicesList.map(s => ({ ...s, account_id: accountId }));
+    const items = await Promise.all(servicesList.map(async s => ({ ...(await normalizeServiceWrite(accountId, s)), account_id: accountId })));
     const { data, error } = await supabase.from("services").insert(items).select();
     if (error) throw error;
-    return data;
+    const { data: cats } = await supabase.from("categories").select("id,name").eq("account_id", accountId).eq("type", "service");
+    const catMap = new Map<string, string>((cats || []).map((c: any) => [c.id, c.name]));
+    return (data || []).map(r => enrichServiceRow(r, catMap));
   },
   update: async (id: string, updates: any) => {
-    const { data, error } = await supabase.from("services").update(updates).eq("id", id).select().single();
+    const accountId = await getAccountId();
+    const payload = await normalizeServiceWrite(accountId, updates);
+    const { data, error } = await supabase.from("services").update(payload).eq("id", id).select().single();
     if (error) throw error;
-    return data;
+    const { data: cats } = await supabase.from("categories").select("id,name").eq("account_id", accountId).eq("type", "service");
+    return enrichServiceRow(data, new Map((cats || []).map((c: any) => [c.id, c.name])));
   },
   delete: async (id: string) => {
     const { error } = await supabase.from("services").delete().eq("id", id);
@@ -653,7 +723,9 @@ export const products = {
     if (params?.low_stock) query = query.lt("stock", 10);
     const { data, error } = await query.order("name");
     if (error) throw error;
-    return data;
+    const { data: cats } = await supabase.from("categories").select("id,name").eq("account_id", accountId).eq("type", "product");
+    const catMap = new Map<string, string>((cats || []).map((c: any) => [c.id, c.name]));
+    return (data || []).map(r => enrichProductRow(r, catMap));
   },
   getCategories: async () => {
     const accountId = await getAccountId();
@@ -668,14 +740,19 @@ export const products = {
   },
   create: async (productData: any) => {
     const accountId = await getAccountId();
-    const { data, error } = await supabase.from("products").insert({ ...productData, account_id: accountId }).select().single();
+    const payload = await normalizeProductWrite(accountId, productData);
+    const { data, error } = await supabase.from("products").insert({ ...payload, account_id: accountId }).select().single();
     if (error) throw error;
-    return data;
+    const { data: cats } = await supabase.from("categories").select("id,name").eq("account_id", accountId).eq("type", "product");
+    return enrichProductRow(data, new Map((cats || []).map((c: any) => [c.id, c.name])));
   },
   update: async (id: string, updates: any) => {
-    const { data, error } = await supabase.from("products").update(updates).eq("id", id).select().single();
+    const accountId = await getAccountId();
+    const payload = await normalizeProductWrite(accountId, updates);
+    const { data, error } = await supabase.from("products").update(payload).eq("id", id).select().single();
     if (error) throw error;
-    return data;
+    const { data: cats } = await supabase.from("categories").select("id,name").eq("account_id", accountId).eq("type", "product");
+    return enrichProductRow(data, new Map((cats || []).map((c: any) => [c.id, c.name])));
   },
   updateStock: async (id: string, stock: number) => {
     const { data, error } = await supabase.from("products").update({ stock }).eq("id", id).select().single();
@@ -702,6 +779,7 @@ export const products = {
     if (error) throw error;
   },
 };
+
 
 // ============ APPOINTMENTS ============
 export const appointments = {
