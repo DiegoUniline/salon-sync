@@ -239,6 +239,6 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: 'unknown action' }), { status: 400, headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
   } catch (e) {
     console.error(safe(String((e as Error).message ?? e)));
-    return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: safe((e as Error).message) }), { status: 500, headers: { ...buildCors(req), 'Content-Type': 'application/json' } });
   }
 });
