@@ -153,7 +153,13 @@ export default function CobroExpress() {
         client_id: selectedClientId,
         client_name: clientName || 'Cliente mostrador',
         client_phone: clientPhone || null,
+        commission: cart.reduce((sum, c) => {
+          const price = Number((c.item as any).price) || 0;
+          const pct = Number((c.item as any).commission || 0);
+          return sum + (price * c.quantity * pct / 100);
+        }, 0),
       });
+
 
       // If the receptionist already picked a reagenda slot on the right panel,
       // create the appointment in the same flow so the reagenda isn't lost.

@@ -912,6 +912,7 @@ export type Database = {
           barcode: string | null
           brand: string | null
           category_id: string | null
+          commission: number
           cost: number
           created_at: string | null
           description: string | null
@@ -932,6 +933,7 @@ export type Database = {
           barcode?: string | null
           brand?: string | null
           category_id?: string | null
+          commission?: number
           cost?: number
           created_at?: string | null
           description?: string | null
@@ -952,6 +954,7 @@ export type Database = {
           barcode?: string | null
           brand?: string | null
           category_id?: string | null
+          commission?: number
           cost?: number
           created_at?: string | null
           description?: string | null
@@ -1940,6 +1943,7 @@ export type Database = {
           barcode: string | null
           brand: string | null
           category_id: string | null
+          commission: number
           cost: number
           created_at: string | null
           description: string | null

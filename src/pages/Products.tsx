@@ -63,6 +63,8 @@ const mapApiProduct = (apiProduct: any): Product => ({
   stock: apiProduct.stock || 0,
   minStock: apiProduct.min_stock || 5,
   active: apiProduct.active === 1 || apiProduct.active === true,
+  commission: parseFloat(apiProduct.commission) || 0,
+
 });
 
 export default function Products() {
@@ -90,6 +92,8 @@ export default function Products() {
     stock: 0,
     minStock: 5,
     active: true,
+    commission: 0,
+
   });
 
   // Bulk form lines
@@ -130,7 +134,7 @@ export default function Products() {
   const lowStockCount = products.filter(p => p.stock <= p.minStock).length;
 
   const resetForm = () => {
-    setFormData({ name: '', category: 'Shampoo', sku: '', price: 0, cost: 0, stock: 0, minStock: 5, active: true });
+    setFormData({ name: '', category: 'Shampoo', sku: '', price: 0, cost: 0, stock: 0, minStock: 5, active: true, commission: 0 });
     setEditingProduct(null);
   };
 
@@ -145,7 +149,9 @@ export default function Products() {
       stock: product.stock,
       minStock: product.minStock,
       active: product.active,
+      commission: product.commission || 0,
     });
+
     setIsDialogOpen(true);
   };
 
@@ -166,6 +172,8 @@ export default function Products() {
         stock: formData.stock,
         min_stock: formData.minStock,
         active: formData.active ? 1 : 0,
+        commission: formData.commission,
+
       };
 
       if (editingProduct) {
@@ -480,7 +488,22 @@ export default function Products() {
                     />
                   </div>
                 </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Comisión (%)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      value={formData.commission}
+                      onChange={(e) => setFormData(prev => ({ ...prev, commission: parseFloat(e.target.value) || 0 }))}
+                    />
+                    <p className="text-xs text-muted-foreground">Se paga al empleado al vender este producto.</p>
+                  </div>
+                </div>
                 <div className="flex items-center gap-2">
+
                   <Switch
                     checked={formData.active}
                     onCheckedChange={(checked) => setFormData(prev => ({ ...prev, active: checked }))}
