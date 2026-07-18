@@ -911,7 +911,8 @@ export const expenses = {
     if (params?.end_date) query = query.lte("expense_date", `${params.end_date}T23:59:59`);
     const { data, error } = await query.order("expense_date", { ascending: false });
     if (error) throw error;
-    return data;
+    return (data || []).map(enrichExpenseRow);
+
   },
   getCategories: async () => {
     const accountId = await getAccountId();
