@@ -889,6 +889,18 @@ export const sales = {
 };
 
 // ============ EXPENSES ============
+const normalizeExpenseWrite = (input: any) => {
+  const out: any = {};
+  const pass = ["branch_id","category","description","amount","payment_method","supplier_id","receipt_url","notes","folio","user_id"];
+  for (const k of pass) if (k in input) out[k] = input[k];
+  if ("date" in input) out.expense_date = input.date;
+  if ("expense_date" in input) out.expense_date = input.expense_date;
+  // Ignore aliases that don't map to columns: supplier(string), shift_id
+  return out;
+};
+const enrichExpenseRow = (row: any) => row ? ({ ...row, date: row.expense_date }) : row;
+
+
 export const expenses = {
   getAll: async (params?: { branch_id?: string; category?: string; date?: string; start_date?: string; end_date?: string }) => {
     const accountId = await getAccountId();
