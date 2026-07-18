@@ -40,6 +40,8 @@ export interface Product {
   is_active?: boolean | null;
   description?: string | null;
   account_id?: string;
+  commission?: number;
+
 }
 
 export interface Client {
