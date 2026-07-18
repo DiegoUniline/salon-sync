@@ -108,24 +108,22 @@ export default function Comisiones() {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
 
   const rows = useMemo(() => {
-    const map = new Map<string, { employee_id: string; name: string; ventas: number; total: number; comision_registrada: number; comision_calculada: number; propinas: number; sale_ids: string[] }>();
+    const map = new Map<string, { employee_id: string; name: string; ventas: number; total: number; comision: number; propinas: number; sale_ids: string[] }>();
     sales.forEach((s) => {
       const key = s.employee_id || "sin-asignar";
       const name = s.employee_name || "Sin asignar";
-      // Commission base: exclude tips (they are paid separately) and honor any discount already applied.
-      // Prefer (subtotal - discount) when available, else fall back to (total - tip_amount).
+      // Commission base: exclude tips (paid separately) and honor any discount.
       const gross = Number(s.total || 0);
       const tip = Number(s.tip_amount || 0);
       const subtotal = Number(s.subtotal || 0);
       const discount = Number(s.discount || 0);
       const base = subtotal > 0 ? Math.max(0, subtotal - discount) : Math.max(0, gross - tip);
+      // Commission is registered per product/service at sale time.
       const registrada = Number(s.commission || 0);
-      const calculada = base * (defaultPct / 100);
-      const prev = map.get(key) || { employee_id: key, name, ventas: 0, total: 0, comision_registrada: 0, comision_calculada: 0, propinas: 0, sale_ids: [] };
+      const prev = map.get(key) || { employee_id: key, name, ventas: 0, total: 0, comision: 0, propinas: 0, sale_ids: [] };
       prev.ventas += 1;
       prev.total += base;
-      prev.comision_registrada += registrada;
-      prev.comision_calculada += calculada;
+      prev.comision += registrada;
       prev.sale_ids.push(s.id);
       map.set(key, prev);
 
@@ -134,23 +132,51 @@ export default function Comisiones() {
         tips.forEach((t: any) => {
           const empId = t.employee_id || "sin-asignar";
           const empName = t.employee_name || (empId === "sin-asignar" ? "Sin asignar" : empId);
-          const row = map.get(empId) || { employee_id: empId, name: empName, ventas: 0, total: 0, comision_registrada: 0, comision_calculada: 0, propinas: 0, sale_ids: [] };
+          const row = map.get(empId) || { employee_id: empId, name: empName, ventas: 0, total: 0, comision: 0, propinas: 0, sale_ids: [] };
           row.propinas += Number(t.amount || 0);
           map.set(empId, row);
         });
       } else if (Number(s.tip_amount || 0) > 0) {
         const empId = s.tip_employee_id || s.employee_id || "sin-asignar";
         const empName = s.employee_name || "Sin asignar";
-        const row = map.get(empId) || { employee_id: empId, name: empName, ventas: 0, total: 0, comision_registrada: 0, comision_calculada: 0, propinas: 0, sale_ids: [] };
+        const row = map.get(empId) || { employee_id: empId, name: empName, ventas: 0, total: 0, comision: 0, propinas: 0, sale_ids: [] };
         row.propinas += Number(s.tip_amount || 0);
         map.set(empId, row);
       }
     });
     return Array.from(map.values()).sort((a, b) => (b.total + b.propinas) - (a.total + a.propinas));
-  }, [sales, defaultPct]);
+  }, [sales]);
 
-  const totalPagar = rows.reduce((s, r) => s + (r.comision_registrada || r.comision_calculada) + r.propinas, 0);
+  const totalPagar = rows.reduce((s, r) => s + r.comision + r.propinas, 0);
   const totalPagado = payments.reduce((s, p) => s + Number(p.total || 0), 0);
+
+  const rangeLabel = `${format(new Date(from + 'T00:00'), 'dd MMM yyyy')} → ${format(new Date(to + 'T00:00'), 'dd MMM yyyy')}`;
+
+  const applyQuickRange = (kind: string) => {
+    const now = new Date();
+    let f = now, t = now;
+    switch (kind) {
+      case 'today': f = now; t = now; break;
+      case 'yesterday': { const y = subDays(now, 1); f = y; t = y; break; }
+      case 'last7': f = subDays(now, 6); t = now; break;
+      case 'thisWeek': f = startOfWeek(now, { weekStartsOn: 1 }); t = endOfWeek(now, { weekStartsOn: 1 }); break;
+      case 'lastWeek': { const lw = subDays(now, 7); f = startOfWeek(lw, { weekStartsOn: 1 }); t = endOfWeek(lw, { weekStartsOn: 1 }); break; }
+      case 'thisMonth': f = startOfMonth(now); t = endOfMonth(now); break;
+      case 'lastMonth': { const lm = subMonths(now, 1); f = startOfMonth(lm); t = endOfMonth(lm); break; }
+      case 'last30': f = subDays(now, 29); t = now; break;
+      case 'thisYear': f = startOfYear(now); t = endOfYear(now); break;
+    }
+    setDraftFrom(todayLocalISO(f));
+    setDraftTo(todayLocalISO(t));
+  };
+
+  const applyRange = () => {
+    setFrom(draftFrom);
+    setTo(draftTo);
+    setRangeOpen(false);
+    setTimeout(load, 0);
+  };
+
 
   const openPay = (row: any) => {
     setPayDialog(row);
