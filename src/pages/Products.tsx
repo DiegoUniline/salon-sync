@@ -149,7 +149,9 @@ export default function Products() {
       stock: product.stock,
       minStock: product.minStock,
       active: product.active,
+      commission: product.commission || 0,
     });
+
     setIsDialogOpen(true);
   };
 
