@@ -72,11 +72,13 @@ function printReceipt(payment: any) {
 }
 
 export default function Comisiones() {
-  const today = new Date().toISOString().slice(0, 10);
-  const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+  const today = todayLocalISO();
+  const monthAgo = todayLocalISO(new Date(Date.now() - 30 * 86400000));
   const [from, setFrom] = useState(monthAgo);
   const [to, setTo] = useState(today);
-  const [defaultPct, setDefaultPct] = useState(10);
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [draftFrom, setDraftFrom] = useState(monthAgo);
+  const [draftTo, setDraftTo] = useState(today);
   const [sales, setSales] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
