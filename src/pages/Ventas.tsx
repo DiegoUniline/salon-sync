@@ -383,6 +383,12 @@ export default function Ventas() {
           ? [{ employee_id: tipEmployeeId, amount: tip }]
           : [],
         client_name: clientName || 'Cliente mostrador',
+        commission: cart.filter(c => c.item).reduce((sum, c) => {
+          const price = c.item && 'price' in c.item ? Number(c.item.price) : 0;
+          const pct = Number((c.item as any).commission || 0);
+          return sum + (price * c.quantity * pct / 100);
+        }, 0),
+
       };
 
       console.log('[Ventas] Enviando venta con shift_id:', openShift?.id, saleData);
