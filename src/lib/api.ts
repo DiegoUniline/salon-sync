@@ -1152,12 +1152,14 @@ export const promotions = {
   },
   findByCode: async (code: string) => {
     const accountId = await getAccountId();
+    const normalized = (code || "").trim().toUpperCase();
+    if (!normalized) return null;
     const { data, error } = await (supabase as any)
       .from("promotions")
       .select("*")
       .eq("account_id", accountId)
       .eq("is_active", true)
-      .ilike("code", code.trim())
+      .ilike("code", normalized)
       .maybeSingle();
     if (error) throw error;
     return data;
