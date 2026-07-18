@@ -31,6 +31,8 @@ export interface TicketData {
   subtotal: number;
   discount: number;
   total: number;
+  tip?: number;
+  promotionCode?: string | null;
   paymentMethod: string;
   payments?: { method: string; amount: number }[];
 }
