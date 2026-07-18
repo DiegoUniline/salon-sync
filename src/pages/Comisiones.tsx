@@ -109,9 +109,15 @@ export default function Comisiones() {
     sales.forEach((s) => {
       const key = s.employee_id || "sin-asignar";
       const name = s.employee_name || "Sin asignar";
-      const total = Number(s.total || 0);
+      // Commission base: exclude tips (they are paid separately) and honor any discount already applied.
+      // Prefer (subtotal - discount) when available, else fall back to (total - tip_amount).
+      const gross = Number(s.total || 0);
+      const tip = Number(s.tip_amount || 0);
+      const subtotal = Number(s.subtotal || 0);
+      const discount = Number(s.discount || 0);
+      const base = subtotal > 0 ? Math.max(0, subtotal - discount) : Math.max(0, gross - tip);
       const registrada = Number(s.commission || 0);
-      const calculada = total * (defaultPct / 100);
+      const calculada = base * (defaultPct / 100);
       const prev = map.get(key) || { employee_id: key, name, ventas: 0, total: 0, comision_registrada: 0, comision_calculada: 0, propinas: 0, sale_ids: [] };
       prev.ventas += 1;
       prev.total += total;
