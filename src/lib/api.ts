@@ -330,10 +330,13 @@ export const subscriptions = {
       .eq("account_id", accountId)
       .order("expires_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
     if (error) throw error;
+    if (!data) {
+      return { plan: "Sin plan", plan_id: null, status: "none", trial_ends_at: null, ends_at: null, days_remaining: 0 };
+    }
     const now = new Date();
-    const expires = new Date(data.expires_at);
+    const expires = data.expires_at ? new Date(data.expires_at) : now;
     const diffDays = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     return {
       plan: (data as any).subscription_plans?.name || "Básico",
@@ -343,6 +346,7 @@ export const subscriptions = {
       ends_at: data.expires_at,
       days_remaining: diffDays,
     };
+
   },
   getHistory: async () => {
     const accountId = await getAccountId();
@@ -412,9 +416,10 @@ export const admin = {
       .eq("account_id", accountId)
       .order("expires_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return data;
+
   },
   updateSubscription: async (accountId: string, updates: any) => {
     const { data, error } = await supabase
@@ -889,6 +894,18 @@ export const sales = {
 };
 
 // ============ EXPENSES ============
+const normalizeExpenseWrite = (input: any) => {
+  const out: any = {};
+  const pass = ["branch_id","category","description","amount","payment_method","supplier_id","receipt_url","notes","folio","user_id"];
+  for (const k of pass) if (k in input) out[k] = input[k];
+  if ("date" in input) out.expense_date = input.date;
+  if ("expense_date" in input) out.expense_date = input.expense_date;
+  // Ignore aliases that don't map to columns: supplier(string), shift_id
+  return out;
+};
+const enrichExpenseRow = (row: any) => row ? ({ ...row, date: row.expense_date }) : row;
+
+
 export const expenses = {
   getAll: async (params?: { branch_id?: string; category?: string; date?: string; start_date?: string; end_date?: string }) => {
     const accountId = await getAccountId();
@@ -899,7 +916,8 @@ export const expenses = {
     if (params?.end_date) query = query.lte("expense_date", `${params.end_date}T23:59:59`);
     const { data, error } = await query.order("expense_date", { ascending: false });
     if (error) throw error;
-    return data;
+    return (data || []).map(enrichExpenseRow);
+
   },
   getCategories: async () => {
     const accountId = await getAccountId();
@@ -923,20 +941,23 @@ export const expenses = {
   },
   create: async (expenseData: any) => {
     const accountId = await getAccountId();
-    const { data, error } = await supabase.from("expenses").insert({ ...expenseData, account_id: accountId }).select().single();
+    const payload = normalizeExpenseWrite(expenseData);
+    const { data, error } = await supabase.from("expenses").insert({ ...payload, account_id: accountId }).select().single();
     if (error) throw error;
-    return data;
+    return enrichExpenseRow(data);
   },
   update: async (id: string, updates: any) => {
-    const { data, error } = await supabase.from("expenses").update(updates).eq("id", id).select().single();
+    const payload = normalizeExpenseWrite(updates);
+    const { data, error } = await supabase.from("expenses").update(payload).eq("id", id).select().single();
     if (error) throw error;
-    return data;
+    return enrichExpenseRow(data);
   },
   delete: async (id: string) => {
     const { error } = await supabase.from("expenses").delete().eq("id", id);
     if (error) throw error;
   },
 };
+
 
 // ============ SUPPLIERS ============
 export const suppliers = {
@@ -985,6 +1006,52 @@ export const suppliers = {
 };
 
 // ============ PURCHASES ============
+const normalizePurchaseWrite = async (accountId: string, input: any) => {
+  const out: any = {};
+  const pass = ["branch_id","supplier_id","items","subtotal","tax","total","amount_paid","status","notes","folio","payments","user_id"];
+  for (const k of pass) if (k in input) out[k] = input[k];
+  if ("date" in input) out.purchase_date = input.date;
+  if ("purchase_date" in input) out.purchase_date = input.purchase_date;
+  if ("due_date" in input) out.expected_date = input.due_date;
+  if ("expected_date" in input) out.expected_date = input.expected_date;
+  // Resolve supplier by name if supplier_id not provided
+  if (!out.supplier_id && input.supplier && typeof input.supplier === "string") {
+    const { data: found } = await supabase.from("suppliers").select("id").eq("account_id", accountId).ilike("name", input.supplier).maybeSingle();
+    if (found?.id) out.supplier_id = found.id;
+    else {
+      const { data: created } = await supabase.from("suppliers").insert({ account_id: accountId, name: input.supplier }).select("id").single();
+      if (created?.id) out.supplier_id = created.id;
+    }
+  }
+  // Derive status/amount_paid from payment_type + payments
+  const paymentsArr = Array.isArray(input.payments) ? input.payments : [];
+  const paidSum = paymentsArr.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+  if ("payment_type" in input) {
+    if (input.payment_type === "credit") {
+      out.status = paidSum > 0 ? "partial" : "pending";
+      out.amount_paid = paidSum;
+    } else {
+      out.status = "paid";
+      out.amount_paid = out.total ?? paidSum;
+    }
+  }
+  // shift_id / supplier(string) are ignored (no columns)
+  return out;
+};
+const enrichPurchaseRow = (row: any) => {
+  if (!row) return row;
+  const total = Number(row.total || 0);
+  const paid = Number(row.amount_paid || 0);
+  return {
+    ...row,
+    date: row.purchase_date,
+    due_date: row.expected_date,
+    balance: Math.max(0, total - paid),
+    supplier: row.suppliers?.name || null,
+    payment_type: row.expected_date ? "credit" : "cash",
+  };
+};
+
 export const purchases = {
   getAll: async (params?: { branch_id?: string; date?: string; start_date?: string; end_date?: string; status?: string; supplier_id?: string }) => {
     const accountId = await getAccountId();
@@ -996,19 +1063,21 @@ export const purchases = {
     if (params?.end_date) query = query.lte("purchase_date", `${params.end_date}T23:59:59`);
     const { data, error } = await query.order("purchase_date", { ascending: false });
     if (error) throw error;
-    return data;
+    return (data || []).map(enrichPurchaseRow);
   },
   getById: async (id: string) => {
     const { data, error } = await supabase.from("purchases").select("*, suppliers(*), purchase_payments(*)").eq("id", id).single();
     if (error) throw error;
-    return data;
+    return enrichPurchaseRow(data);
   },
   create: async (purchaseData: any) => {
     const accountId = await getAccountId();
-    const { data, error } = await supabase.from("purchases").insert({ ...purchaseData, account_id: accountId }).select().single();
+    const payload = await normalizePurchaseWrite(accountId, purchaseData);
+    const { data, error } = await supabase.from("purchases").insert({ ...payload, account_id: accountId }).select("*, suppliers(name)").single();
     if (error) throw error;
-    return data;
+    return enrichPurchaseRow(data);
   },
+
   addPayment: async (id: string, paymentData: any) => {
     // Atomic RPC: inserts payment + updates purchase status/amount_paid with validation.
     const { data, error } = await supabase.rpc("register_purchase_payment", {
@@ -1158,12 +1227,13 @@ export const cashMovements = {
   },
   create: async (movement: { shift_id?: string; branch_id?: string; type: string; amount: number; reason?: string }) => {
     const accountId = await getAccountId();
-    const { data: { user } } = await supabase.auth.getUser();
+    const userId = await getCurrentUserId();
     const { data, error } = await supabase.from("cash_movements").insert({
       ...movement,
       account_id: accountId,
-      user_id: user?.id,
+      user_id: userId,
     }).select().single();
+
     if (error) throw error;
     return data;
   },
@@ -1410,12 +1480,14 @@ export const schedules = {
   },
   updateStylist: async (stylist_id: string, scheduleData: any) => {
     const accountId = await getAccountId();
-    const { data: existing } = await supabase
+    const { data: existing, error: findErr } = await supabase
       .from("schedules")
       .select("id")
       .eq("type", "employee")
       .eq("target_id", stylist_id)
-      .single();
+      .maybeSingle();
+    if (findErr) throw findErr;
+
     
     if (existing) {
       const { data, error } = await supabase.from("schedules").update({ schedule: scheduleData.schedule || scheduleData }).eq("id", existing.id).select().single();
