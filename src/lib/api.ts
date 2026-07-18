@@ -923,20 +923,23 @@ export const expenses = {
   },
   create: async (expenseData: any) => {
     const accountId = await getAccountId();
-    const { data, error } = await supabase.from("expenses").insert({ ...expenseData, account_id: accountId }).select().single();
+    const payload = normalizeExpenseWrite(expenseData);
+    const { data, error } = await supabase.from("expenses").insert({ ...payload, account_id: accountId }).select().single();
     if (error) throw error;
-    return data;
+    return enrichExpenseRow(data);
   },
   update: async (id: string, updates: any) => {
-    const { data, error } = await supabase.from("expenses").update(updates).eq("id", id).select().single();
+    const payload = normalizeExpenseWrite(updates);
+    const { data, error } = await supabase.from("expenses").update(payload).eq("id", id).select().single();
     if (error) throw error;
-    return data;
+    return enrichExpenseRow(data);
   },
   delete: async (id: string) => {
     const { error } = await supabase.from("expenses").delete().eq("id", id);
     if (error) throw error;
   },
 };
+
 
 // ============ SUPPLIERS ============
 export const suppliers = {
