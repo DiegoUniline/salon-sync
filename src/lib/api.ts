@@ -330,10 +330,13 @@ export const subscriptions = {
       .eq("account_id", accountId)
       .order("expires_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
     if (error) throw error;
+    if (!data) {
+      return { plan: "Sin plan", plan_id: null, status: "none", trial_ends_at: null, ends_at: null, days_remaining: 0 };
+    }
     const now = new Date();
-    const expires = new Date(data.expires_at);
+    const expires = data.expires_at ? new Date(data.expires_at) : now;
     const diffDays = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     return {
       plan: (data as any).subscription_plans?.name || "Básico",
@@ -343,6 +346,7 @@ export const subscriptions = {
       ends_at: data.expires_at,
       days_remaining: diffDays,
     };
+
   },
   getHistory: async () => {
     const accountId = await getAccountId();
