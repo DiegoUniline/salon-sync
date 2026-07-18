@@ -279,10 +279,16 @@ export function TicketPrinter({
               )}
               {isFieldEnabled("discount") && data.discount > 0 && (
                 <div className="ticket-row flex justify-between text-green-700">
-                  <span>Descuento:</span>
+                  <span>Descuento{data.promotionCode ? ` (${data.promotionCode})` : ''}:</span>
                   <span>-{formatCurrency(data.discount)}</span>
                 </div>
               )}
+              {data.tip && data.tip > 0 ? (
+                <div className="ticket-row flex justify-between">
+                  <span>Propina:</span>
+                  <span>{formatCurrency(data.tip)}</span>
+                </div>
+              ) : null}
               {isFieldEnabled("total") && (
                 <div className="ticket-total flex justify-between font-bold text-base pt-1 border-t">
                   <span>TOTAL:</span>
