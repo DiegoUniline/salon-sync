@@ -137,9 +137,10 @@ export default function Inventario() {
     return matchesSearch && matchesCategory && matchesStock;
   });
 
-  const lowStockCount = products.filter(p => p.stock <= p.min_stock).length;
-  const totalValue = products.reduce((sum, p) => sum + (Number(p.cost) * p.stock), 0);
-  const totalUnits = products.reduce((sum, p) => sum + p.stock, 0);
+  const lowStockCount = products.filter(p => (Number(p.stock) || 0) <= (Number(p.min_stock) || 0)).length;
+  const totalValue = products.reduce((sum, p) => sum + (Number(p.cost) || 0) * (Number(p.stock) || 0), 0);
+  const totalUnits = products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0);
+
 
   const handleMovement = async () => {
     const product = products.find(p => p.id === formData.productId);
