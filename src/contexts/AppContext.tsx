@@ -36,6 +36,16 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(true);
+  const [currentBranchId, setCurrentBranchId] = useState(() =>
+    storage.getCurrentBranch()
+  );
+  const [theme, setTheme] = useState<"light" | "dark">(() =>
+    storage.getTheme()
+  );
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [businessConfig, setBusinessConfigState] = useState<BusinessConfig>(
+    () => getBusinessConfig()
+  );
 
   const loadBranches = async () => {
     // Only fetch when there is a real Supabase session — otherwise the landing
@@ -49,9 +59,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.branches.getAll();
       setBranches(data as any);
-      if (!currentBranchId && data.length > 0) {
-        setCurrentBranchId(data[0].id);
-      }
+      setCurrentBranchId((prev) => prev || (data.length > 0 ? data[0].id : prev));
     } catch (error: any) {
       setBranches([]);
     } finally {
@@ -64,9 +72,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       loadBranches();
     };
 
-    // Load once on mount (if already signed in) and on every future auth change.
     loadBranches();
-    const { data: authSub } = supabase.auth.onAuthStateChange((_event, _session) => {
+    const { data: authSub } = supabase.auth.onAuthStateChange(() => {
       loadBranches();
     });
 
@@ -78,18 +85,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('auth-state-change', handleStorageChange);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const [currentBranchId, setCurrentBranchId] = useState(() =>
-    storage.getCurrentBranch()
-  );
-  const [theme, setTheme] = useState<"light" | "dark">(() =>
-    storage.getTheme()
-  );
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [businessConfig, setBusinessConfigState] = useState<BusinessConfig>(
-    () => getBusinessConfig()
-  );
 
   const currentBranch =
     branches.find((b) => b.id === currentBranchId) || branches[0] || null;
