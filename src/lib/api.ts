@@ -416,9 +416,10 @@ export const admin = {
       .eq("account_id", accountId)
       .order("expires_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
     if (error) throw error;
     return data;
+
   },
   updateSubscription: async (accountId: string, updates: any) => {
     const { data, error } = await supabase
