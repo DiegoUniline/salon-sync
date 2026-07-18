@@ -134,7 +134,7 @@ export default function Products() {
   const lowStockCount = products.filter(p => p.stock <= p.minStock).length;
 
   const resetForm = () => {
-    setFormData({ name: '', category: 'Shampoo', sku: '', price: 0, cost: 0, stock: 0, minStock: 5, active: true });
+    setFormData({ name: '', category: 'Shampoo', sku: '', price: 0, cost: 0, stock: 0, minStock: 5, active: true, commission: 0 });
     setEditingProduct(null);
   };
 
