@@ -92,6 +92,8 @@ export default function Products() {
     stock: 0,
     minStock: 5,
     active: true,
+    commission: 0,
+
   });
 
   // Bulk form lines
