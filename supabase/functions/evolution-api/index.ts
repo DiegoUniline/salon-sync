@@ -28,6 +28,8 @@ const sbAdmin = createClient(
 );
 
 
+const safe = (m: string) => (EVOLUTION_KEY ? m.replaceAll(EVOLUTION_KEY, '***') : m);
+
 async function evo(path: string, init: RequestInit = {}) {
   if (!EVOLUTION_URL || !EVOLUTION_KEY) throw new Error('EVOLUTION_API_URL / EVOLUTION_API_KEY no configurados');
   const res = await fetch(`${EVOLUTION_URL}${path}`, {
@@ -37,7 +39,7 @@ async function evo(path: string, init: RequestInit = {}) {
   const text = await res.text();
   let body: any = text;
   try { body = JSON.parse(text); } catch {}
-  if (!res.ok) throw new Error(`Evolution API ${res.status}: ${typeof body === 'string' ? body : JSON.stringify(body)}`);
+  if (!res.ok) throw new Error(safe(`Evolution API ${res.status}: ${typeof body === 'string' ? body : JSON.stringify(body)}`));
   return body;
 }
 
