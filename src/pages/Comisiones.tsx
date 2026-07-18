@@ -186,7 +186,7 @@ export default function Comisiones() {
 
   const confirmPay = async () => {
     if (!payDialog) return;
-    const comision = payDialog.comision_registrada || payDialog.comision_calculada;
+    const comision = payDialog.comision;
     const propinas = payDialog.propinas;
     const total = comision + propinas;
     if (total <= 0) { toast.error("No hay monto por pagar"); return; }
@@ -377,9 +377,9 @@ export default function Comisiones() {
               <div className="rounded-lg border p-4 space-y-2">
                 <div className="flex justify-between"><span className="text-muted-foreground">Empleado:</span><span className="font-medium">{payDialog.name}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Periodo:</span><span>{from} → {to}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Comisiones:</span><span>{fmtMoney(payDialog.comision_registrada || payDialog.comision_calculada)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Comisiones:</span><span>{fmtMoney(payDialog.comision)}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Propinas:</span><span className="text-success">{fmtMoney(payDialog.propinas)}</span></div>
-                <div className="flex justify-between border-t pt-2 text-lg font-bold"><span>Total:</span><span>{fmtMoney((payDialog.comision_registrada || payDialog.comision_calculada) + payDialog.propinas)}</span></div>
+                <div className="flex justify-between border-t pt-2 text-lg font-bold"><span>Total:</span><span>{fmtMoney((payDialog.comision) + payDialog.propinas)}</span></div>
               </div>
               <div>
                 <label className="text-sm">Método de pago</label>
