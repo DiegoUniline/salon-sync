@@ -318,8 +318,16 @@ export default function Ventas() {
       return;
     }
 
-    if (paymentMethod === 'mixed' && Math.abs(mixedTotal - cartTotal) > 0.01) {
-      toast.error('El total de pagos no coincide con el total de la venta');
+    const tip = Number(tipAmount) || 0;
+    const grandTotal = cartTotal + tip;
+
+    if (tip > 0 && !tipEmployeeId) {
+      toast.error('Selecciona el empleado que recibe la propina');
+      return;
+    }
+
+    if (paymentMethod === 'mixed' && Math.abs(mixedTotal - grandTotal) > 0.01) {
+      toast.error(`El total de pagos ($${mixedTotal.toFixed(2)}) no coincide con el total con propina ($${grandTotal.toFixed(2)})`);
       return;
     }
 
@@ -345,7 +353,7 @@ export default function Ventas() {
       const saleData = {
         branch_id: currentBranch?.id,
         shift_id: openShift?.id,
-        date: now.toISOString().split('T')[0],
+        date: todayLocalISO(now),
         time: now.toTimeString().slice(0, 5),
         type: 'direct',
         items: cart.filter(c => c.item).map(c => {
@@ -360,16 +368,19 @@ export default function Ventas() {
           };
         }),
         payment_method: paymentMethod,
-        payments: paymentMethod === 'mixed' ? mixedPayments : [{ method: paymentMethod, amount: cartTotal }],
-        total: cartTotal + (Number(tipAmount) || 0),
+        // payments must equal the sale total (which INCLUDES the tip) so the cash cut balances.
+        payments: paymentMethod === 'mixed'
+          ? mixedPayments
+          : [{ method: paymentMethod, amount: grandTotal }],
+        total: grandTotal,
         subtotal: cartSubtotal,
         discount: discountAmount,
         promotion_id: appliedPromo?.id || null,
         promotion_code: appliedPromo?.code || null,
-        tip_amount: Number(tipAmount) || 0,
+        tip_amount: tip,
         tip_employee_id: tipEmployeeId || null,
-        tips: tipAmount > 0 && tipEmployeeId
-          ? [{ employee_id: tipEmployeeId, amount: Number(tipAmount) || 0 }]
+        tips: tip > 0 && tipEmployeeId
+          ? [{ employee_id: tipEmployeeId, amount: tip }]
           : [],
         client_name: clientName || 'Cliente mostrador',
       };
@@ -409,7 +420,9 @@ export default function Ventas() {
         products: productItems,
         subtotal: cartSubtotal,
         discount: discountAmount,
-        total: cartTotal,
+        tip,
+        promotionCode: appliedPromo?.code || null,
+        total: grandTotal,
         paymentMethod: paymentLabels[paymentMethod],
         payments: paymentMethod === 'mixed' ? mixedPayments.map(p => ({
           method: paymentLabels[p.method as keyof typeof paymentLabels],
