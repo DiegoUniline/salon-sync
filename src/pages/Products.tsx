@@ -172,6 +172,8 @@ export default function Products() {
         stock: formData.stock,
         min_stock: formData.minStock,
         active: formData.active ? 1 : 0,
+        commission: formData.commission,
+
       };
 
       if (editingProduct) {
