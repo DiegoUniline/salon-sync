@@ -6,12 +6,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, DollarSign, Printer, Trash2, Wallet } from "lucide-react";
+import { CalendarRange, Download, DollarSign, Printer, Trash2, Wallet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, subDays, startOfYear, endOfYear } from "date-fns";
 import { getBusinessConfig } from "@/lib/businessConfig";
+import { todayLocalISO } from "@/lib/utils";
 
 const fmtMoney = (n: number) => `$${(n || 0).toFixed(2)}`;
 
