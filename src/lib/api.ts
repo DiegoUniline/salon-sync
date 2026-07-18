@@ -1479,12 +1479,14 @@ export const schedules = {
   },
   updateStylist: async (stylist_id: string, scheduleData: any) => {
     const accountId = await getAccountId();
-    const { data: existing } = await supabase
+    const { data: existing, error: findErr } = await supabase
       .from("schedules")
       .select("id")
       .eq("type", "employee")
       .eq("target_id", stylist_id)
-      .single();
+      .maybeSingle();
+    if (findErr) throw findErr;
+
     
     if (existing) {
       const { data, error } = await supabase.from("schedules").update({ schedule: scheduleData.schedule || scheduleData }).eq("id", existing.id).select().single();
